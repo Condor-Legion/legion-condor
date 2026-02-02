@@ -1,0 +1,244 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum AccountProvider {
+  STEAM
+  EPIC
+  XBOX_PASS
+}
+
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+}
+
+enum ImportStatus {
+  SUCCESS
+  PARTIAL
+  ERROR
+}
+
+enum VipOrderStatus {
+  PENDING
+  PAID
+  EXPIRED
+  REFUNDED
+}
+
+enum PaymentProvider {
+  MERCADOPAGO
+  STRIPE
+}
+
+model AdminUser {
+  id           String      @id @default(cuid())
+  username     String      @unique
+  passwordHash String
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  sessions     AdminSession[]
+  auditLogs    AuditLog[]  @relation("AuditActor")
+  importCrcons ImportCrcon[]
+}
+
+model AdminSession {
+  id        String   @id @default(cuid())
+  adminId   String
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  admin     AdminUser @relation(fields: [adminId], references: [id], onDelete: Cascade)
+}
+
+model Member {
+  id          String           @id @default(cuid())
+  discordId   String           @unique
+  displayName String
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  gameAccounts GameAccount[]
+  rosterSlots  RosterSlotAssignment[]
+  auditLogs    AuditLog[]      @relation("AuditTargetMember")
+  vipOrders   VipOrder[]
+  vipGrants   VipGrant[]
+}
+
+model GameAccount {
+  id         String          @id @default(cuid())
+  memberId   String
+  provider   AccountProvider
+  providerId String
+  createdAt  DateTime        @default(now())
+  updatedAt  DateTime        @updatedAt
+  member     Member          @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  stats      PlayerMatchStats[]
+
+  @@unique([memberId, provider, providerId])
+  @@index([provider, providerId])
+}
+
+model Event {
+  id               String                 @id @default(cuid())
+  title            String
+  scheduledAt      DateTime
+  mapName          String?
+  side             String?
+  rosterTemplateId String
+  version          Int                    @default(1)
+  createdAt        DateTime               @default(now())
+  updatedAt        DateTime               @updatedAt
+  rosterTemplate   RosterTemplate         @relation(fields: [rosterTemplateId], references: [id])
+  rosterSlots      RosterSlotAssignment[]
+  imports          ImportCrcon[]
+}
+
+model RosterTemplate {
+  id        String               @id @default(cuid())
+  name      String
+  mode      String
+  createdAt DateTime             @default(now())
+  updatedAt DateTime             @updatedAt
+  units     RosterTemplateUnit[]
+  events    Event[]
+}
+
+model RosterTemplateUnit {
+  id               String              @id @default(cuid())
+  rosterTemplateId String
+  name             String
+  order            Int
+  slotCount        Int
+  rosterTemplate   RosterTemplate      @relation(fields: [rosterTemplateId], references: [id], onDelete: Cascade)
+  slots            RosterTemplateSlot[]
+}
+
+model RosterTemplateSlot {
+  id                  String               @id @default(cuid())
+  rosterTemplateUnitId String
+  label               String
+  order               Int
+  rosterTemplateUnit  RosterTemplateUnit   @relation(fields: [rosterTemplateUnitId], references: [id], onDelete: Cascade)
+  assignments         RosterSlotAssignment[]
+}
+
+model RosterSlotAssignment {
+  id                 String            @id @default(cuid())
+  eventId            String
+  rosterTemplateSlotId String
+  memberId           String?
+  attendance         AttendanceStatus?
+  version            Int               @default(1)
+  updatedAt          DateTime          @updatedAt
+  event              Event             @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  rosterTemplateSlot RosterTemplateSlot @relation(fields: [rosterTemplateSlotId], references: [id], onDelete: Cascade)
+  member             Member?           @relation(fields: [memberId], references: [id], onDelete: SetNull)
+
+  @@unique([eventId, rosterTemplateSlotId])
+  @@index([memberId])
+}
+
+model ImportCrcon {
+  id           String        @id @default(cuid())
+  gameId       String
+  sourceUrl    String
+  payloadHash  String
+  status       ImportStatus
+  errorMessage String?
+  importedAt   DateTime      @default(now())
+  importedById String?
+  eventId      String?
+  importedBy   AdminUser?    @relation(fields: [importedById], references: [id], onDelete: SetNull)
+  event        Event?        @relation(fields: [eventId], references: [id], onDelete: SetNull)
+  rawPayload   RawPayload?
+  stats        PlayerMatchStats[]
+
+  @@index([gameId])
+  @@index([importedAt])
+  @@index([payloadHash])
+}
+
+model RawPayload {
+  id            String     @id @default(cuid())
+  importCrconId String     @unique
+  payload       Json
+  createdAt     DateTime   @default(now())
+  importCrcon   ImportCrcon @relation(fields: [importCrconId], references: [id], onDelete: Cascade)
+}
+
+model PlayerMatchStats {
+  id            String      @id @default(cuid())
+  importCrconId String
+  gameAccountId String?
+  playerName    String
+  kills         Int
+  deaths        Int
+  score         Int
+  teamId        String?
+  importCrcon   ImportCrcon @relation(fields: [importCrconId], references: [id], onDelete: Cascade)
+  gameAccount   GameAccount? @relation(fields: [gameAccountId], references: [id], onDelete: SetNull)
+
+  @@index([importCrconId])
+  @@index([gameAccountId])
+}
+
+model AuditLog {
+  id            String   @id @default(cuid())
+  action        String
+  entityType    String
+  entityId      String
+  actorId       String?
+  targetMemberId String?
+  before        Json?
+  after         Json?
+  metadata      Json?
+  createdAt     DateTime @default(now())
+  actor         AdminUser? @relation("AuditActor", fields: [actorId], references: [id], onDelete: SetNull)
+  targetMember  Member?    @relation("AuditTargetMember", fields: [targetMemberId], references: [id], onDelete: SetNull)
+
+  @@index([entityType, entityId])
+  @@index([targetMemberId])
+  @@index([createdAt])
+}
+
+model VipOrder {
+  id           String        @id @default(cuid())
+  memberId     String
+  amountCents  Int
+  currency     String
+  status       VipOrderStatus
+  paymentProvider PaymentProvider
+  externalOrderId String?
+  createdAt    DateTime      @default(now())
+  expiresAt    DateTime
+  member       Member        @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  payments     Payment[]
+  grants       VipGrant[]
+}
+
+model Payment {
+  id           String     @id @default(cuid())
+  vipOrderId   String
+  status       String
+  externalPaymentId String?
+  paidAt       DateTime?
+  payload      Json?
+  vipOrder     VipOrder   @relation(fields: [vipOrderId], references: [id], onDelete: Cascade)
+}
+
+model VipGrant {
+  id           String    @id @default(cuid())
+  vipOrderId   String
+  memberId     String
+  startsAt     DateTime
+  endsAt       DateTime
+  rconAppliedAt DateTime?
+  rconResponse  Json?
+  vipOrder     VipOrder  @relation(fields: [vipOrderId], references: [id], onDelete: Cascade)
+  member       Member    @relation(fields: [memberId], references: [id], onDelete: Cascade)
+}

@@ -1,0 +1,37 @@
+# Dependencias
+node_modules
+
+# Variables de entorno (secretos: DB, admin, Discord, API keys)
+.env
+.env.local
+.env.*.local
+
+# Build / compilado
+dist
+.next
+out
+*.tsbuildinfo
+
+# Prisma (salida del seed si se usa outDir)
+dist-prisma-seed
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE (opcional: quita .vscode si quieres versionar la configuración)
+.idea
+.vscode/*
+
+# Testing / coverage
+coverage
+.nyc_output
+
+# Vercel / despliegue
+.vercel
