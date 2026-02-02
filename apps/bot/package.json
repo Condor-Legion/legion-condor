@@ -11,12 +11,12 @@
   },
   "dependencies": {
     "@legion/shared": "*",
-    "discord.js": "^13.17.1",
+    "discord.js": "13.17.1",
     "next": "16.1.6",
-    "zod": "^3.23.8"
+    "zod": "3.23.8"
   },
   "devDependencies": {
-    "tsx": "^4.19.2",
-    "typescript": "^5.7.3"
+    "tsx": "4.19.2",
+    "typescript": "5.7.3"
   }
 }
