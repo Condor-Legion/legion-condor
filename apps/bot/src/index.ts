@@ -1,6 +1,7 @@
 import {
   Client,
   GatewayIntentBits,
+  MessageFlags,
   REST,
   Routes,
   SlashCommandBuilder,
@@ -9,8 +10,16 @@ import {
 const token = process.env.DISCORD_TOKEN;
 const clientId = process.env.DISCORD_CLIENT_ID;
 const guildId = process.env.DISCORD_GUILD_ID;
+const syncGuildId = process.env.DISCORD_SYNC_GUILD_ID ?? guildId;
 const apiUrl = process.env.API_URL ?? "http://localhost:3001";
 const botApiKey = process.env.BOT_API_KEY ?? "";
+const syncIntervalHours = Number(
+  process.env.DISCORD_SYNC_INTERVAL_HOURS ?? "3"
+);
+const rosterRoleIds = (process.env.ROSTER_ROLE_IDS ?? "")
+  .split(",")
+  .map((role) => role.trim())
+  .filter(Boolean);
 
 if (!token || !clientId) {
   console.warn(
@@ -23,6 +32,8 @@ const commands = [
   new SlashCommandBuilder()
     .setName("stats")
     .setDescription("Consulta tus estadísticas")
+    .setDefaultMemberPermissions(0n)
+    .setDMPermission(false)
     .addStringOption((option) =>
       option
         .setName("period")
@@ -34,6 +45,16 @@ const commands = [
           { name: "all", value: "all" }
         )
     ),
+  new SlashCommandBuilder()
+    .setName("sync-members")
+    .setDescription("Sincroniza miembros del servidor a la base de datos")
+    .setDefaultMemberPermissions(0n)
+    .setDMPermission(false),
+  new SlashCommandBuilder()
+    .setName("sync-roster")
+    .setDescription("Sincroniza el roster desde roles de Discord")
+    .setDefaultMemberPermissions(0n)
+    .setDMPermission(false),
 ].map((command) => command.toJSON());
 
 const rest = new REST({ version: "10" }).setToken(token);
@@ -51,20 +72,141 @@ async function registerCommands(
   }
 }
 
-const client = new Client({ intents: [GatewayIntentBits.Guilds] });
+const client = new Client({
+  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers],
+});
 
-client.once("ready", async () => {
+async function syncMembers(guildIdToSync: string) {
+  const guild = await client.guilds.fetch(guildIdToSync);
+  const members = await guild.members.fetch();
+  const payload = members.map((member) => ({
+    discordId: member.user.id,
+    username: member.user.username,
+    nickname: member.nickname ?? null,
+    joinedAt: member.joinedAt ? member.joinedAt.toISOString() : null,
+    roles: member.roles.cache
+      .filter((role) => role.id !== guild.id)
+      .map((role) => ({ id: role.id, name: role.name })),
+  }));
+
+  const chunkSize = 200;
+  for (let i = 0; i < payload.length; i += chunkSize) {
+    const chunk = payload.slice(i, i + chunkSize);
+    const res = await fetch(`${apiUrl}/api/discord/members/sync`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-bot-api-key": botApiKey,
+      },
+      body: JSON.stringify({ members: chunk }),
+    });
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(`Sync failed: ${res.status} ${text}`);
+    }
+  }
+
+  return payload.length;
+}
+
+async function syncRoster(guildIdToSync: string) {
+  if (rosterRoleIds.length === 0) {
+    throw new Error("Missing ROSTER_ROLE_IDS env var.");
+  }
+  const guild = await client.guilds.fetch(guildIdToSync);
+  const members = await guild.members.fetch();
+  const payload = members
+    .filter((member) =>
+      rosterRoleIds.some((roleId) => member.roles.cache.has(roleId))
+    )
+    .map((member) => ({
+      discordId: member.user.id,
+      displayName: member.displayName,
+    }));
+
+  const chunkSize = 200;
+  for (let i = 0; i < payload.length; i += chunkSize) {
+    const chunk = payload.slice(i, i + chunkSize);
+    const res = await fetch(`${apiUrl}/api/discord/roster/sync`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-bot-api-key": botApiKey,
+      },
+      body: JSON.stringify({ members: chunk }),
+    });
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(`Roster sync failed: ${res.status} ${text}`);
+    }
+  }
+
+  return payload.length;
+}
+
+client.once("clientReady", async () => {
   if (!clientId) return;
   await registerCommands(clientId, guildId);
   console.log("Bot ready");
+  if (syncGuildId && Number.isFinite(syncIntervalHours) && syncIntervalHours > 0) {
+    const intervalMs = syncIntervalHours * 60 * 60 * 1000;
+    setInterval(async () => {
+      try {
+        const count = await syncMembers(syncGuildId);
+        console.log(`Auto sync members ok (${count} miembros).`);
+        if (rosterRoleIds.length > 0) {
+          const rosterCount = await syncRoster(syncGuildId);
+          console.log(`Auto sync roster ok (${rosterCount} miembros).`);
+        } else {
+          console.warn("Auto sync roster skipped: missing ROSTER_ROLE_IDS.");
+        }
+      } catch (error) {
+        console.error("Auto sync error:", error);
+      }
+    }, intervalMs);
+  }
 });
 
 client.on("interactionCreate", async (interaction) => {
   if (!interaction.isChatInputCommand()) return;
+  if (interaction.commandName === "sync-members") {
+    if (!interaction.inGuild() || !interaction.guildId) {
+      return interaction.reply({
+        content: "Este comando solo funciona dentro de un servidor.",
+        flags: MessageFlags.Ephemeral,
+      });
+    }
+
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+    try {
+      const count = await syncMembers(interaction.guildId);
+      return interaction.editReply(`Sincronizados ${count} miembros.`);
+    } catch (error) {
+      return interaction.editReply("Error sincronizando miembros.");
+    }
+  }
+  if (interaction.commandName === "sync-roster") {
+    if (!interaction.inGuild() || !interaction.guildId) {
+      return interaction.reply({
+        content: "Este comando solo funciona dentro de un servidor.",
+        flags: MessageFlags.Ephemeral,
+      });
+    }
+
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+    try {
+      const count = await syncRoster(interaction.guildId);
+      return interaction.editReply(`Roster sincronizado: ${count} miembros.`);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Error sincronizando roster.";
+      return interaction.editReply(message);
+    }
+  }
   if (interaction.commandName !== "stats") return;
 
   const period = interaction.options.getString("period") ?? "30d";
-  await interaction.deferReply({ ephemeral: true });
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
   try {
     const memberRes = await fetch(

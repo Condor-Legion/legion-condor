@@ -36,3 +36,6 @@ coverage
 
 # Vercel / despliegue
 .vercel
+
+.history/
+

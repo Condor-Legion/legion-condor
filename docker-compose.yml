@@ -53,8 +53,12 @@ services:
     environment:
       DISCORD_TOKEN: ${DISCORD_TOKEN:-}
       DISCORD_CLIENT_ID: ${DISCORD_CLIENT_ID:-}
+      DISCORD_GUILD_ID: ${DISCORD_GUILD_ID:-}
+      DISCORD_SYNC_GUILD_ID: ${DISCORD_SYNC_GUILD_ID:-}
       API_URL: http://api:3001
       BOT_API_KEY: ${BOT_API_KEY:-}
+      DISCORD_SYNC_INTERVAL_HOURS: ${DISCORD_SYNC_INTERVAL_HOURS:-3}
+      ROSTER_ROLE_IDS: ${ROSTER_ROLE_IDS:-}
     depends_on:
       - api
 
