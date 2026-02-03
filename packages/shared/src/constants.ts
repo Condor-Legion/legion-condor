@@ -18,3 +18,6 @@ export const AUDIT_ACTIONS = {
 
 export const PERIODS = ["7d", "30d", "season", "all"] as const;
 export type Period = (typeof PERIODS)[number];
+
+/** Tamaño de lote para sync Discord (miembros/roster) bot ↔ API */
+export const SYNC_CHUNK_SIZE = 200;

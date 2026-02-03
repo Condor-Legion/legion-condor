@@ -1,3 +1,4 @@
+import "express-async-errors";
 import express from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
@@ -8,6 +9,7 @@ import { rosterRouter } from "./routes/roster";
 import { importRouter } from "./routes/import";
 import { statsRouter } from "./routes/stats";
 import { auditRouter } from "./routes/audit";
+import { discordRouter } from "./routes/discord";
 import { createSocketServer } from "./socket";
 import { defaultRateLimit } from "./middleware/rateLimit";
 import { SOCKET_EVENTS } from "@legion/shared";
@@ -33,10 +35,25 @@ app.use("/api/roster", rosterRouter);
 app.use("/api/import", importRouter);
 app.use("/api/stats", statsRouter);
 app.use("/api/audit", auditRouter);
+app.use("/api/discord", discordRouter);
 
 app.get("/health", (req, res) => {
   res.json({ ok: true });
 });
+
+// Siempre responde al cliente aunque falle un handler (p. ej. errores de Prisma)
+app.use(
+  (
+    err: Error,
+    _req: express.Request,
+    res: express.Response,
+    _next: express.NextFunction
+  ) => {
+    console.error("API error:", err);
+    if (res.headersSent) return;
+    res.status(500).json({ error: "Internal server error" });
+  }
+);
 
 import("./prisma")
   .then(({ prisma }) => {

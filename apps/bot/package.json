@@ -5,14 +5,13 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
-    "dev": "bun --watch src/index.ts",
+    "dev": "cd ../.. && bun --watch apps/bot/src/index.ts",
     "build": "pnpm exec tsc -p tsconfig.build.json",
     "start": "bun run dist/index.js"
   },
   "dependencies": {
     "@legion/shared": "workspace:*",
     "discord.js": "14.25.1",
-    "next": "16.1.6",
     "zod": "3.23.8"
   },
   "devDependencies": {
