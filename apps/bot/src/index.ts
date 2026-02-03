@@ -13,7 +13,10 @@ const apiUrl = process.env.API_URL ?? "http://localhost:3001";
 const botApiKey = process.env.BOT_API_KEY ?? "";
 
 if (!token || !clientId) {
-  throw new Error("DISCORD_TOKEN and DISCORD_CLIENT_ID are required");
+  console.warn(
+    "Bot skipped: set DISCORD_TOKEN and DISCORD_CLIENT_ID in .env to run the Discord bot."
+  );
+  process.exit(0);
 }
 
 const commands = [

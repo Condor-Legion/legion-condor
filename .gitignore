@@ -1,5 +1,6 @@
 # Dependencias
 node_modules
+package-lock.json
 
 # Variables de entorno (secretos: DB, admin, Discord, API keys)
 .env

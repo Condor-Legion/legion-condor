@@ -9,7 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "@legion/shared": "*",
+    "@legion/shared": "workspace:*",
     "@radix-ui/react-slot": "1.1.1",
     "class-variance-authority": "0.7.1",
     "clsx": "2.1.1",

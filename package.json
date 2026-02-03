@@ -1,25 +1,21 @@
 {
   "name": "legion-condor",
   "private": true,
-  "workspaces": [
-    "apps/*",
-    "packages/*"
-  ],
+  "packageManager": "pnpm@9.15.0",
   "scripts": {
-    "build": "npm run build -ws",
-    "dev": "npm run dev -ws",
-    "lint": "npm run lint -ws",
-    "prisma:generate": "prisma generate",
-    "prisma:migrate": "prisma migrate dev",
-    "prisma:deploy": "prisma migrate deploy",
-    "seed": "ts-node -P prisma/tsconfig.json prisma/seed.ts"
+    "build": "pnpm -r run build",
+    "dev": "pnpm -r run dev",
+    "lint": "pnpm -r run lint --if-present",
+    "prisma:generate": "pnpm exec prisma generate",
+    "prisma:migrate": "pnpm exec prisma migrate dev",
+    "prisma:deploy": "pnpm exec prisma migrate deploy",
+    "seed": "bun run prisma/seed.ts"
   },
   "devDependencies": {
-    "prisma": "^6.4.1",
-    "ts-node": "^10.9.2",
+    "prisma": "6.4.1",
     "typescript": "^5.7.3"
   },
   "dependencies": {
-    "@prisma/client": "^6.4.1"
+    "@prisma/client": "6.4.1"
   }
 }

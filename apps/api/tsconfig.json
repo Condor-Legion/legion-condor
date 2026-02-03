@@ -3,9 +3,14 @@
   "compilerOptions": {
     "outDir": "dist",
     "rootDir": "src",
+    "baseUrl": ".",
     "module": "CommonJS",
     "moduleResolution": "node",
-    "types": ["node"]
+    "types": ["node"],
+    "paths": {
+      "@legion/shared": ["../../packages/shared/src"],
+      "@legion/shared/*": ["../../packages/shared/src/*"]
+    }
   },
   "include": ["src"]
 }

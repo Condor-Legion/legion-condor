@@ -66,12 +66,12 @@ El proyecto está pensado para usarse con **Docker** y **Docker Compose**. **Doc
 
 4. **Primera vez: migraciones y usuario admin**:
 
-   Con los contenedores en marcha, en tu máquina (Node.js instalado), en la raíz del proyecto:
+   Con los contenedores en marcha, en tu máquina (necesitas [pnpm](https://pnpm.io/) y [Bun](https://bun.sh/) instalados), en la raíz del proyecto:
 
    ```bash
-   npm install
-   npx prisma migrate deploy
-   npm run seed
+   pnpm install
+   pnpm exec prisma migrate deploy
+   pnpm run seed
    ```
 
    Las variables `DATABASE_URL`, `ADMIN_USERNAME` y `ADMIN_PASSWORD` deben estar definidas cuando ejecutes estos comandos (el script de seed no carga `.env` por sí solo). Si tienes un `.env`, cárgalo en la sesión o define las variables a mano:
@@ -80,8 +80,8 @@ El proyecto está pensado para usarse con **Docker** y **Docker Compose**. **Doc
 
    ```bash
    set -a && source .env && set +a
-   npx prisma migrate deploy
-   npm run seed
+   pnpm exec prisma migrate deploy
+   pnpm run seed
    ```
 
    (Si tu `.env` tiene valores con espacios o `#`, usa mejor los `export` del bloque siguiente.)
@@ -92,8 +92,8 @@ El proyecto está pensado para usarse con **Docker** y **Docker Compose**. **Doc
    export DATABASE_URL="postgres://legion:legion@localhost:5432/legion_condor"
    export ADMIN_USERNAME=admin
    export ADMIN_PASSWORD=tu_contraseña_segura
-   npx prisma migrate deploy
-   npm run seed
+   pnpm exec prisma migrate deploy
+   pnpm run seed
    ```
 
    En PowerShell:
@@ -102,8 +102,8 @@ El proyecto está pensado para usarse con **Docker** y **Docker Compose**. **Doc
    $env:DATABASE_URL="postgres://legion:legion@localhost:5432/legion_condor"
    $env:ADMIN_USERNAME="admin"
    $env:ADMIN_PASSWORD="tu_contraseña_segura"
-   npx prisma migrate deploy
-   npm run seed
+   pnpm exec prisma migrate deploy
+   pnpm run seed
    ```
 
    El seed crea el usuario admin **solo si** `ADMIN_USERNAME` y `ADMIN_PASSWORD` están definidos; si no, se limita a avisar y no hace nada.
@@ -132,7 +132,10 @@ docker compose down -v
 
 ## Desarrollo local sin Docker (opcional)
 
-Si quieres correr solo la base de datos en Docker y el resto en tu máquina:
+Si quieres correr solo la base de datos en Docker y el resto en tu máquina necesitas **pnpm** y **Bun** instalados:
+
+- **pnpm**: `corepack enable && corepack prepare pnpm@latest --activate` (con Node.js 16.13+) o [instalación directa](https://pnpm.io/installation).
+- **Bun**: <https://bun.sh/docs/installation>
 
 1. Levantar solo Postgres:
 
@@ -140,15 +143,15 @@ Si quieres correr solo la base de datos en Docker y el resto en tu máquina:
    docker compose up -d postgres
    ```
 
-2. En la raíz del proyecto:
+2. En la raíz del proyecto (necesitas pnpm y Bun instalados):
 
    ```bash
-   npm install
-   npx prisma migrate deploy
-   npm run prisma:generate
-   npm run dev
+   pnpm install
+   pnpm exec prisma migrate deploy
+   pnpm run prisma:generate
+   pnpm run dev
    ```
 
-   Asegúrate de tener `DATABASE_URL` (y si quieres usuario admin, `ADMIN_USERNAME` y `ADMIN_PASSWORD`) en tu `.env` o exportadas en la sesión. Para crear el usuario admin la primera vez, ejecuta también `npm run seed` en otra terminal (con las variables cargadas).
+   Asegúrate de tener `DATABASE_URL` (y si quieres usuario admin, `ADMIN_USERNAME` y `ADMIN_PASSWORD`) en tu `.env` o exportadas en la sesión. Para crear el usuario admin la primera vez, ejecuta también `pnpm run seed` en otra terminal (con las variables cargadas).
 
-   Esto levanta en paralelo api, web y bot según los scripts del monorepo.
+   Esto levanta en paralelo api, web y bot según los scripts del monorepo (api y bot se ejecutan con Bun; web con Next.js).
