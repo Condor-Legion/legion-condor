@@ -5,11 +5,7 @@
     "rootDir": "src",
     "baseUrl": ".",
     "module": "CommonJS",
-    "types": ["node"],
-    "paths": {
-      "@legion/shared": ["../../packages/shared/src"],
-      "@legion/shared/*": ["../../packages/shared/src/*"]
-    }
+    "types": ["node"]
   },
   "include": ["src"]
 }

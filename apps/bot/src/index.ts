@@ -1,11 +1,13 @@
 import {
   Client,
+  Events,
   GatewayIntentBits,
   MessageFlags,
   REST,
   Routes,
   SlashCommandBuilder,
 } from "discord.js";
+import { SYNC_CHUNK_SIZE } from "@legion/shared";
 
 const token = process.env.DISCORD_TOKEN;
 const clientId = process.env.DISCORD_CLIENT_ID;
@@ -16,8 +18,8 @@ const botApiKey = process.env.BOT_API_KEY ?? "";
 const syncIntervalHours = Number(
   process.env.DISCORD_SYNC_INTERVAL_HOURS ?? "3"
 );
-const clearGlobalCommands =
-  process.env.CLEAR_GLOBAL_COMMANDS === "true";
+/** Si es true, borra todos los comandos globales de la app (afecta a todos los servidores). */
+const clearGlobalCommands = process.env.CLEAR_GLOBAL_COMMANDS === "true";
 const rosterRoleIds = (process.env.ROSTER_ROLE_IDS ?? "")
   .split(",")
   .map((role) => role.trim())
@@ -116,9 +118,8 @@ async function syncMembers(guildIdToSync: string) {
       .map((role) => ({ id: role.id, name: role.name })),
   }));
 
-  const chunkSize = 200;
-  for (let i = 0; i < payload.length; i += chunkSize) {
-    const chunk = payload.slice(i, i + chunkSize);
+  for (let i = 0; i < payload.length; i += SYNC_CHUNK_SIZE) {
+    const chunk = payload.slice(i, i + SYNC_CHUNK_SIZE);
     const res = await fetch(`${apiUrl}/api/discord/members/sync`, {
       method: "POST",
       headers: {
@@ -151,9 +152,8 @@ async function syncRoster(guildIdToSync: string) {
       displayName: member.displayName,
     }));
 
-  const chunkSize = 200;
-  for (let i = 0; i < payload.length; i += chunkSize) {
-    const chunk = payload.slice(i, i + chunkSize);
+  for (let i = 0; i < payload.length; i += SYNC_CHUNK_SIZE) {
+    const chunk = payload.slice(i, i + SYNC_CHUNK_SIZE);
     const res = await fetch(`${apiUrl}/api/discord/roster/sync`, {
       method: "POST",
       headers: {
@@ -171,11 +171,15 @@ async function syncRoster(guildIdToSync: string) {
   return payload.length;
 }
 
-client.once("clientReady", async () => {
+client.once(Events.ClientReady, async () => {
   if (!clientId) return;
   await registerCommands(clientId, guildId);
   console.log("Bot ready");
-  if (syncGuildId && Number.isFinite(syncIntervalHours) && syncIntervalHours > 0) {
+  if (
+    syncGuildId &&
+    Number.isFinite(syncIntervalHours) &&
+    syncIntervalHours > 0
+  ) {
     const intervalMs = syncIntervalHours * 60 * 60 * 1000;
     setInterval(async () => {
       try {
@@ -209,6 +213,7 @@ client.on("interactionCreate", async (interaction) => {
       const count = await syncMembers(interaction.guildId);
       return interaction.editReply(`Sincronizados ${count} miembros.`);
     } catch (error) {
+      console.error("Sync members error:", error);
       return interaction.editReply("Error sincronizando miembros.");
     }
   }
@@ -225,6 +230,7 @@ client.on("interactionCreate", async (interaction) => {
       const count = await syncRoster(interaction.guildId);
       return interaction.editReply(`Roster sincronizado: ${count} miembros.`);
     } catch (error) {
+      console.error("Sync roster error:", error);
       const message =
         error instanceof Error ? error.message : "Error sincronizando roster.";
       return interaction.editReply(message);
@@ -274,6 +280,7 @@ client.on("interactionCreate", async (interaction) => {
         "Solicitud enviada. Tu cuenta quedará pendiente de aprobación."
       );
     } catch (error) {
+      console.error("Create account error:", error);
       return interaction.editReply("Error creando cuenta.");
     }
   }
@@ -318,6 +325,7 @@ client.on("interactionCreate", async (interaction) => {
       `Stats (${period}): K ${agg.kills} / D ${agg.deaths} / Score ${agg.score} / Matches ${agg.matches}`
     );
   } catch (error) {
+    console.error("Stats error:", error);
     return interaction.editReply("Error consultando stats.");
   }
 });

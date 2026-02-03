@@ -12,7 +12,6 @@
   "dependencies": {
     "@legion/shared": "workspace:*",
     "discord.js": "14.25.1",
-    "next": "16.1.6",
     "zod": "3.23.8"
   },
   "devDependencies": {

@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { z } from "zod";
+import { SYNC_CHUNK_SIZE } from "@legion/shared";
 import { prisma } from "../prisma";
 import { getAdminFromRequest, getBotApiKey } from "../auth";
 
@@ -7,7 +8,7 @@ export const discordRouter = Router();
 
 const roleSchema = z.object({
   id: z.string(),
-  name: z.string()
+  name: z.string(),
 });
 
 const memberSchema = z.object({
@@ -15,26 +16,26 @@ const memberSchema = z.object({
   username: z.string(),
   nickname: z.string().nullable().optional(),
   joinedAt: z.string().datetime().nullable().optional(),
-  roles: z.array(roleSchema)
+  roles: z.array(roleSchema),
 });
 
 const syncBodySchema = z.object({
-  members: z.array(memberSchema).min(1)
+  members: z.array(memberSchema).min(1),
 });
 
 const rosterMemberSchema = z.object({
   discordId: z.string(),
-  displayName: z.string().min(1)
+  displayName: z.string().min(1),
 });
 
 const rosterSyncBodySchema = z.object({
-  members: z.array(rosterMemberSchema).min(1)
+  members: z.array(rosterMemberSchema).min(1),
 });
 
 const accountRequestSchema = z.object({
   discordId: z.string(),
   provider: z.enum(["STEAM", "EPIC", "XBOX_PASS"]),
-  providerId: z.string().min(1)
+  providerId: z.string().min(1),
 });
 
 async function requireBotOrAdmin(
@@ -57,10 +58,9 @@ discordRouter.post("/members/sync", requireBotOrAdmin, async (req, res) => {
   }
 
   const members = parsed.data.members;
-  const chunks: typeof members[] = [];
-  const chunkSize = 200;
-  for (let i = 0; i < members.length; i += chunkSize) {
-    chunks.push(members.slice(i, i + chunkSize));
+  const chunks: (typeof members)[] = [];
+  for (let i = 0; i < members.length; i += SYNC_CHUNK_SIZE) {
+    chunks.push(members.slice(i, i + SYNC_CHUNK_SIZE));
   }
 
   for (const batch of chunks) {
@@ -73,7 +73,7 @@ discordRouter.post("/members/sync", requireBotOrAdmin, async (req, res) => {
             nickname: member.nickname ?? null,
             joinedAt: member.joinedAt ? new Date(member.joinedAt) : null,
             roles: member.roles,
-            isActive: true
+            isActive: true,
           },
           create: {
             discordId: member.discordId,
@@ -81,8 +81,8 @@ discordRouter.post("/members/sync", requireBotOrAdmin, async (req, res) => {
             nickname: member.nickname ?? null,
             joinedAt: member.joinedAt ? new Date(member.joinedAt) : null,
             roles: member.roles,
-            isActive: true
-          }
+            isActive: true,
+          },
         })
       )
     );
@@ -90,9 +90,9 @@ discordRouter.post("/members/sync", requireBotOrAdmin, async (req, res) => {
 
   await prisma.discordMember.updateMany({
     where: {
-      discordId: { notIn: members.map((m) => m.discordId) }
+      discordId: { notIn: members.map((m) => m.discordId) },
     },
-    data: { isActive: false }
+    data: { isActive: false },
   });
 
   return res.json({ ok: true, count: members.length });
@@ -105,7 +105,7 @@ discordRouter.post("/account-requests", requireBotOrAdmin, async (req, res) => {
   }
 
   const member = await prisma.member.findUnique({
-    where: { discordId: parsed.data.discordId }
+    where: { discordId: parsed.data.discordId },
   });
   if (!member) {
     return res.status(404).json({ error: "Member not found" });
@@ -114,8 +114,8 @@ discordRouter.post("/account-requests", requireBotOrAdmin, async (req, res) => {
   const existing = await prisma.gameAccount.findFirst({
     where: {
       provider: parsed.data.provider,
-      providerId: parsed.data.providerId
-    }
+      providerId: parsed.data.providerId,
+    },
   });
   if (existing) {
     return res.status(409).json({ error: "Account already exists" });
@@ -126,8 +126,8 @@ discordRouter.post("/account-requests", requireBotOrAdmin, async (req, res) => {
       memberId: member.id,
       provider: parsed.data.provider,
       providerId: parsed.data.providerId,
-      approved: false
-    }
+      approved: false,
+    },
   });
 
   return res.status(201).json({ account: created });
@@ -140,10 +140,9 @@ discordRouter.post("/roster/sync", requireBotOrAdmin, async (req, res) => {
   }
 
   const members = parsed.data.members;
-  const chunks: typeof members[] = [];
-  const chunkSize = 200;
-  for (let i = 0; i < members.length; i += chunkSize) {
-    chunks.push(members.slice(i, i + chunkSize));
+  const chunks: (typeof members)[] = [];
+  for (let i = 0; i < members.length; i += SYNC_CHUNK_SIZE) {
+    chunks.push(members.slice(i, i + SYNC_CHUNK_SIZE));
   }
 
   for (const batch of chunks) {
@@ -155,8 +154,8 @@ discordRouter.post("/roster/sync", requireBotOrAdmin, async (req, res) => {
           create: {
             discordId: member.discordId,
             displayName: member.displayName,
-            isActive: true
-          }
+            isActive: true,
+          },
         })
       )
     );
@@ -164,9 +163,9 @@ discordRouter.post("/roster/sync", requireBotOrAdmin, async (req, res) => {
 
   await prisma.member.updateMany({
     where: {
-      discordId: { notIn: members.map((m) => m.discordId) }
+      discordId: { notIn: members.map((m) => m.discordId) },
     },
-    data: { isActive: false }
+    data: { isActive: false },
   });
 
   return res.json({ ok: true, count: members.length });
