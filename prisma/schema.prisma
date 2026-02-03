@@ -60,6 +60,7 @@ model Member {
   id          String           @id @default(cuid())
   discordId   String           @unique
   displayName String
+  isActive    Boolean          @default(true)
   createdAt   DateTime         @default(now())
   updatedAt   DateTime         @updatedAt
   gameAccounts GameAccount[]
@@ -74,12 +75,14 @@ model GameAccount {
   memberId   String
   provider   AccountProvider
   providerId String
+  approved   Boolean         @default(false)
   createdAt  DateTime        @default(now())
   updatedAt  DateTime        @updatedAt
   member     Member          @relation(fields: [memberId], references: [id], onDelete: Cascade)
   stats      PlayerMatchStats[]
 
   @@unique([memberId, provider, providerId])
+  @@unique([provider, providerId])
   @@index([provider, providerId])
 }
 
@@ -249,6 +252,7 @@ model DiscordMember {
   nickname  String?
   joinedAt  DateTime?
   roles     Json
+  isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }

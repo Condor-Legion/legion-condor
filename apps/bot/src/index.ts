@@ -16,6 +16,8 @@ const botApiKey = process.env.BOT_API_KEY ?? "";
 const syncIntervalHours = Number(
   process.env.DISCORD_SYNC_INTERVAL_HOURS ?? "3"
 );
+const clearGlobalCommands =
+  process.env.CLEAR_GLOBAL_COMMANDS === "true";
 const rosterRoleIds = (process.env.ROSTER_ROLE_IDS ?? "")
   .split(",")
   .map((role) => role.trim())
@@ -55,6 +57,28 @@ const commands = [
     .setDescription("Sincroniza el roster desde roles de Discord")
     .setDefaultMemberPermissions(0n)
     .setDMPermission(false),
+  new SlashCommandBuilder()
+    .setName("create-account")
+    .setDescription("Solicita crear una cuenta de juego")
+    .setDefaultMemberPermissions(0n)
+    .setDMPermission(false)
+    .addStringOption((option) =>
+      option
+        .setName("provider")
+        .setDescription("Plataforma")
+        .setRequired(true)
+        .addChoices(
+          { name: "STEAM", value: "STEAM" },
+          { name: "EPIC", value: "EPIC" },
+          { name: "XBOX", value: "XBOX_PASS" }
+        )
+    )
+    .addStringOption((option) =>
+      option
+        .setName("id")
+        .setDescription("ID de la cuenta en la plataforma")
+        .setRequired(true)
+    ),
 ].map((command) => command.toJSON());
 
 const rest = new REST({ version: "10" }).setToken(token);
@@ -63,6 +87,9 @@ async function registerCommands(
   appId: string,
   guildIdOrUndefined: string | undefined
 ) {
+  if (clearGlobalCommands) {
+    await rest.put(Routes.applicationCommands(appId), { body: [] });
+  }
   if (guildIdOrUndefined) {
     await rest.put(Routes.applicationGuildCommands(appId, guildIdOrUndefined), {
       body: commands,
@@ -201,6 +228,53 @@ client.on("interactionCreate", async (interaction) => {
       const message =
         error instanceof Error ? error.message : "Error sincronizando roster.";
       return interaction.editReply(message);
+    }
+  }
+  if (interaction.commandName === "create-account") {
+    if (!interaction.inGuild() || !interaction.guildId) {
+      return interaction.reply({
+        content: "Este comando solo funciona dentro de un servidor.",
+        flags: MessageFlags.Ephemeral,
+      });
+    }
+
+    const provider = interaction.options.getString("provider", true);
+    const providerId = interaction.options.getString("id", true);
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+    try {
+      const res = await fetch(`${apiUrl}/api/discord/account-requests`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-bot-api-key": botApiKey,
+        },
+        body: JSON.stringify({
+          discordId: interaction.user.id,
+          provider,
+          providerId,
+        }),
+      });
+
+      if (res.status === 404) {
+        return interaction.editReply(
+          "No estás en el roster. Primero ejecuta /sync-roster."
+        );
+      }
+      if (res.status === 409) {
+        return interaction.editReply("Esa cuenta ya existe.");
+      }
+      if (!res.ok) {
+        const text = await res.text();
+        return interaction.editReply(
+          `Error creando cuenta: ${res.status} ${text}`
+        );
+      }
+
+      return interaction.editReply(
+        "Solicitud enviada. Tu cuenta quedará pendiente de aprobación."
+      );
+    } catch (error) {
+      return interaction.editReply("Error creando cuenta.");
     }
   }
   if (interaction.commandName !== "stats") return;

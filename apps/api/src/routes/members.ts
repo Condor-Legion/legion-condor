@@ -15,11 +15,26 @@ membersRouter.post("/", requireAdmin, async (req, res) => {
   });
 
   if (gameAccounts?.length) {
+    const conflict = await prisma.gameAccount.findFirst({
+      where: {
+        OR: gameAccounts.map((account) => ({
+          provider: account.provider,
+          providerId: account.providerId
+        }))
+      }
+    });
+    if (conflict) {
+      return res
+        .status(409)
+        .json({ error: "Game account already exists" });
+    }
+
     await prisma.gameAccount.createMany({
       data: gameAccounts.map((account) => ({
         memberId: member.id,
         provider: account.provider,
-        providerId: account.providerId
+        providerId: account.providerId,
+        approved: true
       }))
     });
   }
@@ -82,12 +97,28 @@ membersRouter.put("/:id", requireAdmin, async (req, res) => {
   });
 
   if (gameAccounts) {
+    const conflict = await prisma.gameAccount.findFirst({
+      where: {
+        OR: gameAccounts.map((account) => ({
+          provider: account.provider,
+          providerId: account.providerId
+        })),
+        NOT: { memberId: member.id }
+      }
+    });
+    if (conflict) {
+      return res
+        .status(409)
+        .json({ error: "Game account already exists" });
+    }
+
     await prisma.gameAccount.deleteMany({ where: { memberId: member.id } });
     await prisma.gameAccount.createMany({
       data: gameAccounts.map((account) => ({
         memberId: member.id,
         provider: account.provider,
-        providerId: account.providerId
+        providerId: account.providerId,
+        approved: true
       }))
     });
   }
@@ -99,3 +130,21 @@ membersRouter.put("/:id", requireAdmin, async (req, res) => {
 
   return res.json({ member: updated });
 });
+
+membersRouter.post(
+  "/game-accounts/:accountId/approve",
+  requireAdmin,
+  async (req, res) => {
+    const account = await prisma.gameAccount.findUnique({
+      where: { id: req.params.accountId }
+    });
+    if (!account) return res.status(404).json({ error: "Not found" });
+
+    const updated = await prisma.gameAccount.update({
+      where: { id: account.id },
+      data: { approved: true }
+    });
+
+    return res.json({ account: updated });
+  }
+);

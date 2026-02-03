@@ -31,6 +31,12 @@ const rosterSyncBodySchema = z.object({
   members: z.array(rosterMemberSchema).min(1)
 });
 
+const accountRequestSchema = z.object({
+  discordId: z.string(),
+  provider: z.enum(["STEAM", "EPIC", "XBOX_PASS"]),
+  providerId: z.string().min(1)
+});
+
 async function requireBotOrAdmin(
   req: import("express").Request,
   res: import("express").Response,
@@ -66,21 +72,65 @@ discordRouter.post("/members/sync", requireBotOrAdmin, async (req, res) => {
             username: member.username,
             nickname: member.nickname ?? null,
             joinedAt: member.joinedAt ? new Date(member.joinedAt) : null,
-            roles: member.roles
+            roles: member.roles,
+            isActive: true
           },
           create: {
             discordId: member.discordId,
             username: member.username,
             nickname: member.nickname ?? null,
             joinedAt: member.joinedAt ? new Date(member.joinedAt) : null,
-            roles: member.roles
+            roles: member.roles,
+            isActive: true
           }
         })
       )
     );
   }
 
+  await prisma.discordMember.updateMany({
+    where: {
+      discordId: { notIn: members.map((m) => m.discordId) }
+    },
+    data: { isActive: false }
+  });
+
   return res.json({ ok: true, count: members.length });
+});
+
+discordRouter.post("/account-requests", requireBotOrAdmin, async (req, res) => {
+  const parsed = accountRequestSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: "Invalid payload" });
+  }
+
+  const member = await prisma.member.findUnique({
+    where: { discordId: parsed.data.discordId }
+  });
+  if (!member) {
+    return res.status(404).json({ error: "Member not found" });
+  }
+
+  const existing = await prisma.gameAccount.findFirst({
+    where: {
+      provider: parsed.data.provider,
+      providerId: parsed.data.providerId
+    }
+  });
+  if (existing) {
+    return res.status(409).json({ error: "Account already exists" });
+  }
+
+  const created = await prisma.gameAccount.create({
+    data: {
+      memberId: member.id,
+      provider: parsed.data.provider,
+      providerId: parsed.data.providerId,
+      approved: false
+    }
+  });
+
+  return res.status(201).json({ account: created });
 });
 
 discordRouter.post("/roster/sync", requireBotOrAdmin, async (req, res) => {
@@ -101,15 +151,23 @@ discordRouter.post("/roster/sync", requireBotOrAdmin, async (req, res) => {
       batch.map((member) =>
         prisma.member.upsert({
           where: { discordId: member.discordId },
-          update: { displayName: member.displayName },
+          update: { displayName: member.displayName, isActive: true },
           create: {
             discordId: member.discordId,
-            displayName: member.displayName
+            displayName: member.displayName,
+            isActive: true
           }
         })
       )
     );
   }
+
+  await prisma.member.updateMany({
+    where: {
+      discordId: { notIn: members.map((m) => m.discordId) }
+    },
+    data: { isActive: false }
+  });
 
   return res.json({ ok: true, count: members.length });
 });

@@ -4,6 +4,7 @@ Este bot de Discord sirve para:
 - Ejecutar comandos de estadísticas (por ejemplo `/stats`).
 - Sincronizar miembros del servidor a la base de datos (`/sync-members`).
 - Sincronizar el roster desde roles de Discord (`/sync-roster`).
+- Solicitar cuentas de juego (`/create-account`).
 - Programar una sync automática cada X horas.
 
 ## Requisitos
@@ -22,6 +23,7 @@ DISCORD_SYNC_GUILD_ID=...     # opcional (si querés forzar sync a un servidor e
 BOT_API_KEY=...               # clave compartida entre bot y API
 DISCORD_SYNC_INTERVAL_HOURS=3 # intervalo de sync automático
 ROSTER_ROLE_IDS=...           # IDs de roles que habilitan roster
+CLEAR_GLOBAL_COMMANDS=true    # borra comandos globales al iniciar
 ```
 
 ## Comandos
@@ -35,6 +37,10 @@ Sincroniza todos los miembros del servidor a la DB.
 ### `/sync-roster`
 Sincroniza el roster en la tabla `Member` usando roles de Discord.  
 Solo se agregan/actualizan los miembros que tengan algún rol listado en `ROSTER_ROLE_IDS`.
+
+### `/create-account`
+Solicita crear una cuenta de juego asociada al `Member`.  
+Queda con `approved = false` hasta aprobación del admin.
 
 **Visibilidad / permisos**  
 Ambos comandos están **ocultos por defecto** (`defaultMemberPermissions = 0`).
@@ -51,11 +57,28 @@ Se creó el modelo `DiscordMember` en Prisma:
 - `nickname` (Nick)
 - `joinedAt` (Ingreso)
 - `roles` (JSON con `{ id, name }`)
+- `isActive` (marca si sigue en el servidor)
 
 **Relación con `Member`:**  
 No hay FK directa. Se relacionan por `discordId` cuando corresponda.
 `Member` sigue representando el roster interno del sistema, mientras que `DiscordMember`
 representa **todos** los usuarios del servidor.
+Cuando alguien sale del servidor, `DiscordMember.isActive` pasa a `false`.
+
+## GameAccount (aprobación)
+
+Se agregó `approved` en `GameAccount`.  
+Cuando se crea desde `/create-account`, queda `approved = false`.  
+Cuando se crea desde el panel admin, queda `approved = true`.
+
+## Baja lógica (isActive)
+
+- `DiscordMember.isActive = false` si el usuario ya no está en el servidor.
+- `Member.isActive = false` si el usuario ya no tiene el rol de roster.
+
+Esto es un **borrado lógico**: el registro no se elimina de la base, solo se marca
+como inactivo. Así podés conservar el historial y reactivarlo más adelante si vuelve
+al servidor o recupera el rol.
 
 ## Crear el bot en Discord
 
