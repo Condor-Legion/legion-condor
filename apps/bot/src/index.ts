@@ -80,6 +80,12 @@ const commands = [
         .setName("id")
         .setDescription("ID de la cuenta en la plataforma")
         .setRequired(true)
+    )
+    .addStringOption((option) =>
+      option
+        .setName("discord-id")
+        .setDescription("Discord ID que se va a asociar a la cuenta")
+        .setRequired(true)
     ),
 ].map((command) => command.toJSON());
 
@@ -246,6 +252,7 @@ client.on("interactionCreate", async (interaction) => {
 
     const provider = interaction.options.getString("provider", true);
     const providerId = interaction.options.getString("id", true);
+    const discordId = interaction.options.getString("discord-id", true);
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });
     try {
       const res = await fetch(`${apiUrl}/api/discord/account-requests`, {
@@ -255,7 +262,7 @@ client.on("interactionCreate", async (interaction) => {
           "x-bot-api-key": botApiKey,
         },
         body: JSON.stringify({
-          discordId: interaction.user.id,
+          discordId,
           provider,
           providerId,
         }),
