@@ -18,6 +18,8 @@ const botApiKey = process.env.BOT_API_KEY ?? "";
 const syncIntervalHours = Number(
   process.env.DISCORD_SYNC_INTERVAL_HOURS ?? "3"
 );
+const statsChannelId = process.env.DISCORD_STATS_CHANNEL_ID ?? "";
+const statsPollSeconds = Number(process.env.DISCORD_STATS_POLL_SECONDS ?? "60");
 /** Si es true, borra todos los comandos globales de la app (afecta a todos los servidores). */
 const clearGlobalCommands = process.env.CLEAR_GLOBAL_COMMANDS === "true";
 const rosterRoleIds = (process.env.ROSTER_ROLE_IDS ?? "")
@@ -108,8 +110,98 @@ async function registerCommands(
 }
 
 const client = new Client({
-  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers],
+  intents: [
+    GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildMembers,
+    GatewayIntentBits.GuildMessages,
+    GatewayIntentBits.MessageContent,
+  ],
 });
+
+function extractGameLinks(text: string): { baseUrl: string; mapId: string }[] {
+  const result: { baseUrl: string; mapId: string }[] = [];
+  const regex = /https?:\/\/[^\s)]+\/games\/(\d+)/gi;
+  let match: RegExpExecArray | null;
+  while ((match = regex.exec(text)) !== null) {
+    try {
+      const full = match[0];
+      const mapId = match[1];
+      const url = new URL(full);
+      result.push({ baseUrl: `${url.protocol}//${url.host}`, mapId });
+    } catch {
+      // ignore invalid urls
+    }
+  }
+  return result;
+}
+
+async function fetchLastDiscordMessageId(): Promise<string | null> {
+  const res = await fetch(`${apiUrl}/api/import/discord-last`, {
+    headers: { "x-bot-api-key": botApiKey },
+  });
+  if (!res.ok) return null;
+  const data = (await res.json()) as { discordMessageId: string | null };
+  return data.discordMessageId ?? null;
+}
+
+async function triggerImport(
+  baseUrl: string,
+  mapId: string,
+  discordMessageId: string
+) {
+  const res = await fetch(`${apiUrl}/api/import/crcon-fetch`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-bot-api-key": botApiKey,
+    },
+    body: JSON.stringify({ baseUrl, mapId, discordMessageId }),
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Import failed: ${res.status} ${text}`);
+  }
+}
+
+async function scanStatsChannel() {
+  if (!statsChannelId) return;
+  const channel = await client.channels.fetch(statsChannelId);
+  if (!channel || !channel.isTextBased()) return;
+
+  const lastId = await fetchLastDiscordMessageId();
+  const collected: any[] = [];
+  if (lastId) {
+    let after = lastId;
+    while (true) {
+      const batch = await channel.messages.fetch({ after, limit: 100 });
+      if (batch.size === 0) break;
+      collected.push(...batch.values());
+      after = batch.last()?.id ?? after;
+      if (batch.size < 100) break;
+    }
+  } else {
+    const batch = await channel.messages.fetch({ limit: 50 });
+    collected.push(...batch.values());
+  }
+
+  if (collected.length === 0) return;
+  const ordered = collected.sort((a, b) => a.createdTimestamp - b.createdTimestamp);
+  for (const msg of ordered) {
+    const chunks: string[] = [msg.content ?? ""];
+    for (const embed of msg.embeds) {
+      if (embed.description) chunks.push(embed.description);
+      if (embed.title) chunks.push(embed.title);
+      if (embed.url) chunks.push(embed.url);
+    }
+    const links = extractGameLinks(chunks.join("\n"));
+    for (const link of links) {
+      console.log(
+        `Stats link found messageId=${msg.id} baseUrl=${link.baseUrl} mapId=${link.mapId}`
+      );
+      await triggerImport(link.baseUrl, link.mapId, msg.id);
+    }
+  }
+}
 
 async function syncMembers(guildIdToSync: string) {
   const guild = await client.guilds.fetch(guildIdToSync);
@@ -181,6 +273,21 @@ client.once(Events.ClientReady, async () => {
   if (!clientId) return;
   await registerCommands(clientId, guildId);
   console.log("Bot ready");
+  if (!statsChannelId) {
+    console.warn("Stats scan skipped: missing DISCORD_STATS_CHANNEL_ID.");
+  } else if (!Number.isFinite(statsPollSeconds) || statsPollSeconds <= 0) {
+    console.warn("Stats scan skipped: invalid DISCORD_STATS_POLL_SECONDS.");
+  } else {
+    const intervalMs = statsPollSeconds * 1000;
+    scanStatsChannel().catch((error) =>
+      console.error("Stats channel scan error:", error)
+    );
+    setInterval(() => {
+      scanStatsChannel().catch((error) =>
+        console.error("Stats channel scan error:", error)
+      );
+    }, intervalMs);
+  }
   if (
     syncGuildId &&
     Number.isFinite(syncIntervalHours) &&
@@ -283,9 +390,7 @@ client.on("interactionCreate", async (interaction) => {
         );
       }
 
-      return interaction.editReply(
-        "Solicitud enviada. Tu cuenta quedará pendiente de aprobación."
-      );
+      return interaction.editReply("Cuenta creada correctamente.");
     } catch (error) {
       console.error("Create account error:", error);
       return interaction.editReply("Error creando cuenta.");
@@ -338,3 +443,4 @@ client.on("interactionCreate", async (interaction) => {
 });
 
 client.login(token);
+

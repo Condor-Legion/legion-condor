@@ -104,12 +104,22 @@ discordRouter.post("/account-requests", requireBotOrAdmin, async (req, res) => {
     return res.status(400).json({ error: "Invalid payload" });
   }
 
-  const member = await prisma.member.findUnique({
+  const discordMember = await prisma.discordMember.findUnique({
     where: { discordId: parsed.data.discordId },
   });
-  if (!member) {
-    return res.status(404).json({ error: "Member not found" });
+  if (!discordMember) {
+    return res.status(404).json({ error: "Discord member not found" });
   }
+
+  const displayName =
+    (discordMember.nickname ?? discordMember.username)?.trim() ||
+    discordMember.username;
+
+  const member = await prisma.member.upsert({
+    where: { discordId: parsed.data.discordId },
+    update: { displayName, isActive: true },
+    create: { discordId: parsed.data.discordId, displayName, isActive: true },
+  });
 
   const existing = await prisma.gameAccount.findFirst({
     where: {
@@ -126,7 +136,7 @@ discordRouter.post("/account-requests", requireBotOrAdmin, async (req, res) => {
       memberId: member.id,
       provider: parsed.data.provider,
       providerId: parsed.data.providerId,
-      approved: false,
+      approved: true,
     },
   });
 

@@ -5,11 +5,13 @@ Guia paso a paso para levantar el proyecto con Docker en Windows/PowerShell, inc
 ## 1) Verificar `.env`
 
 Debe existir y tener al menos:
+
 - `DATABASE_URL`
 - `ADMIN_USERNAME`
 - `ADMIN_PASSWORD`
 
 Ejemplo minimo:
+
 ```
 DATABASE_URL=postgres://legion:legion@localhost:5432/legion_condor
 ADMIN_USERNAME=admin
@@ -31,6 +33,7 @@ docker compose up -d --build
 ```
 
 Errores comunes:
+
 - Docker no responde: abrir Docker Desktop.
 - Puertos en uso (3000/3001/5432): cerrar procesos o cambiar puertos en `docker-compose.yml`.
 
@@ -47,28 +50,32 @@ pnpm exec prisma generate
 ```
 
 Error comun:
+
 - `Cannot find module '.prisma/client/default'` -> volver a ejecutar `prisma generate`.
 
 ## 6) Migraciones
 
 ```
 $env:DATABASE_URL="postgres://legion:legion@localhost:5432/legion_condor"
+$env:ADMIN_USERNAME="admin"
+$env:ADMIN_PASSWORD="admin123"
 pnpm exec prisma migrate deploy
+pnpm run seed
 ```
 
 Errores comunes:
+
 - DB no responde: esperar 10-20s y reintentar.
 - Credenciales mal: revisar `DATABASE_URL`.
 
 ## 7) Seed (crear admin)
 
 ```
-$env:ADMIN_USERNAME="admin"
-$env:ADMIN_PASSWORD="admin123"
 pnpm run seed
 ```
 
 Errores comunes:
+
 - `bun no se reconoce` -> instalar Bun:
   ```
   powershell -c "irm bun.sh/install.ps1 | iex"

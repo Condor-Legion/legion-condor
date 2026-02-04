@@ -6,12 +6,14 @@ Este bot de Discord sirve para:
 - Sincronizar el roster desde roles de Discord (`/sync-roster`).
 - Solicitar cuentas de juego (`/create-account`).
 - Programar una sync automática cada X horas.
+- Leer un canal de stats y disparar imports (links `/games/{id}`).
 
 ## Requisitos
 
 - `DISCORD_TOKEN` y `DISCORD_CLIENT_ID` configurados en `.env`.
 - Bot invitado al servidor con permisos adecuados.
 - **Server Members Intent** activado en el portal de Discord (para obtener todos los miembros).
+- **Message Content Intent** activado si vas a leer mensajes de un canal.
 
 ## Variables de entorno (bot)
 
@@ -24,6 +26,8 @@ BOT_API_KEY=...               # clave compartida entre bot y API
 DISCORD_SYNC_INTERVAL_HOURS=3 # intervalo de sync automático
 ROSTER_ROLE_IDS=...           # IDs de roles que habilitan roster
 CLEAR_GLOBAL_COMMANDS=true    # borra comandos globales al iniciar
+DISCORD_STATS_CHANNEL_ID=...  # canal donde el bot busca links /games/{id}
+DISCORD_STATS_POLL_SECONDS=60 # intervalo de escaneo en segundos
 ```
 
 ## Comandos
@@ -40,7 +44,7 @@ Solo se agregan/actualizan los miembros que tengan algún rol listado en `ROSTER
 
 ### `/create-account`
 Solicita crear una cuenta de juego asociada al `Member`.  
-Queda con `approved = false` hasta aprobación del admin.
+Ahora se crea aprobada automáticamente.
 
 **Visibilidad / permisos**  
 Ambos comandos están **ocultos por defecto** (`defaultMemberPermissions = 0`).
@@ -68,8 +72,17 @@ Cuando alguien sale del servidor, `DiscordMember.isActive` pasa a `false`.
 ## GameAccount (aprobación)
 
 Se agregó `approved` en `GameAccount`.  
-Cuando se crea desde `/create-account`, queda `approved = false`.  
+Cuando se crea desde `/create-account`, queda `approved = true`.  
 Cuando se crea desde el panel admin, queda `approved = true`.
+
+## Canal de stats (opcional)
+
+El bot puede leer un canal y extraer links con `/games/{id}` para disparar imports.
+
+Requiere:
+- `DISCORD_STATS_CHANNEL_ID`
+- `DISCORD_STATS_POLL_SECONDS`
+- **Message Content Intent** habilitado en el portal de Discord
 
 ## Baja lógica (isActive)
 

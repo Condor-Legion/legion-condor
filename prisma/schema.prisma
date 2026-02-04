@@ -153,6 +153,7 @@ model ImportCrcon {
   payloadHash  String
   status       ImportStatus
   errorMessage String?
+  discordMessageId String?
   importedAt   DateTime      @default(now())
   importedById String?
   eventId      String?
@@ -164,6 +165,7 @@ model ImportCrcon {
   @@index([gameId])
   @@index([importedAt])
   @@index([payloadHash])
+  @@index([discordMessageId])
 }
 
 model RawPayload {
@@ -179,10 +181,22 @@ model PlayerMatchStats {
   importCrconId String
   gameAccountId String?
   playerName    String
+  providerId    String?
   kills         Int
   deaths        Int
+  killsStreak   Int         @default(0)
+  teamkills     Int         @default(0)
+  deathsByTk    Int         @default(0)
+  killsPerMinute Float      @default(0)
+  deathsPerMinute Float     @default(0)
+  killDeathRatio Float      @default(0)
   score         Int
-  teamId        String?
+  combat        Int         @default(0)
+  offense       Int         @default(0)
+  defense       Int         @default(0)
+  support       Int         @default(0)
+  teamSide      String?
+  teamRatio     Float       @default(0)
   importCrcon   ImportCrcon @relation(fields: [importCrconId], references: [id], onDelete: Cascade)
   gameAccount   GameAccount? @relation(fields: [gameAccountId], references: [id], onDelete: SetNull)
 

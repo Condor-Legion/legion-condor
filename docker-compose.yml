@@ -55,6 +55,8 @@ services:
       DISCORD_CLIENT_ID: ${DISCORD_CLIENT_ID:-}
       DISCORD_GUILD_ID: ${DISCORD_GUILD_ID:-}
       DISCORD_SYNC_GUILD_ID: ${DISCORD_SYNC_GUILD_ID:-}
+      DISCORD_STATS_CHANNEL_ID: ${DISCORD_STATS_CHANNEL_ID:-}
+      DISCORD_STATS_POLL_SECONDS: ${DISCORD_STATS_POLL_SECONDS:-60}
       API_URL: http://api:3001
       BOT_API_KEY: ${BOT_API_KEY:-}
       DISCORD_SYNC_INTERVAL_HOURS: ${DISCORD_SYNC_INTERVAL_HOURS:-3}
@@ -62,6 +64,21 @@ services:
       CLEAR_GLOBAL_COMMANDS: ${CLEAR_GLOBAL_COMMANDS:-}
     depends_on:
       - api
+
+  hll-stats:
+    build:
+      context: .
+      dockerfile: apps/hll-stats/Dockerfile
+    environment:
+      DATABASE_URL: postgres://legion:legion@postgres:5432/legion_condor
+      HLL_STATS_EVENTS: ${HLL_STATS_EVENTS:-}
+      API_URL: ${API_URL:-http://api:3001}
+      BOT_API_KEY: ${BOT_API_KEY:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      api:
+        condition: service_started
 
 volumes:
   postgres_data:

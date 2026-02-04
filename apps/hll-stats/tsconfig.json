@@ -1,0 +1,17 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "dist",
+    "rootDir": "src",
+    "baseUrl": ".",
+    "module": "CommonJS",
+    "moduleResolution": "node",
+    "types": ["node"],
+    "typeRoots": ["node_modules/@types", "../../node_modules/@types"],
+    "paths": {
+      "@legion/shared": ["../../packages/shared"],
+      "@legion/shared/*": ["../../packages/shared/*"]
+    }
+  },
+  "include": ["src"]
+}

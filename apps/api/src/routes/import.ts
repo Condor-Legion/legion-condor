@@ -1,37 +1,73 @@
 import { Router, Request } from "express";
-import { importCrconBodySchema, AUDIT_ACTIONS } from "@legion/shared";
+import { AUDIT_ACTIONS } from "@legion/shared";
 import { prisma } from "../prisma";
-import { requireAdmin } from "../auth";
-import { extractPlayerStats, getPayloadHash, parseCrconUrl } from "../utils/crcon";
+import { getAdminFromRequest, getBotApiKey } from "../auth";
+import { extractPlayerStats, fetchCrconPayload, getPayloadHash } from "../utils/crcon";
 import { logAudit } from "../utils/audit";
 
 export const importRouter = Router();
 
-importRouter.post("/crcon", requireAdmin, async (req, res) => {
-  const parsed = importCrconBodySchema.safeParse(req.body);
-  if (!parsed.success) return res.status(400).json({ error: "Invalid payload" });
+async function requireBotOrAdmin(
+  req: import("express").Request,
+  res: import("express").Response,
+  next: import("express").NextFunction
+) {
+  const botKey = getBotApiKey(req);
+  const expectedKey = process.env.BOT_API_KEY;
+  if (botKey && expectedKey && botKey === expectedKey) return next();
+  const admin = await getAdminFromRequest(req);
+  if (!admin) return res.status(401).json({ error: "Unauthorized" });
+  (req as Request & { adminId?: string }).adminId = admin.id;
+  return next();
+}
 
-  const { host, gameId } = parseCrconUrl(parsed.data.url);
-  const apiUrl = `${host}/api/get_map_scoreboard?map_id=${encodeURIComponent(gameId)}`;
+importRouter.post("/crcon-fetch", requireBotOrAdmin, async (req, res) => {
+  const rawBaseUrl = typeof req.body?.baseUrl === "string" ? req.body.baseUrl : null;
+  const rawMapId = typeof req.body?.mapId === "string" ? req.body.mapId : null;
+  const rawDiscordMessageId =
+    typeof req.body?.discordMessageId === "string" ? req.body.discordMessageId : null;
+  const baseUrl = rawBaseUrl
+    ? rawBaseUrl.replace(/[\u200B-\u200D\uFEFF]/g, "").trim()
+    : null;
+  const mapId = rawMapId ? rawMapId.replace(/[\u200B-\u200D\uFEFF]/g, "").trim() : null;
+  const discordMessageId = rawDiscordMessageId
+    ? rawDiscordMessageId.replace(/[\u200B-\u200D\uFEFF]/g, "").trim()
+    : null;
+  if (!baseUrl || !mapId) {
+    return res.status(400).json({ error: "baseUrl and mapId are required" });
+  }
 
   try {
-    const response = await fetch(apiUrl);
-    if (!response.ok) {
-      return res.status(502).json({ error: "CRCON request failed" });
-    }
-    const payload = await response.json();
+    const { url, payload } = await fetchCrconPayload(baseUrl, mapId);
     const payloadHash = getPayloadHash(payload);
-    const existing = await prisma.importCrcon.findFirst({ where: { payloadHash } });
-    if (existing) {
-      return res.status(409).json({ error: "Duplicate import", importId: existing.id });
+    const rows = extractPlayerStats(payload);
+    console.log(
+      `CRCON import request map_id=${mapId} discordMessageId=${discordMessageId ?? "null"} rows=${rows.length}`
+    );
+
+    const existing = await prisma.importCrcon.findFirst({
+      where: { payloadHash }
+    });
+    if (existing && rows.length === 0) {
+      if (discordMessageId && !existing.discordMessageId) {
+        await prisma.importCrcon.update({
+          where: { id: existing.id },
+          data: { discordMessageId }
+        });
+      }
+      return res.json({ status: "SKIPPED_DUPLICATE", importId: existing.id });
+    }
+    if (existing && rows.length > 0) {
+      await prisma.importCrcon.deleteMany({ where: { payloadHash } });
     }
 
     const importRecord = await prisma.importCrcon.create({
       data: {
-        gameId,
-        sourceUrl: parsed.data.url,
+        gameId: mapId,
+        sourceUrl: url,
         payloadHash,
         status: "SUCCESS",
+        discordMessageId: discordMessageId ?? null,
         importedById: (req as Request & { adminId?: string }).adminId
       }
     });
@@ -43,30 +79,38 @@ importRouter.post("/crcon", requireAdmin, async (req, res) => {
       }
     });
 
-    const rows = extractPlayerStats(payload);
-    if (rows.length) {
-      const members = await prisma.member.findMany();
-      const memberByName = new Map(members.map((m) => [m.displayName.toLowerCase(), m.id]));
+    const accounts = await prisma.gameAccount.findMany();
+    const accountByProviderId = new Map(
+      accounts.map((account) => [account.providerId, account.id])
+    );
 
-      for (const row of rows) {
-        const memberId = memberByName.get(row.playerName.toLowerCase());
-        let gameAccountId: string | null = null;
-        if (memberId) {
-          const account = await prisma.gameAccount.findFirst({ where: { memberId } });
-          gameAccountId = account?.id ?? null;
+    for (const row of rows) {
+      const gameAccountId = row.providerId
+        ? accountByProviderId.get(row.providerId) ?? null
+        : null;
+      await prisma.playerMatchStats.create({
+        data: {
+          importCrconId: importRecord.id,
+          gameAccountId,
+          playerName: row.playerName,
+          providerId: row.providerId ?? null,
+          kills: row.kills,
+          deaths: row.deaths,
+          killsStreak: row.killsStreak,
+          teamkills: row.teamkills,
+          deathsByTk: row.deathsByTk,
+          killsPerMinute: row.killsPerMinute,
+          deathsPerMinute: row.deathsPerMinute,
+          killDeathRatio: row.killDeathRatio,
+          score: row.score,
+          combat: row.combat,
+          offense: row.offense,
+          defense: row.defense,
+          support: row.support,
+          teamSide: row.teamSide ?? null,
+          teamRatio: row.teamRatio
         }
-        await prisma.playerMatchStats.create({
-          data: {
-            importCrconId: importRecord.id,
-            gameAccountId,
-            playerName: row.playerName,
-            kills: row.kills,
-            deaths: row.deaths,
-            score: row.score,
-            teamId: row.teamId ?? null
-          }
-        });
-      }
+      });
     }
 
     await logAudit({
@@ -74,22 +118,27 @@ importRouter.post("/crcon", requireAdmin, async (req, res) => {
       entityType: "ImportCrcon",
       entityId: importRecord.id,
       actorId: (req as Request & { adminId?: string }).adminId,
-      metadata: { statsCount: rows.length, gameId }
+      metadata: { statsCount: rows.length, gameId: mapId }
     });
 
-    return res.json({ importId: importRecord.id, status: "SUCCESS", statsCount: rows.length });
+    return res.json({
+      status: "SUCCESS",
+      importId: importRecord.id,
+      statsCount: rows.length,
+      discordMessageId: importRecord.discordMessageId ?? null
+    });
   } catch (error) {
-    return res.status(500).json({ error: "Import failed" });
+    const message = error instanceof Error ? error.message : String(error);
+    console.error("CRCON import failed:", message);
+    return res.status(500).json({ error: "Import failed", detail: message });
   }
 });
 
-importRouter.get("/crcon", requireAdmin, async (req, res) => {
-  const limit = Number(req.query.limit ?? 20);
-  const offset = Number(req.query.offset ?? 0);
-  const imports = await prisma.importCrcon.findMany({
+importRouter.get("/discord-last", requireBotOrAdmin, async (_req, res) => {
+  const last = await prisma.importCrcon.findFirst({
+    where: { discordMessageId: { not: null } },
     orderBy: { importedAt: "desc" },
-    skip: offset,
-    take: limit
+    select: { discordMessageId: true }
   });
-  return res.json({ imports });
+  return res.json({ discordMessageId: last?.discordMessageId ?? null });
 });
