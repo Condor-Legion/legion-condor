@@ -76,6 +76,7 @@ Campos principales guardados:
 
 - `playerName`
 - `providerId` (string, puede ser numerico o alfanumerico)
+- `gameAccountId` (si existe una cuenta con el mismo `providerId`; tambien se reasigna cuando se crea la cuenta desde `/create-account`)
 - `kills`, `deaths`, `killsStreak`
 - `teamkills`, `deathsByTk`
 - `killsPerMinute`, `deathsPerMinute`, `killDeathRatio`

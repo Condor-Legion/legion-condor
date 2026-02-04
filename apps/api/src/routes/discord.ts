@@ -140,6 +140,14 @@ discordRouter.post("/account-requests", requireBotOrAdmin, async (req, res) => {
     },
   });
 
+  await prisma.playerMatchStats.updateMany({
+    where: {
+      providerId: created.providerId,
+      gameAccountId: null,
+    },
+    data: { gameAccountId: created.id },
+  });
+
   return res.status(201).json({ account: created });
 });
 
