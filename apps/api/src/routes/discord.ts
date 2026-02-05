@@ -26,6 +26,8 @@ const syncBodySchema = z.object({
 const rosterMemberSchema = z.object({
   discordId: z.string(),
   displayName: z.string().min(1),
+  username: z.string().optional(),
+  nickname: z.string().nullable().optional(),
 });
 
 const rosterSyncBodySchema = z.object({
@@ -36,7 +38,23 @@ const accountRequestSchema = z.object({
   discordId: z.string(),
   provider: z.enum(["STEAM", "EPIC", "XBOX_PASS"]),
   providerId: z.string().min(1),
+  username: z.string().optional(),
+  nickname: z.string().nullable().optional(),
+  joinedAt: z.string().datetime().nullable().optional(),
+  roles: z.array(roleSchema).optional(),
 });
+
+function resolveDisplayName(input: {
+  nickname?: string | null;
+  username?: string;
+  fallback?: string;
+}) {
+  const nickname = input.nickname?.trim();
+  if (nickname) return nickname;
+  const username = input.username?.trim();
+  if (username) return username;
+  return (input.fallback ?? "").trim();
+}
 
 async function requireBotOrAdmin(
   req: import("express").Request,
@@ -65,26 +83,36 @@ discordRouter.post("/members/sync", requireBotOrAdmin, async (req, res) => {
 
   for (const batch of chunks) {
     await prisma.$transaction(
-      batch.map((member) =>
-        prisma.discordMember.upsert({
-          where: { discordId: member.discordId },
-          update: {
-            username: member.username,
-            nickname: member.nickname ?? null,
-            joinedAt: member.joinedAt ? new Date(member.joinedAt) : null,
-            roles: member.roles,
-            isActive: true,
-          },
-          create: {
-            discordId: member.discordId,
-            username: member.username,
-            nickname: member.nickname ?? null,
-            joinedAt: member.joinedAt ? new Date(member.joinedAt) : null,
-            roles: member.roles,
-            isActive: true,
-          },
-        })
-      )
+      batch.flatMap((member) => {
+        const displayName = resolveDisplayName({
+          nickname: member.nickname,
+          username: member.username,
+        });
+        return [
+          prisma.discordMember.upsert({
+            where: { discordId: member.discordId },
+            update: {
+              username: member.username,
+              nickname: member.nickname ?? null,
+              joinedAt: member.joinedAt ? new Date(member.joinedAt) : null,
+              roles: member.roles,
+              isActive: true,
+            },
+            create: {
+              discordId: member.discordId,
+              username: member.username,
+              nickname: member.nickname ?? null,
+              joinedAt: member.joinedAt ? new Date(member.joinedAt) : null,
+              roles: member.roles,
+              isActive: true,
+            },
+          }),
+          prisma.member.updateMany({
+            where: { discordId: member.discordId },
+            data: { displayName },
+          }),
+        ];
+      })
     );
   }
 
@@ -104,16 +132,29 @@ discordRouter.post("/account-requests", requireBotOrAdmin, async (req, res) => {
     return res.status(400).json({ error: "Invalid payload" });
   }
 
-  const discordMember = await prisma.discordMember.findUnique({
+  let discordMember = await prisma.discordMember.findUnique({
     where: { discordId: parsed.data.discordId },
   });
   if (!discordMember) {
-    return res.status(404).json({ error: "Discord member not found" });
+    if (!parsed.data.username) {
+      return res.status(400).json({ error: "Missing username for new member" });
+    }
+    discordMember = await prisma.discordMember.create({
+      data: {
+        discordId: parsed.data.discordId,
+        username: parsed.data.username,
+        nickname: parsed.data.nickname ?? null,
+        joinedAt: parsed.data.joinedAt ? new Date(parsed.data.joinedAt) : null,
+        roles: parsed.data.roles ?? [],
+        isActive: true,
+      },
+    });
   }
 
-  const displayName =
-    (discordMember.nickname ?? discordMember.username)?.trim() ||
-    discordMember.username;
+  const displayName = resolveDisplayName({
+    nickname: discordMember.nickname,
+    username: discordMember.username,
+  });
 
   const member = await prisma.member.upsert({
     where: { discordId: parsed.data.discordId },
@@ -165,23 +206,47 @@ discordRouter.post("/roster/sync", requireBotOrAdmin, async (req, res) => {
 
   for (const batch of chunks) {
     await prisma.$transaction(
-      batch.map((member) =>
-        prisma.member.upsert({
-          where: { discordId: member.discordId },
-          update: { displayName: member.displayName, isActive: true },
-          create: {
-            discordId: member.discordId,
-            displayName: member.displayName,
-            isActive: true,
-          },
-        })
-      )
+      batch.flatMap((member) => {
+        const displayName = resolveDisplayName({
+          nickname: member.nickname,
+          username: member.username,
+          fallback: member.displayName,
+        });
+        return [
+          prisma.member.upsert({
+            where: { discordId: member.discordId },
+            update: { displayName, isActive: true },
+            create: {
+              discordId: member.discordId,
+              displayName,
+              isActive: true,
+            },
+          }),
+          prisma.discordMember.upsert({
+            where: { discordId: member.discordId },
+            update: {
+              username: member.username ?? member.displayName,
+              nickname: member.nickname ?? null,
+              isActive: true,
+            },
+            create: {
+              discordId: member.discordId,
+              username: member.username ?? member.displayName,
+              nickname: member.nickname ?? null,
+              roles: [],
+              isActive: true,
+            },
+          }),
+        ];
+      })
     );
   }
 
+  const cutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
   await prisma.member.updateMany({
     where: {
       discordId: { notIn: members.map((m) => m.discordId) },
+      createdAt: { lte: cutoff },
     },
     data: { isActive: false },
   });

@@ -4,6 +4,7 @@ import {
   GatewayIntentBits,
   MessageFlags,
   REST,
+  Role,
   Routes,
   SlashCommandBuilder,
 } from "discord.js";
@@ -241,14 +242,16 @@ async function syncRoster(guildIdToSync: string) {
   }
   const guild = await client.guilds.fetch(guildIdToSync);
   const members = await guild.members.fetch();
-  const payload = members
-    .filter((member) =>
-      rosterRoleIds.some((roleId) => member.roles.cache.has(roleId))
-    )
-    .map((member) => ({
-      discordId: member.user.id,
-      displayName: member.displayName,
-    }));
+    const payload = members
+      .filter((member) =>
+        rosterRoleIds.some((roleId) => member.roles.cache.has(roleId))
+      )
+      .map((member) => ({
+        discordId: member.user.id,
+        displayName: member.displayName,
+        username: member.user.username,
+        nickname: member.nickname ?? null,
+      }));
 
   for (let i = 0; i < payload.length; i += SYNC_CHUNK_SIZE) {
     const chunk = payload.slice(i, i + SYNC_CHUNK_SIZE);
@@ -362,6 +365,12 @@ client.on("interactionCreate", async (interaction) => {
     const discordId = interaction.options.getString("discord-id", true);
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });
     try {
+      const guildMember = await interaction.guild?.members.fetch(discordId);
+      if (!guildMember) {
+        return interaction.editReply(
+          "No se pudo encontrar ese usuario en el servidor."
+        );
+      }
       const res = await fetch(`${apiUrl}/api/discord/account-requests`, {
         method: "POST",
         headers: {
@@ -372,12 +381,19 @@ client.on("interactionCreate", async (interaction) => {
           discordId,
           provider,
           providerId,
+          username: guildMember.user.username,
+          nickname: guildMember.nickname ?? null,
+          joinedAt: guildMember.joinedAt?.toISOString() ?? null,
+          roles: guildMember.roles.cache.map((role: Role) => ({
+            id: role.id,
+            name: role.name,
+          })),
         }),
       });
 
       if (res.status === 404) {
         return interaction.editReply(
-          "No estás en el roster. Primero ejecuta /sync-roster."
+          "No estás en el roster."
         );
       }
       if (res.status === 409) {
