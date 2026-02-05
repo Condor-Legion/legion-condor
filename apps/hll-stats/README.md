@@ -31,6 +31,12 @@ El flujo esta dividido en dos piezas:
   { "status": "SUCCESS", "importId": "...", "statsCount": 123 }
   ```
 
+**POST `/api/discord/account-requests`**
+
+- Autenticacion: `x-bot-api-key` o sesion admin.
+- Crea `DiscordMember` y `Member` si no existen, y crea `GameAccount`.
+- Reasocia stats existentes si el `providerId` coincide y `gameAccountId` es `null`.
+
 ## Variables de entorno
 
 **Comunes**
@@ -63,7 +69,7 @@ El flujo esta dividido en dos piezas:
    - Hace `GET {baseUrl}/api/get_map_scoreboard?map_id={mapId}`.
    - Genera `payloadHash`.
    - Si existe el mismo `payloadHash`:
-     - Si hay stats: borra e reimporta.
+     - Si hay stats: borra y reimporta.
      - Si no hay stats: saltea.
    - Guarda:
      - `ImportCrcon`
@@ -76,7 +82,7 @@ Campos principales guardados:
 
 - `playerName`
 - `providerId` (string, puede ser numerico o alfanumerico)
-- `gameAccountId` (si existe una cuenta con el mismo `providerId`; tambien se reasigna cuando se crea la cuenta desde `/create-account`)
+- `gameAccountId` (si existe una cuenta con el mismo `providerId`; tambien se reasigna cuando se crea la cuenta desde `/create-account` o `/api/discord/account-requests`)
 - `kills`, `deaths`, `killsStreak`
 - `teamkills`, `deathsByTk`
 - `killsPerMinute`, `deathsPerMinute`, `killDeathRatio`
