@@ -36,6 +36,11 @@ enum PaymentProvider {
   STRIPE
 }
 
+enum RecruitmentTicketStatus {
+  OPEN
+  CLOSED
+}
+
 model AdminUser {
   id           String      @id @default(cuid())
   username     String      @unique
@@ -221,6 +226,22 @@ model AuditLog {
   @@index([entityType, entityId])
   @@index([targetMemberId])
   @@index([createdAt])
+}
+
+model RecruitmentTicket {
+  id         String                  @id @default(cuid())
+  discordId  String
+  channelId  String?                 @unique
+  platform   AccountProvider?
+  username   String?
+  playerId   String?
+  status     RecruitmentTicketStatus @default(OPEN)
+  validatedAt DateTime?
+  createdAt  DateTime                @default(now())
+  updatedAt  DateTime                @updatedAt
+  closedAt   DateTime?
+
+  @@index([discordId])
 }
 
 model VipOrder {

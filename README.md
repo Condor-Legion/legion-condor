@@ -6,7 +6,7 @@ Sistema de gestión para una comunidad de juego: miembros, roster de eventos, es
 
 - **Panel admin (web)**: login con usuario y contraseña, gestión de eventos, roster por evento, importación de datos e historial de auditoría.
 - **API**: autenticación por sesión (cookie), CRUD de miembros y roster, estadísticas, importación y WebSocket para actualizaciones en tiempo real.
-- **Bot Discord**: integración con la API (por API key) para consultas o acciones desde Discord.
+- **Bot Discord**: integración con la API (por API key) para consultas, sync y tickets de ingreso desde Discord.
 - **Base de datos**: PostgreSQL con Prisma.
 
 ## Cómo levantar el proyecto en local (con Docker)
@@ -38,6 +38,12 @@ El proyecto está pensado para usarse con **Docker** y **Docker Compose**. **Doc
      - `DISCORD_TOKEN`
      - `DISCORD_CLIENT_ID`
      - `BOT_API_KEY` (misma clave que en la API)
+     - `TICKETS_CHANNEL_ID` (canal para publicar el botón de tickets)
+     - `TICKETS_CATEGORY_ID` (categoría donde se crean los canales de ticket)
+     - `TICKETS_ADMIN_ROLE_IDS` (roles con acceso a todos los tickets)
+     - `TICKETS_PENDING_ROLE_ID` Rol que se asigna al pulsar "Otorgar rol" (solo admins)
+     - `TICKETS_MEMBER_ROLE_ID` Rol que se asigna al "Completar ingreso" (reemplaza el pendiente)
+     - `TICKETS_LOG_CHANNEL_ID` Canal donde se guarda el transcript al completar ingreso
 
    Ejemplo mínimo en `.env` para tener admin:
 

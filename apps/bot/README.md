@@ -28,6 +28,9 @@ ROSTER_ROLE_IDS=...           # IDs de roles que habilitan roster
 CLEAR_GLOBAL_COMMANDS=true    # borra comandos globales al iniciar
 DISCORD_STATS_CHANNEL_ID=...  # canal donde el bot busca links /games/{id}
 DISCORD_STATS_POLL_SECONDS=60 # intervalo de escaneo en segundos
+TICKETS_CHANNEL_ID=...        # canal donde se publica el botón de tickets
+TICKETS_CATEGORY_ID=...       # categoría donde se crean los canales de ticket
+TICKETS_ADMIN_ROLE_IDS=...    # roles con acceso a todos los tickets (IDs separados por coma)
 ```
 
 ## Comandos
@@ -48,9 +51,20 @@ Solicita crear una cuenta de juego asociada al `Member`.
 Si no existe, crea `DiscordMember` y `Member` usando `nickname` o `username`.
 La cuenta queda aprobada automaticamente.
 
-**Visibilidad / permisos**
-Ambos comandos estan **ocultos por defecto** (`defaultMemberPermissions = 0`).
-Debes habilitarlos manualmente en Discord:
+### `/setup-tickets`
+Publica en el canal actual el botón para crear tickets de ingreso.  
+Usar en el canal configurado por `TICKETS_CHANNEL_ID`.
+
+## Tickets de ingreso
+
+- El botón crea un canal privado para el solicitante y los roles de `TICKETS_ADMIN_ROLE_IDS`.
+- La encuesta se responde en 2 modales (9 preguntas en total).
+- En la base de datos solo se guardan: **plataforma**, **nombre de usuario** e **ID de jugador**.
+- El bot publica en el canal un resumen con las respuestas completas.
+
+**Visibilidad / permisos**  
+Ambos comandos están **ocultos por defecto** (`defaultMemberPermissions = 0`).
+Debés habilitarlos manualmente en Discord:
 
 Server Settings -> Integrations -> Bots & Apps -> comando -> Permissions
 
