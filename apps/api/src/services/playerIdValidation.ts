@@ -94,7 +94,6 @@ async function validateWithService(
     return { valid: false, error: "Servicio no disponible", service };
   }
   if (isNotFoundHtml(html)) {
-    console.log("aca", isNotFoundHtml(html));
     return { valid: false, error: "ID no encontrado", service };
   }
   return { valid: true, service };
@@ -117,14 +116,12 @@ export async function validatePlayerId(
     first === "hellor" ? "hllrecords" : "hellor";
 
   const firstResult = await validateWithService(first, playerId, timeoutMs);
-  console.log(firstResult);
   if (firstResult.valid) {
     lastService = first;
     return firstResult;
   }
 
   const secondResult = await validateWithService(second, playerId, timeoutMs);
-  console.log(secondResult);
   lastService = second;
   if (secondResult.valid) return secondResult;
 

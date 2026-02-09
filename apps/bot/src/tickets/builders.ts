@@ -88,7 +88,7 @@ export function buildTicketActionRowAfterSurvey(
       .setStyle(ButtonStyle.Danger),
     new ButtonBuilder()
       .setCustomId(`ticket_grant_role:${ticketId}`)
-      .setLabel("Otorgar rol")
+      .setLabel("Otorgar Pre-Aspirante")
       .setStyle(ButtonStyle.Secondary),
     new ButtonBuilder()
       .setCustomId(`ticket_complete_entry:${ticketId}`)

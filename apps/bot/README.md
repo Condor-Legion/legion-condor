@@ -27,7 +27,6 @@ DISCORD_SYNC_INTERVAL_HOURS=3 # intervalo de sync automatico
 ROSTER_ROLE_IDS=...           # IDs de roles que habilitan roster
 CLEAR_GLOBAL_COMMANDS=true    # borra comandos globales al iniciar
 DISCORD_STATS_CHANNEL_ID=...  # canal donde el bot busca links /games/{id}
-DISCORD_STATS_POLL_SECONDS=60 # intervalo de escaneo en segundos
 TICKETS_CHANNEL_ID=...        # canal donde se publica el botón de tickets
 TICKETS_CATEGORY_ID=...       # categoría donde se crean los canales de ticket
 TICKETS_ADMIN_ROLE_IDS=...    # roles con acceso a todos los tickets (IDs separados por coma)
@@ -94,11 +93,10 @@ Cuando se crea desde el panel admin, queda `approved = true`.
 
 ## Canal de stats (opcional)
 
-El bot puede leer un canal y extraer links con `/games/{id}` para disparar imports.
+El bot escucha mensajes nuevos y editados en el canal configurado y extrae links con `/games/{id}` para disparar imports. Al iniciar hace un scan de catch-up de mensajes recientes.
 
 Requiere:
 - `DISCORD_STATS_CHANNEL_ID`
-- `DISCORD_STATS_POLL_SECONDS`
 - **Message Content Intent** habilitado en el portal de Discord
 
 ## Baja logica (isActive)

@@ -2,6 +2,7 @@ import type { Client } from "discord.js";
 import { Events } from "discord.js";
 import { config } from "../config";
 import { registerCommands } from "../commands/definitions";
+import { setupStatsChannel } from "../lib/statsChannel";
 import { syncMembers, syncRoster } from "../lib/sync";
 
 export function setupReadyEvent(client: Client): void {
@@ -9,6 +10,8 @@ export function setupReadyEvent(client: Client): void {
     if (!config.clientId) return;
     await registerCommands(config.clientId, config.guildId ?? undefined);
     console.log("Bot ready");
+
+    setupStatsChannel(client);
 
     if (
       config.syncGuildId &&

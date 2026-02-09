@@ -113,9 +113,7 @@ docker compose logs -f hll-stats
 
 Si queres que el bot lea un canal y dispare imports:
 
-- Configurar en `.env`:
-  - `DISCORD_STATS_CHANNEL_ID`
-  - `DISCORD_STATS_POLL_SECONDS`
-- Recorda pasar esas vars al container del bot (en `docker-compose.yml`).
-- El bot busca URLs con `/games/{id}` y llama a `/api/import/crcon-fetch`.
+- Configurar en `.env`: `DISCORD_STATS_CHANNEL_ID`.
+- Recorda pasar esa var al container del bot (en `docker-compose.yml`).
+- El bot escucha mensajes en ese canal, extrae URLs con `/games/{id}` y llama a `/api/import/crcon-fetch`.
 - El ultimo mensaje procesado se obtiene desde `ImportCrcon.discordMessageId`.
