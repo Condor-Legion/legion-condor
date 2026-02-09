@@ -24,6 +24,9 @@ BOT_API_KEY=...               # clave compartida entre bot y API
 DISCORD_SYNC_INTERVAL_HOURS=3 # intervalo de sync automático
 ROSTER_ROLE_IDS=...           # IDs de roles que habilitan roster
 CLEAR_GLOBAL_COMMANDS=true    # borra comandos globales al iniciar
+TICKETS_CHANNEL_ID=...        # canal donde se publica el botón de tickets
+TICKETS_CATEGORY_ID=...       # categoría donde se crean los canales de ticket
+TICKETS_ADMIN_ROLE_IDS=...    # roles con acceso a todos los tickets (IDs separados por coma)
 ```
 
 ## Comandos
@@ -41,6 +44,17 @@ Solo se agregan/actualizan los miembros que tengan algún rol listado en `ROSTER
 ### `/create-account`
 Solicita crear una cuenta de juego asociada al `Member`.  
 Queda con `approved = false` hasta aprobación del admin.
+
+### `/setup-tickets`
+Publica en el canal actual el botón para crear tickets de ingreso.  
+Usar en el canal configurado por `TICKETS_CHANNEL_ID`.
+
+## Tickets de ingreso
+
+- El botón crea un canal privado para el solicitante y los roles de `TICKETS_ADMIN_ROLE_IDS`.
+- La encuesta se responde en 2 modales (9 preguntas en total).
+- En la base de datos solo se guardan: **plataforma**, **nombre de usuario** e **ID de jugador**.
+- El bot publica en el canal un resumen con las respuestas completas.
 
 **Visibilidad / permisos**  
 Ambos comandos están **ocultos por defecto** (`defaultMemberPermissions = 0`).

@@ -10,6 +10,7 @@ import { importRouter } from "./routes/import";
 import { statsRouter } from "./routes/stats";
 import { auditRouter } from "./routes/audit";
 import { discordRouter } from "./routes/discord";
+import { ticketsRouter } from "./routes/tickets";
 import { createSocketServer } from "./socket";
 import { defaultRateLimit } from "./middleware/rateLimit";
 import { SOCKET_EVENTS } from "@legion/shared";
@@ -36,6 +37,7 @@ app.use("/api/import", importRouter);
 app.use("/api/stats", statsRouter);
 app.use("/api/audit", auditRouter);
 app.use("/api/discord", discordRouter);
+app.use("/api/tickets", ticketsRouter);
 
 app.get("/health", (req, res) => {
   res.json({ ok: true });

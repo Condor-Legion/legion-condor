@@ -1,0 +1,101 @@
+import type { Client } from "discord.js";
+import { Events, MessageFlags } from "discord.js";
+import {
+  handleSyncMembers,
+  handleSyncRoster,
+  handleCreateAccount,
+  handleSetupTickets,
+  handleStats,
+} from "../commands/handlers";
+import {
+  handleTicketCreate,
+  handleSurveyStart,
+  handleSurveyContinue,
+  handleTicketClose,
+  handleTicketGrantRole,
+  handleTicketCompleteEntry,
+  handleSurveyStep1,
+  handleSurveyStep2,
+} from "../tickets";
+
+export function setupInteractionCreateEvent(client: Client): void {
+  client.on(Events.InteractionCreate, async (interaction) => {
+    if (interaction.isChatInputCommand()) {
+      if (interaction.commandName === "sync-members") {
+        await handleSyncMembers(interaction, client);
+        return;
+      }
+      if (interaction.commandName === "sync-roster") {
+        await handleSyncRoster(interaction, client);
+        return;
+      }
+      if (interaction.commandName === "create-account") {
+        await handleCreateAccount(interaction);
+        return;
+      }
+      if (interaction.commandName === "setup-tickets") {
+        await handleSetupTickets(interaction);
+        return;
+      }
+      if (interaction.commandName === "stats") {
+        await handleStats(interaction);
+        return;
+      }
+    }
+
+    if (interaction.isButton()) {
+      if (!interaction.inGuild() || !interaction.guildId) {
+        await interaction.reply({
+          content: "Esta acción solo funciona dentro de un servidor.",
+          flags: MessageFlags.Ephemeral,
+        });
+        return;
+      }
+
+      const [action, ticketId] = interaction.customId.split(":");
+
+      if (action === "ticket_create") {
+        await handleTicketCreate(interaction);
+        return;
+      }
+      if (action === "ticket_survey_start") {
+        console.log("[tickets] Botón Responder encuesta", {
+          customId: interaction.customId,
+          ticketId: ticketId ?? "",
+        });
+        await handleSurveyStart(interaction, ticketId ?? "");
+        return;
+      }
+      if (action === "ticket_survey_continue") {
+        handleSurveyContinue(interaction, ticketId ?? "");
+        return;
+      }
+      if (action === "ticket_close") {
+        await handleTicketClose(interaction, ticketId ?? "");
+        return;
+      }
+      if (action === "ticket_grant_role") {
+        await handleTicketGrantRole(interaction, ticketId ?? "");
+        return;
+      }
+      if (action === "ticket_complete_entry") {
+        await handleTicketCompleteEntry(interaction, ticketId ?? "");
+        return;
+      }
+    }
+
+    if (interaction.isModalSubmit()) {
+      const parts = interaction.customId.split(":");
+      const action = parts[0];
+      const ticketId = parts[1] ?? "";
+      if (action === "ticket_survey_step1") {
+        await handleSurveyStep1(interaction, ticketId);
+        return;
+      }
+      if (action === "ticket_survey_step2") {
+        await handleSurveyStep2(interaction, ticketId);
+        return;
+      }
+    }
+  });
+}
