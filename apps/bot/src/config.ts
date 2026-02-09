@@ -10,6 +10,7 @@ const botApiKey = process.env.BOT_API_KEY ?? "";
 const syncIntervalHours = Number(
   process.env.DISCORD_SYNC_INTERVAL_HOURS ?? "3"
 );
+const statsChannelId = process.env.DISCORD_STATS_CHANNEL_ID ?? null;
 const clearGlobalCommands = process.env.CLEAR_GLOBAL_COMMANDS === "true";
 const rosterRoleIds = (process.env.ROSTER_ROLE_IDS ?? "")
   .split(",")
@@ -22,7 +23,6 @@ const ticketAdminRoleIds = (process.env.TICKETS_ADMIN_ROLE_IDS ?? "")
   .map((role) => role.trim())
   .filter(Boolean);
 const ticketPendingRoleId = process.env.TICKETS_PENDING_ROLE_ID ?? null;
-const ticketMemberRoleId = process.env.TICKETS_MEMBER_ROLE_ID ?? null;
 const ticketLogChannelId = process.env.TICKETS_LOG_CHANNEL_ID ?? null;
 
 export const config = {
@@ -33,13 +33,13 @@ export const config = {
   apiUrl,
   botApiKey,
   syncIntervalHours,
+  statsChannelId,
   clearGlobalCommands,
   rosterRoleIds,
   ticketChannelId,
   ticketCategoryId,
   ticketAdminRoleIds,
   ticketPendingRoleId,
-  ticketMemberRoleId,
   ticketLogChannelId,
 } as const;
 

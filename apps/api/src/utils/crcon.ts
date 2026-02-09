@@ -2,11 +2,41 @@ import { hashPayload, parseCrconGameId } from "@legion/shared";
 
 export type CrconPlayerRow = {
   playerName: string;
+  providerId?: string;
   kills: number;
   deaths: number;
+  killsStreak: number;
+  teamkills: number;
+  deathsByTk: number;
+  killsPerMinute: number;
+  deathsPerMinute: number;
+  killDeathRatio: number;
   score: number;
-  teamId?: string;
+  combat: number;
+  offense: number;
+  defense: number;
+  support: number;
+  teamSide?: string;
+  teamRatio: number;
 };
+
+function readNumber(...values: unknown[]): number {
+  for (const value of values) {
+    if (value === null || value === undefined) continue;
+    const num = Number(value);
+    if (!Number.isNaN(num)) return num;
+  }
+  return 0;
+}
+
+function readString(...values: unknown[]): string | undefined {
+  for (const value of values) {
+    if (value === null || value === undefined) continue;
+    const str = String(value).trim();
+    if (str.length > 0) return str;
+  }
+  return undefined;
+}
 
 export function parseCrconUrl(url: string) {
   return parseCrconGameId(url);
@@ -22,6 +52,7 @@ export function extractPlayerStats(payload: unknown): CrconPlayerRow[] {
   const players =
     (root.players as unknown[]) ??
     (root.result as Record<string, unknown> | undefined)?.players ??
+    (root.result as Record<string, unknown> | undefined)?.player_stats ??
     (root.data as Record<string, unknown> | undefined)?.players ??
     [];
 
@@ -31,15 +62,67 @@ export function extractPlayerStats(payload: unknown): CrconPlayerRow[] {
   for (const player of players) {
     if (!player || typeof player !== "object") continue;
     const row = player as Record<string, unknown>;
-    const playerName = String(
-      row.name ?? row.player_name ?? row.playerName ?? ""
+    const team =
+      row.team && typeof row.team === "object"
+        ? (row.team as Record<string, unknown>)
+        : undefined;
+
+    const playerName = readString(
+      row.name,
+      row.player_name,
+      row.playerName,
+      row.player
     );
     if (!playerName) continue;
-    const kills = Number(row.kills ?? 0);
-    const deaths = Number(row.deaths ?? 0);
-    const score = Number(row.score ?? row.combat_score ?? 0);
-    const teamId = row.team_id != null ? String(row.team_id) : undefined;
-    result.push({ playerName, kills, deaths, score, teamId });
+
+    result.push({
+      playerName,
+      providerId: readString(row.player_id, row.playerId, row.playerID, row.id),
+      kills: readNumber(row.kills),
+      deaths: readNumber(row.deaths),
+      killsStreak: readNumber(
+        row.kills_streak,
+        row.kill_streak,
+        row.killsStreak,
+        row.killStreak
+      ),
+      teamkills: readNumber(row.teamkills, row.team_kills, row.teamKills),
+      deathsByTk: readNumber(row.deaths_by_tk, row.deathsByTk),
+      killsPerMinute: readNumber(
+        row.kills_per_minute,
+        row.killsPerMinute,
+        row.kpm
+      ),
+      deathsPerMinute: readNumber(
+        row.deaths_per_minute,
+        row.deathsPerMinute,
+        row.dpm
+      ),
+      killDeathRatio: readNumber(
+        row.kill_death_ratio,
+        row.killDeathRatio,
+        row.kd_ratio,
+        row.kdr
+      ),
+      score: readNumber(row.score, row.combat_score, row.combatScore),
+      combat: readNumber(row.combat),
+      offense: readNumber(row.offense),
+      defense: readNumber(row.defense),
+      support: readNumber(row.support),
+      teamSide: readString(team?.side, row.team_side, row.teamSide),
+      teamRatio: readNumber(team?.ratio, row.team_ratio)
+    });
   }
   return result;
+}
+
+export async function fetchCrconPayload(baseUrl: string, mapId: string) {
+  const url = `${baseUrl}/api/get_map_scoreboard?map_id=${encodeURIComponent(
+    mapId
+  )}`;
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`CRCON request failed (${response.status})`);
+  }
+  return { url, payload: await response.json() };
 }

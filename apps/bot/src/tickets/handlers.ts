@@ -217,6 +217,26 @@ export async function handleTicketClose(
   }
   await interaction.deferReply({ flags: MessageFlags.Ephemeral });
   try {
+    const ticketRes = await fetch(
+      `${config.apiUrl}/api/tickets/${ticketId}`,
+      { headers: { "x-bot-api-key": config.botApiKey } }
+    );
+    if (ticketRes.ok && config.ticketPendingRoleId) {
+      const ticketData = await ticketRes.json();
+      const ticket = ticketData.ticket;
+      const discordId = ticket?.discordId;
+      const surveyCompleted =
+        ticket?.platform && ticket?.playerId;
+      if (discordId && surveyCompleted) {
+        const member = await interaction
+          .guild!.members.fetch(discordId)
+          .catch(() => null);
+        if (member) {
+          await member.roles.remove(config.ticketPendingRoleId!).catch(() => {});
+        }
+      }
+    }
+
     const res = await fetch(`${config.apiUrl}/api/tickets/${ticketId}/close`, {
       method: "PATCH",
       headers: { "x-bot-api-key": config.botApiKey },
@@ -382,10 +402,9 @@ export async function handleTicketCompleteEntry(
     });
     return;
   }
-  if (!config.ticketPendingRoleId || !config.ticketMemberRoleId) {
+  if (!config.ticketPendingRoleId) {
     await interaction.reply({
-      content:
-        "Faltan TICKETS_PENDING_ROLE_ID o TICKETS_MEMBER_ROLE_ID en la configuración.",
+      content: "Falta TICKETS_PENDING_ROLE_ID en la configuración.",
       flags: MessageFlags.Ephemeral,
     });
     return;
@@ -408,9 +427,18 @@ export async function handleTicketCompleteEntry(
       return;
     }
     const ticketData = await ticketRes.json();
-    const discordId = ticketData.ticket?.discordId;
+    const ticket = ticketData.ticket;
+    const discordId = ticket?.discordId;
     if (!discordId) {
       await interaction.editReply("Ticket sin usuario asociado.");
+      return;
+    }
+    const platform = ticket?.platform;
+    const playerId = ticket?.playerId;
+    if (!platform || !playerId) {
+      await interaction.editReply(
+        "El ticket no tiene plataforma o ID de jugador. El usuario debe completar la encuesta."
+      );
       return;
     }
     const member = await interaction.guild!.members.fetch(discordId).catch(() => null);
@@ -418,7 +446,33 @@ export async function handleTicketCompleteEntry(
       await interaction.editReply("No se encontró al usuario en el servidor.");
       return;
     }
-    await member.roles.add(config.ticketMemberRoleId!);
+
+    const accountRes = await fetch(`${config.apiUrl}/api/discord/account-requests`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-bot-api-key": config.botApiKey,
+      },
+      body: JSON.stringify({
+        discordId,
+        provider: platform,
+        providerId: playerId,
+        username: member.user.username,
+        nickname: member.nickname ?? null,
+        joinedAt: member.joinedAt?.toISOString() ?? null,
+        roles: member.roles.cache
+          .filter((r) => r.id !== interaction.guild!.id)
+          .map((r) => ({ id: r.id, name: r.name })),
+      }),
+    });
+    if (!accountRes.ok && accountRes.status !== 409) {
+      const text = await accountRes.text();
+      await interaction.editReply(
+        `Error creando la cuenta del miembro: ${accountRes.status} ${text}`
+      );
+      return;
+    }
+
     await member.roles.remove(config.ticketPendingRoleId!);
 
     const channel = interaction.channel;

@@ -174,43 +174,21 @@ ticketsRouter.patch("/:id", requireBotOrAdmin, async (req, res) => {
     return res.status(409).json({ error: "Ticket closed" });
   }
 
-  const { displayName, platform, username, playerId } = parsed.data;
+  const { platform, username, playerId } = parsed.data;
 
-  // No validar de nuevo: el bot ya validó el playerId en el paso 1 de la encuesta.
-  const conflict = await prisma.gameAccount.findFirst({
-    where: { provider: platform, providerId: playerId },
-  });
-  if (conflict) {
-    return res.status(409).json({ error: "Game account already exists" });
-  }
-
-  const result = await prisma.$transaction(async (tx) => {
-    const member = await tx.member.upsert({
-      where: { discordId: ticket.discordId },
-      update: { displayName },
-      create: { discordId: ticket.discordId, displayName },
-    });
-    await tx.gameAccount.create({
-      data: {
-        memberId: member.id,
-        provider: platform,
-        providerId: playerId,
-        approved: true,
-      },
-    });
-    const updated = await tx.recruitmentTicket.update({
-      where: { id: ticket.id },
-      data: {
-        platform,
-        username,
-        playerId,
-        validatedAt: new Date(),
-      },
-    });
-    return { member, ticket: updated };
+  // Solo actualizar el ticket con los datos de la encuesta. La cuenta (Member + GameAccount)
+  // se crea al pulsar "Completar ingreso" vía POST /api/discord/account-requests.
+  const updated = await prisma.recruitmentTicket.update({
+    where: { id: ticket.id },
+    data: {
+      platform,
+      username,
+      playerId,
+      validatedAt: new Date(),
+    },
   });
 
-  return res.json(result);
+  return res.json({ ticket: updated });
 });
 
 ticketsRouter.patch("/:id/close", requireBotOrAdmin, async (req, res) => {
