@@ -59,7 +59,7 @@ function resolveDisplayName(input: {
 async function requireBotOrAdmin(
   req: import("express").Request,
   res: import("express").Response,
-  next: import("express").NextFunction
+  next: import("express").NextFunction,
 ) {
   const botKey = getBotApiKey(req);
   const expectedKey = process.env.BOT_API_KEY;
@@ -112,7 +112,7 @@ discordRouter.post("/members/sync", requireBotOrAdmin, async (req, res) => {
             data: { displayName },
           }),
         ];
-      })
+      }),
     );
   }
 
@@ -238,7 +238,7 @@ discordRouter.post("/roster/sync", requireBotOrAdmin, async (req, res) => {
             },
           }),
         ];
-      })
+      }),
     );
   }
 
