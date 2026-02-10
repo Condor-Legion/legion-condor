@@ -16,8 +16,6 @@ const rosterRoleIds = (process.env.ROSTER_ROLE_IDS ?? "")
   .split(",")
   .map((role) => role.trim())
   .filter(Boolean);
-const ticketChannelId = process.env.TICKETS_CHANNEL_ID;
-const ticketCategoryId = process.env.TICKETS_CATEGORY_ID;
 const ticketAdminRoleIds = (process.env.TICKETS_ADMIN_ROLE_IDS ?? "")
   .split(",")
   .map((role) => role.trim())
@@ -37,8 +35,6 @@ export const config = {
   statsChannelId,
   clearGlobalCommands,
   rosterRoleIds,
-  ticketChannelId,
-  ticketCategoryId,
   ticketAdminRoleIds,
   ticketPendingRoleId,
   ticketMemberRoleId,

@@ -38,9 +38,7 @@ El proyecto está pensado para usarse con **Docker** y **Docker Compose**. **Doc
      - `DISCORD_TOKEN`
      - `DISCORD_CLIENT_ID`
      - `BOT_API_KEY` (misma clave que en la API)
-     - `TICKETS_CHANNEL_ID` (canal para publicar el botón de tickets)
-     - `TICKETS_CATEGORY_ID` (categoría donde se crean los canales de ticket)
-     - `TICKETS_ADMIN_ROLE_IDS` (roles con acceso a todos los tickets)
+     - `TICKETS_ADMIN_ROLE_IDS` (roles con acceso a todos los tickets; obligatorio para tickets). El canal y categoría se definen al ejecutar `/setup-tickets` en el canal deseado.
      - `TICKETS_PENDING_ROLE_ID` Rol que se asigna al pulsar "Otorgar Pre-Aspirante" (solo admins)
      - `TICKETS_MEMBER_ROLE_ID` Rol que se otorga al creador del ticket al pulsar "Completar ingreso"
      - `TICKETS_LOG_CHANNEL_ID` Canal donde se guarda el transcript al completar ingreso

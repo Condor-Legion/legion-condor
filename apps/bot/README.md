@@ -27,8 +27,7 @@ DISCORD_SYNC_INTERVAL_HOURS=3 # intervalo de sync automatico
 ROSTER_ROLE_IDS=...           # IDs de roles que habilitan roster
 CLEAR_GLOBAL_COMMANDS=true    # borra comandos globales al iniciar
 DISCORD_STATS_CHANNEL_ID=...  # canal donde el bot busca links /games/{id}
-TICKETS_CHANNEL_ID=...        # canal donde se publica el botón de tickets
-TICKETS_CATEGORY_ID=...       # categoría donde se crean los canales de ticket
+# Canal y categoría: ejecutá /setup-tickets en el canal deseado; los nuevos tickets se crean en la misma categoría que ese canal.
 TICKETS_ADMIN_ROLE_IDS=...    # roles con acceso a todos los tickets (IDs separados por coma)
 ```
 
@@ -52,7 +51,7 @@ La cuenta queda aprobada automaticamente.
 
 ### `/setup-tickets`
 Publica en el canal actual el botón para crear tickets de ingreso.  
-Usar en el canal configurado por `TICKETS_CHANNEL_ID`.
+Ejecutarlo en el canal donde querés el botón de tickets (cualquier canal).
 
 ## Tickets de ingreso
 

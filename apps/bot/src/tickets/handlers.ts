@@ -25,10 +25,10 @@ import { surveyCache } from "./cache";
 export async function handleTicketCreate(
   interaction: ButtonInteraction
 ): Promise<void> {
-  if (!config.ticketCategoryId || config.ticketAdminRoleIds.length === 0) {
+  if (config.ticketAdminRoleIds.length === 0) {
     await interaction.reply({
       content:
-        "Tickets no configurados: faltan TICKETS_CATEGORY_ID o TICKETS_ADMIN_ROLE_IDS.",
+        "Tickets no configurados: falta TICKETS_ADMIN_ROLE_IDS en el entorno del bot.",
       flags: MessageFlags.Ephemeral,
     });
     return;
@@ -76,10 +76,11 @@ export async function handleTicketCreate(
 const channelName = `ticket-${cuidCounter || createdTicketId.slice(-4)}`;
 
     const guild = await interaction.guild!.fetch();
+    const categoryId = interaction.channel?.parentId ?? undefined;
     const channel = await guild.channels.create({
       name: channelName,
       type: ChannelType.GuildText,
-      parent: config.ticketCategoryId,
+      parent: categoryId,
       permissionOverwrites: [
         {
           id: guild.id,

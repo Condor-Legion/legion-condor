@@ -218,17 +218,6 @@ export async function handleSetupTickets(
     });
     return;
   }
-  if (
-    config.ticketChannelId &&
-    interaction.channelId !== config.ticketChannelId
-  ) {
-    await interaction.reply({
-      content:
-        "Este comando debe ejecutarse en el canal configurado para tickets.",
-      flags: MessageFlags.Ephemeral,
-    });
-    return;
-  }
   if (!interaction.channel || !interaction.channel.isTextBased()) {
     await interaction.reply({
       content: "No se pudo determinar el canal actual.",
