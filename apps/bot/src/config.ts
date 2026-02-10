@@ -23,6 +23,7 @@ const ticketAdminRoleIds = (process.env.TICKETS_ADMIN_ROLE_IDS ?? "")
   .map((role) => role.trim())
   .filter(Boolean);
 const ticketPendingRoleId = process.env.TICKETS_PENDING_ROLE_ID ?? null;
+const ticketMemberRoleId = process.env.TICKETS_MEMBER_ROLE_ID ?? null;
 const ticketLogChannelId = process.env.TICKETS_LOG_CHANNEL_ID ?? null;
 
 export const config = {
@@ -40,6 +41,7 @@ export const config = {
   ticketCategoryId,
   ticketAdminRoleIds,
   ticketPendingRoleId,
+  ticketMemberRoleId,
   ticketLogChannelId,
 } as const;
 

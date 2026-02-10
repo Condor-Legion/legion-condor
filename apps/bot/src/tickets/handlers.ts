@@ -402,9 +402,10 @@ export async function handleTicketCompleteEntry(
     });
     return;
   }
-  if (!config.ticketPendingRoleId) {
+  if (!config.ticketPendingRoleId || !config.ticketMemberRoleId) {
     await interaction.reply({
-      content: "Falta TICKETS_PENDING_ROLE_ID en la configuración.",
+      content:
+        "Faltan TICKETS_PENDING_ROLE_ID o TICKETS_MEMBER_ROLE_ID en la configuración.",
       flags: MessageFlags.Ephemeral,
     });
     return;
@@ -473,6 +474,7 @@ export async function handleTicketCompleteEntry(
       return;
     }
 
+    await member.roles.add(config.ticketMemberRoleId!);
     await member.roles.remove(config.ticketPendingRoleId!);
 
     const channel = interaction.channel;
