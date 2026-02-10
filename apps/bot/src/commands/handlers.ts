@@ -4,6 +4,7 @@ import {
   AttachmentBuilder,
   type Message,
   type ChatInputCommandInteraction,
+  type TextBasedChannel,
 } from "discord.js";
 import { config } from "../config";
 import { syncMembers, syncRoster } from "../lib/sync";
@@ -331,9 +332,10 @@ export async function handleAnunciar(
     (a) => ({ url: a.url, name: a.name ?? "attachment" })
   );
 
-  const targetChannel = canalOption?.isTextBased()
-    ? canalOption
-    : channel;
+  const targetChannel: TextBasedChannel =
+    canalOption && "send" in canalOption && typeof canalOption.send === "function"
+      ? (canalOption as TextBasedChannel)
+      : channel;
   const targetChannelId = targetChannel.id;
 
   const publishNow = !hora && !fecha && !diasSemanaRaw;
@@ -349,7 +351,9 @@ export async function handleAnunciar(
       if (content) payload.content = content;
       if (embedsToSend.length > 0) payload.embeds = embedsToSend;
       if (files.length > 0) payload.files = files;
-      await targetChannel.send(payload);
+      await (targetChannel as { send: (opts: object) => Promise<Message> }).send(
+        payload
+      );
       await interaction.editReply(
         `Anuncio publicado en <#${targetChannelId}>.`
       );

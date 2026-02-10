@@ -76,7 +76,10 @@ export async function handleTicketCreate(
 const channelName = `ticket-${cuidCounter || createdTicketId.slice(-4)}`;
 
     const guild = await interaction.guild!.fetch();
-    const categoryId = interaction.channel?.parentId ?? undefined;
+    const categoryId =
+      interaction.channel && "parentId" in interaction.channel
+        ? interaction.channel.parentId ?? undefined
+        : undefined;
     const channel = await guild.channels.create({
       name: channelName,
       type: ChannelType.GuildText,
