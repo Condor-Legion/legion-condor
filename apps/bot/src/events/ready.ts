@@ -2,6 +2,7 @@ import type { Client } from "discord.js";
 import { Events } from "discord.js";
 import { config } from "../config";
 import { registerCommands } from "../commands/definitions";
+import { setupAnnouncementsScheduler } from "../lib/announcementsScheduler";
 import { setupStatsChannel } from "../lib/statsChannel";
 import { syncMembers, syncRoster } from "../lib/sync";
 
@@ -12,6 +13,7 @@ export function setupReadyEvent(client: Client): void {
     console.log("Bot ready");
 
     setupStatsChannel(client);
+    setupAnnouncementsScheduler(client);
 
     if (
       config.syncGuildId &&

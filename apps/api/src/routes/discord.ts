@@ -44,6 +44,17 @@ const accountRequestSchema = z.object({
   roles: z.array(roleSchema).optional(),
 });
 
+const createAnnouncementSchema = z.object({
+  guildId: z.string(),
+  channelId: z.string(),
+  content: z.string().max(2000).default(""),
+  embedsJson: z.string().nullable().optional(),
+  attachmentUrlsJson: z.string().nullable().optional(), // JSON array of { url, name }
+  scheduledAt: z.string().datetime(),
+  recurrenceDays: z.string().nullable().optional(), // "0,1,2" = Dom,Lun,Mar
+  createdById: z.string().optional(),
+});
+
 function resolveDisplayName(input: {
   nickname?: string | null;
   username?: string;
@@ -252,4 +263,54 @@ discordRouter.post("/roster/sync", requireBotOrAdmin, async (req, res) => {
   });
 
   return res.json({ ok: true, count: members.length });
+});
+
+// --- Anuncios programados (comando /anunciar del bot) ---
+
+discordRouter.post("/announcements", requireBotOrAdmin, async (req, res) => {
+  const parsed = createAnnouncementSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: "Invalid payload", details: parsed.error.flatten() });
+  }
+  const data = parsed.data;
+  const created = await prisma.scheduledAnnouncement.create({
+    data: {
+      guildId: data.guildId,
+      channelId: data.channelId,
+      content: data.content,
+      embedsJson: data.embedsJson ?? null,
+      attachmentUrlsJson: data.attachmentUrlsJson ?? null,
+      scheduledAt: new Date(data.scheduledAt),
+      recurrenceDays: data.recurrenceDays ?? null,
+      createdById: data.createdById ?? null,
+    },
+  });
+  return res.status(201).json(created);
+});
+
+discordRouter.get("/announcements/due", requireBotOrAdmin, async (_req, res) => {
+  const now = new Date();
+  const due = await prisma.scheduledAnnouncement.findMany({
+    where: { scheduledAt: { lte: now } },
+    orderBy: { scheduledAt: "asc" },
+  });
+  return res.json(due);
+});
+
+discordRouter.patch("/announcements/:id", requireBotOrAdmin, async (req, res) => {
+  const id = req.params.id;
+  const body = z.object({ scheduledAt: z.string().datetime() }).safeParse(req.body);
+  if (!body.success) {
+    return res.status(400).json({ error: "scheduledAt (ISO) required" });
+  }
+  const updated = await prisma.scheduledAnnouncement.update({
+    where: { id },
+    data: { scheduledAt: new Date(body.data.scheduledAt) },
+  });
+  return res.json(updated);
+});
+
+discordRouter.delete("/announcements/:id", requireBotOrAdmin, async (req, res) => {
+  await prisma.scheduledAnnouncement.delete({ where: { id: req.params.id } });
+  return res.status(204).send();
 });

@@ -6,6 +6,7 @@ import {
   handleCreateAccount,
   handleSetupTickets,
   handleStats,
+  handleAnunciar,
 } from "../commands/handlers";
 import {
   handleTicketCreate,
@@ -39,6 +40,10 @@ export function setupInteractionCreateEvent(client: Client): void {
       }
       if (interaction.commandName === "stats") {
         await handleStats(interaction);
+        return;
+      }
+      if (interaction.commandName === "anunciar") {
+        await handleAnunciar(interaction, client);
         return;
       }
     }

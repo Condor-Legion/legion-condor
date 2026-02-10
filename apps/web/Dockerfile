@@ -7,6 +7,11 @@ COPY packages/shared/package.json packages/shared/tsconfig.json packages/shared/
 COPY tsconfig.base.json ./
 RUN pnpm install --frozen-lockfile || pnpm install
 COPY . .
+# NEXT_PUBLIC_* se inyectan en el bundle en build time (requerido para producción)
+ARG NEXT_PUBLIC_API_URL=http://185.207.251.58:3003
+ARG NEXT_PUBLIC_SOCKET_URL=http://185.207.251.58:3003
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+ENV NEXT_PUBLIC_SOCKET_URL=$NEXT_PUBLIC_SOCKET_URL
 RUN pnpm run --filter @legion/shared build
 RUN cd apps/web && node ../../node_modules/next/dist/bin/next build
 

@@ -23,5 +23,8 @@ COPY --from=builder /app/apps/api/dist ./apps/api/dist
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /tmp/shared-deps/node_modules ./shared-deps-tmp
 RUN rm -rf packages/shared/node_modules && mv shared-deps-tmp packages/shared/node_modules
+COPY apps/api/docker-entrypoint.sh /app/docker-entrypoint.sh
+RUN chmod +x /app/docker-entrypoint.sh
 EXPOSE 3001
+ENTRYPOINT ["/app/docker-entrypoint.sh"]
 CMD ["bun", "run", "apps/api/dist/index.js"]

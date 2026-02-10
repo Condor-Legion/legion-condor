@@ -60,6 +60,41 @@ const commands = [
     .setDescription("Envía el botón para crear tickets en este canal")
     .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
     .setDMPermission(false),
+  new SlashCommandBuilder()
+    .setName("anunciar")
+    .setDescription("Publica un anuncio copiando un mensaje (ahora o programado). Solo administradores.")
+    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
+    .setDMPermission(false)
+    .addStringOption((o) =>
+      o
+        .setName("mensaje_id")
+        .setDescription("ID del mensaje a copiar (clic derecho en el mensaje → Copiar ID). Debe estar en este canal.")
+        .setRequired(true)
+    )
+    .addChannelOption((o) =>
+      o
+        .setName("canal")
+        .setDescription("Canal donde publicar. Si no se elige, se publica en este canal.")
+        .setRequired(false)
+    )
+    .addStringOption((o) =>
+      o
+        .setName("hora")
+        .setDescription("Hora de publicación en GMT-3 (ej: 14:30). Si no se pone, se publica al instante.")
+        .setRequired(false)
+    )
+    .addStringOption((o) =>
+      o
+        .setName("fecha")
+        .setDescription("Fecha de publicación (YYYY-MM-DD). Para programar una sola vez.")
+        .setRequired(false)
+    )
+    .addStringOption((o) =>
+      o
+        .setName("dias_semana")
+        .setDescription("Días recurrentes separados por coma: lunes,martes,miercoles,jueves,viernes,sabado,domingo")
+        .setRequired(false)
+    ),
 ].map((command) => command.toJSON());
 
 export const commandDefinitions = commands;

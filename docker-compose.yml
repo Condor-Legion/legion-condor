@@ -2,15 +2,15 @@ services:
   postgres:
     image: postgres:16-alpine
     environment:
-      POSTGRES_USER: legion
-      POSTGRES_PASSWORD: legion
-      POSTGRES_DB: legion_condor
+      POSTGRES_USER: ${POSTGRES_USER:-legion}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-legion}
+      POSTGRES_DB: ${POSTGRES_DB:-legion_condor}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
-      - "5432:5432"
+      - "5433:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U legion -d legion_condor"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-legion} -d ${POSTGRES_DB:-legion_condor}"]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -20,10 +20,10 @@ services:
       context: .
       dockerfile: apps/api/Dockerfile
     environment:
-      DATABASE_URL: postgres://legion:legion@postgres:5432/legion_condor
+      DATABASE_URL: postgres://${POSTGRES_USER:-legion}:${POSTGRES_PASSWORD:-legion}@postgres:5432/${POSTGRES_DB:-legion_condor}
       SESSION_SECRET: ${SESSION_SECRET:-dev_secret}
       API_PORT: 3001
-      CORS_ORIGIN: http://localhost:3000
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3003}
       SEASON_START_DATE: ${SEASON_START_DATE:-}
       ADMIN_USERNAME: ${ADMIN_USERNAME:-}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
@@ -32,19 +32,19 @@ services:
       postgres:
         condition: service_healthy
     ports:
-      - "3001:3001"
+      - "3004:3004"
 
   web:
     build:
       context: .
       dockerfile: apps/web/Dockerfile
-    environment:
-      NEXT_PUBLIC_API_URL: http://localhost:3001
-      NEXT_PUBLIC_SOCKET_URL: http://localhost:3001
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3001}
+        NEXT_PUBLIC_SOCKET_URL: ${NEXT_PUBLIC_SOCKET_URL:-http://localhost:3001}
     depends_on:
       - api
     ports:
-      - "3000:3000"
+      - "3003:3000"
 
   bot:
     build:
