@@ -307,19 +307,28 @@ export async function handleAnunciar(
   }
 
   const mensajeId = interaction.options.getString("mensaje_id", true).trim();
+  const canalMensajeOption = interaction.options.getChannel("canal_mensaje");
   const canalOption = interaction.options.getChannel("canal");
   const hora = interaction.options.getString("hora")?.trim();
   const fecha = interaction.options.getString("fecha")?.trim();
   const diasSemanaRaw = interaction.options.getString("dias_semana")?.trim();
 
+  const sourceChannel =
+    canalMensajeOption &&
+    "messages" in canalMensajeOption &&
+    typeof (canalMensajeOption as { messages: { fetch: (id: string) => Promise<unknown> } }).messages?.fetch === "function"
+      ? (canalMensajeOption as { messages: { fetch: (id: string) => Promise<Message> } })
+      : null;
+  const channelToFetchFrom = sourceChannel ?? channel;
+
   await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
   let sourceMessage;
   try {
-    sourceMessage = await channel.messages.fetch(mensajeId);
+    sourceMessage = await channelToFetchFrom.messages.fetch(mensajeId);
   } catch {
     await interaction.editReply(
-      "No se pudo encontrar ese mensaje en este canal. Revisá el ID (Modo desarrollador → clic derecho en el mensaje → Copiar ID)."
+      "No se pudo encontrar ese mensaje en el canal indicado (o en este canal si no elegiste uno). Revisá el ID y que el canal sea de texto (Modo desarrollador → clic derecho en el mensaje → Copiar ID)."
     );
     return;
   }

@@ -1,4 +1,5 @@
 import {
+  ChannelType,
   PermissionFlagsBits,
   REST,
   Routes,
@@ -68,8 +69,15 @@ const commands = [
     .addStringOption((o) =>
       o
         .setName("mensaje_id")
-        .setDescription("ID del mensaje a copiar (clic derecho en el mensaje → Copiar ID). Debe estar en este canal.")
+        .setDescription("ID del mensaje a copiar (clic derecho en el mensaje → Copiar ID).")
         .setRequired(true)
+    )
+    .addChannelOption((o) =>
+      o
+        .setName("canal_mensaje")
+        .setDescription("Canal donde está el mensaje a copiar. Si no se elige, se usa este canal.")
+        .addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement)
+        .setRequired(false)
     )
     .addChannelOption((o) =>
       o
