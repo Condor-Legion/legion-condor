@@ -1,7 +1,9 @@
 import type { Client } from "discord.js";
 import {
   MessageFlags,
+  PermissionFlagsBits,
   AttachmentBuilder,
+  EmbedBuilder,
   type Message,
   type ChatInputCommandInteraction,
   type TextBasedChannel,
@@ -27,6 +29,107 @@ const DAY_NAMES: Record<string, number> = {
   sabado: 6,
   sab: 6,
 };
+
+type MyRankApiResponse = {
+  member: { id: string; discordId: string; displayName: string };
+  period: "7d" | "30d" | "season" | "all";
+  aggregate: {
+    kills: number;
+    deaths: number;
+    score: number;
+    matches: number;
+    combat: number;
+    offense: number;
+    defense: number;
+    support: number;
+    killDeathRatio: number;
+  };
+  averages: {
+    killsPerMinute: number;
+    deathsPerMinute: number;
+    scorePerMatch: number;
+    combatPerMatch: number;
+    offensePerMatch: number;
+    defensePerMatch: number;
+    supportPerMatch: number;
+  };
+};
+
+type LastEventsApiResponse = {
+  member: { id: string; discordId: string; displayName: string };
+  period: "7d" | "30d" | "season" | "all";
+  events: Array<{
+    importId: string;
+    eventId: string | null;
+    title: string;
+    eventDate: string | null;
+    importedAt: string;
+    gameId: string;
+    sourceUrl: string;
+    aggregate: {
+      kills: number;
+      deaths: number;
+      score: number;
+      combat: number;
+      offense: number;
+      defense: number;
+      support: number;
+      killDeathRatio: number;
+    };
+    averages: {
+      killsPerMinute: number;
+      deathsPerMinute: number;
+      killDeathRatio: number;
+    };
+  }>;
+};
+
+type MemberByDiscordApiResponse = {
+  member: {
+    displayName: string;
+    gameAccounts: Array<{
+      provider: "STEAM" | "EPIC" | "XBOX_PASS";
+      providerId: string;
+    }>;
+  };
+};
+
+function formatInt(value: number): string {
+  return new Intl.NumberFormat("es-AR").format(Math.round(value));
+}
+
+function formatFloat(value: number, digits = 2): string {
+  return Number.isFinite(value) ? value.toFixed(digits) : "0.00";
+}
+
+function describeWindow(
+  days: number | null,
+  events: number | null,
+  fallback = "Historico"
+): string {
+  if (typeof days === "number") return `Ultimos ${days} dias`;
+  if (typeof events === "number") return `Ultimos ${events} eventos`;
+  return fallback;
+}
+
+function resolveSteamId(accounts: MemberByDiscordApiResponse["member"]["gameAccounts"]): string {
+  const steam = accounts.find((account) => account.provider === "STEAM");
+  if (steam?.providerId) return steam.providerId;
+  return accounts[0]?.providerId ?? "No vinculado";
+}
+
+function resolveClanRankLabel(
+  killDeathRatio: number,
+  scorePerMatch: number,
+  matches: number
+): string {
+  if (matches < 5) return "Recluta";
+  if (killDeathRatio >= 4 || scorePerMatch >= 1200) return "General de Guerra";
+  if (killDeathRatio >= 3 || scorePerMatch >= 900) return "Coronel";
+  if (killDeathRatio >= 2 || scorePerMatch >= 700) return "Capitan";
+  if (killDeathRatio >= 1.4 || scorePerMatch >= 500) return "Sargento";
+  return "Soldado";
+}
 
 function parseDiasSemana(value: string): string {
   const days = value
@@ -81,7 +184,7 @@ function nextScheduledAt(
   return new Date(`${dateStr}T${timePart}${GMT3}`);
 }
 
-/** Embeds de tipo "image" son las vistas previas automáticas; si hay adjuntos, no los copiamos para no duplicar la imagen. */
+/** Embeds de tipo "image" son las vistas previas automaticas; si hay adjuntos, no los copiamos para no duplicar la imagen. */
 function embedsToCopy(message: Message): unknown[] {
   const hasAttachments = message.attachments.size > 0;
   return message.embeds
@@ -165,10 +268,38 @@ export async function handleCreateAccount(
     });
     return;
   }
+
   const provider = interaction.options.getString("provider", true);
   const providerId = interaction.options.getString("id", true);
+  const requestedUser = interaction.options.getUser("usuario");
+  const targetUser = requestedUser ?? interaction.user;
+  const creatingForAnotherUser = targetUser.id !== interaction.user.id;
+
+  if (creatingForAnotherUser) {
+    const isAdmin =
+      interaction.memberPermissions?.has(PermissionFlagsBits.Administrator) ??
+      false;
+    if (!isAdmin) {
+      await interaction.reply({
+        content:
+          "Solo administradores pueden crear cuentas para otro usuario.",
+        flags: MessageFlags.Ephemeral,
+      });
+      return;
+    }
+  }
+
   await interaction.deferReply({ flags: MessageFlags.Ephemeral });
   try {
+    const guildMember = await interaction.guild?.members
+      .fetch(targetUser.id)
+      .catch(() => null);
+    const roles = guildMember
+      ? guildMember.roles.cache
+          .filter((role) => role.id !== interaction.guildId)
+          .map((role) => ({ id: role.id, name: role.name }))
+      : undefined;
+
     const res = await fetch(`${config.apiUrl}/api/discord/account-requests`, {
       method: "POST",
       headers: {
@@ -176,15 +307,21 @@ export async function handleCreateAccount(
         "x-bot-api-key": config.botApiKey,
       },
       body: JSON.stringify({
-        discordId: interaction.user.id,
+        discordId: targetUser.id,
         provider,
         providerId,
+        username: targetUser.username,
+        nickname: guildMember?.nickname ?? null,
+        joinedAt: guildMember?.joinedAt?.toISOString() ?? null,
+        roles,
       }),
     });
 
     if (res.status === 404) {
       await interaction.editReply(
-        "No estás en el roster. Primero ejecuta /sync-roster."
+        creatingForAnotherUser
+          ? "Ese usuario no esta en el roster. Ejecuta /sync-roster o /sync-members antes."
+          : "No estas en el roster. Primero ejecuta /sync-roster."
       );
       return;
     }
@@ -201,7 +338,9 @@ export async function handleCreateAccount(
     }
 
     await interaction.editReply(
-      "Solicitud enviada. Tu cuenta quedará pendiente de aprobación."
+      creatingForAnotherUser
+        ? `Cuenta creada correctamente para <@${targetUser.id}>.`
+        : "Cuenta creada correctamente."
     );
   } catch (error) {
     console.error("Create account error:", error);
@@ -230,7 +369,7 @@ export async function handleSetupTickets(
   await interaction.deferReply({ flags: MessageFlags.Ephemeral });
   await interaction.channel.send({
     content:
-      "Presioná el botón para crear tu ticket de ingreso a la Legión Cóndor.",
+      "Presiona el boton para crear tu ticket de ingreso a la Legion Condor.",
     components: [buildSetupActionRow()],
   });
   await interaction.editReply("Mensaje de tickets enviado.");
@@ -250,13 +389,13 @@ export async function handleStats(
       }
     );
     if (!memberRes.ok) {
-      await interaction.editReply("No estás registrado en el roster.");
+      await interaction.editReply("No estas registrado en el roster.");
       return;
     }
     const memberData = await memberRes.json();
     const memberId = memberData.member?.id;
     if (!memberId) {
-      await interaction.editReply("No estás registrado en el roster.");
+      await interaction.editReply("No estas registrado en el roster.");
       return;
     }
 
@@ -286,6 +425,237 @@ export async function handleStats(
   }
 }
 
+export async function handleMyRank(
+  interaction: ChatInputCommandInteraction
+): Promise<void> {
+  const days = interaction.options.getInteger("dias");
+  const events = interaction.options.getInteger("eventos");
+  if (days !== null && events !== null) {
+    await interaction.reply({
+      content: "Usa solo una opcion: `dias` o `eventos`.",
+      flags: MessageFlags.Ephemeral,
+    });
+    return;
+  }
+
+  const query = new URLSearchParams();
+  if (days !== null) query.set("days", String(days));
+  if (events !== null) query.set("events", String(events));
+
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+
+  try {
+    const suffix = query.size > 0 ? `?${query.toString()}` : "";
+    const [rankRes, memberRes] = await Promise.all([
+      fetch(`${config.apiUrl}/api/stats/myrank/${interaction.user.id}${suffix}`, {
+        headers: { "x-bot-api-key": config.botApiKey },
+      }),
+      fetch(`${config.apiUrl}/api/members/by-discord/${interaction.user.id}`, {
+        headers: { "x-bot-api-key": config.botApiKey },
+      }),
+    ]);
+
+    if (rankRes.status === 404) {
+      await interaction.editReply(
+        "No encontramos tu cuenta en el roster o todavia no tenes stats vinculadas."
+      );
+      return;
+    }
+
+    if (!rankRes.ok) {
+      const text = await rankRes.text();
+      await interaction.editReply(
+        `No se pudieron obtener tus stats (${rankRes.status}). ${text}`
+      );
+      return;
+    }
+
+    const data = (await rankRes.json()) as MyRankApiResponse;
+    const aggregate = data.aggregate;
+    const averages = data.averages;
+    const windowLabel = describeWindow(days, events, "Historico");
+    const memberData = memberRes.ok
+      ? ((await memberRes.json()) as MemberByDiscordApiResponse)
+      : null;
+    const steamId = memberData
+      ? resolveSteamId(memberData.member.gameAccounts)
+      : "No vinculado";
+    const clanRank = resolveClanRankLabel(
+      aggregate.killDeathRatio,
+      averages.scorePerMatch,
+      aggregate.matches
+    );
+
+    const embed = new EmbedBuilder()
+      .setColor(0xe74c3c)
+      .setTitle("📊 Tu Rank en el clan")
+      .setDescription(
+        `Aqui tienes el resumen de tu desempeno.\nVentana: **${windowLabel}**`
+      )
+      .addFields(
+        {
+          name: "📛 Usuario",
+          value: data.member.displayName,
+          inline: true,
+        },
+        {
+          name: "🔑 SteamID",
+          value: steamId,
+          inline: true,
+        },
+        {
+          name: "🏆 Rango",
+          value: clanRank,
+          inline: true,
+        },
+        {
+          name: "📅 Eventos Participados",
+          value: formatInt(aggregate.matches),
+          inline: false,
+        },
+        {
+          name: "🔫 Estadisticas",
+          value: [
+            `Kills: **${formatInt(aggregate.kills)}**`,
+            `Deaths: **${formatInt(aggregate.deaths)}**`,
+            `K.p.m avg: **${formatFloat(averages.killsPerMinute)}**`,
+            `K/D avg: **${formatFloat(aggregate.killDeathRatio)}**`,
+          ].join("\n"),
+          inline: false,
+        },
+        {
+          name: "🎯 Puntos Promedio",
+          value: [
+            `Combate: **${formatFloat(averages.combatPerMatch)}**`,
+            `Ataque: **${formatFloat(averages.offensePerMatch)}**`,
+            `Defensa: **${formatFloat(averages.defensePerMatch)}**`,
+            `Soporte: **${formatFloat(averages.supportPerMatch)}**`,
+          ].join("\n"),
+          inline: false,
+        }
+      )
+      .setTimestamp(new Date());
+
+    await interaction.editReply({ embeds: [embed] });
+  } catch (error) {
+    console.error("My rank error:", error);
+    await interaction.editReply("Error consultando tus stats.");
+  }
+}
+
+export async function handleLastEvents(
+  interaction: ChatInputCommandInteraction
+): Promise<void> {
+  const days = interaction.options.getInteger("dias");
+  const count = interaction.options.getInteger("cantidad");
+  if (days !== null && count !== null) {
+    await interaction.reply({
+      content: "Usa solo una opcion: `dias` o `cantidad`.",
+      flags: MessageFlags.Ephemeral,
+    });
+    return;
+  }
+
+  const events = count ?? 5;
+  const query = new URLSearchParams();
+  if (days !== null) {
+    query.set("days", String(days));
+  } else {
+    query.set("events", String(events));
+  }
+
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+
+  try {
+    const response = await fetch(
+      `${config.apiUrl}/api/stats/last-events/${interaction.user.id}?${query.toString()}`,
+      {
+        headers: { "x-bot-api-key": config.botApiKey },
+      }
+    );
+
+    if (response.status === 404) {
+      await interaction.editReply(
+        "No encontramos tu cuenta en el roster o todavia no tenes stats vinculadas."
+      );
+      return;
+    }
+
+    if (!response.ok) {
+      const text = await response.text();
+      await interaction.editReply(
+        `No se pudieron obtener tus ultimos eventos (${response.status}). ${text}`
+      );
+      return;
+    }
+
+    const data = (await response.json()) as LastEventsApiResponse;
+    if (!data.events.length) {
+      const emptyWindow = describeWindow(days, days === null ? events : null);
+      await interaction.editReply(
+        `No hay eventos para mostrar en ${emptyWindow}.`
+      );
+      return;
+    }
+
+    const titleWindow =
+      typeof days === "number"
+        ? `los ultimos ${days} dias`
+        : `los ultimos ${events} eventos`;
+
+    const embed = new EmbedBuilder()
+      .setColor(0xc0392b)
+      .setTitle(`📅 Tu desempeno en ${titleWindow}`)
+      .setDescription(
+        "Aqui esta tu rendimiento en los eventos recientes. ¡Echa un vistazo a tus estadisticas!"
+      )
+      .addFields({
+        name: "Usuario",
+        value: data.member.displayName,
+        inline: false,
+      })
+      .setTimestamp(new Date());
+
+    for (const [index, event] of data.events.entries()) {
+      const totalPoints =
+        event.aggregate.combat +
+        event.aggregate.offense +
+        event.aggregate.defense +
+        event.aggregate.support;
+      const roleLine =
+        totalPoints === 0
+          ? "**Combate | Ataque | Defensa | Soporte:** El servidor no guardo estas stats."
+          : [
+              `**Combate:** ${formatInt(event.aggregate.combat)}`,
+              `**Ataque:** ${formatInt(event.aggregate.offense)}`,
+              `**Defensa:** ${formatInt(event.aggregate.defense)}`,
+              `**Soporte:** ${formatInt(event.aggregate.support)}`,
+            ].join(" | ");
+
+      const value = [
+        `**Evento:** ${event.title}`,
+        [
+          `**Kills:** ${formatInt(event.aggregate.kills)}`,
+          `**Deaths:** ${formatInt(event.aggregate.deaths)}`,
+          `**K.p.m:** ${formatFloat(event.averages.killsPerMinute)}`,
+          `**K/D:** ${formatFloat(event.aggregate.killDeathRatio)}`,
+        ].join(" | "),
+        roleLine,
+      ].join("\n");
+
+      embed.addFields({
+        name: `🔸 Evento ${index + 1}`,
+        value: value.slice(0, 1024),
+        inline: false,
+      });
+    }
+
+    await interaction.editReply({ embeds: [embed] });
+  } catch (error) {
+    console.error("Last events error:", error);
+    await interaction.editReply("Error consultando tus ultimos eventos.");
+  }
+}
 export async function handleAnunciar(
   interaction: ChatInputCommandInteraction,
   _client: Client
@@ -328,7 +698,7 @@ export async function handleAnunciar(
     sourceMessage = await channelToFetchFrom.messages.fetch(mensajeId);
   } catch {
     await interaction.editReply(
-      "No se pudo encontrar ese mensaje en el canal indicado (o en este canal si no elegiste uno). Revisá el ID y que el canal sea de texto (Modo desarrollador → clic derecho en el mensaje → Copiar ID)."
+      "No se pudo encontrar ese mensaje en el canal indicado (o en este canal si no elegiste uno). Revisa el ID y que el canal sea de texto (Modo desarrollador -> clic derecho en el mensaje -> Copiar ID)."
     );
     return;
   }
@@ -369,7 +739,7 @@ export async function handleAnunciar(
     } catch (err) {
       console.error("Anunciar send error:", err);
       await interaction.editReply(
-        "No se pudo enviar el mensaje en ese canal (permisos o canal no válido)."
+        "No se pudo enviar el mensaje en ese canal (permisos o canal no valido)."
       );
     }
     return;
@@ -377,7 +747,7 @@ export async function handleAnunciar(
 
   if (!hora) {
     await interaction.editReply(
-      "Si programás con fecha o días recurrentes, tenés que indicar la hora (ej: 14:30)."
+      "Si programas con fecha o dias recurrentes, tenes que indicar la hora (ej: 14:30)."
     );
     return;
   }
@@ -389,7 +759,7 @@ export async function handleAnunciar(
     recurrenceDays = parseDiasSemana(diasSemanaRaw);
     if (!recurrenceDays) {
       await interaction.editReply(
-        "Días de la semana no válidos. Usá: lunes, martes, miercoles, jueves, viernes, sabado, domingo (separados por coma)."
+        "Dias de la semana no validos. Usa: lunes, martes, miercoles, jueves, viernes, sabado, domingo (separados por coma)."
       );
       return;
     }
@@ -400,13 +770,13 @@ export async function handleAnunciar(
     scheduledAt = new Date(`${fecha}T${timeStr}${GMT3}`);
     if (scheduledAt.getTime() <= Date.now()) {
       await interaction.editReply(
-        "La fecha y hora indicadas ya pasaron. Usá una fecha futura."
+        "La fecha y hora indicadas ya pasaron. Usa una fecha futura."
       );
       return;
     }
   } else {
     await interaction.editReply(
-      "Indicá fecha (para una sola vez) o días de la semana (para recurrente)."
+      "Indica fecha (para una sola vez) o dias de la semana (para recurrente)."
     );
     return;
   }
@@ -446,13 +816,13 @@ export async function handleAnunciar(
     });
     await interaction.editReply(
       recurrenceDays
-        ? `Anuncio programado de forma recurrente. Próxima publicación: ${nextAt} (GMT-3).`
+        ? `Anuncio programado de forma recurrente. Proxima publicacion: ${nextAt} (GMT-3).`
         : `Anuncio programado para ${nextAt} (GMT-3).`
     );
   } catch (err) {
     console.error("Anunciar schedule error:", err);
     await interaction.editReply(
-      "Error de conexión con la API al programar el anuncio."
+      "Error de conexion con la API al programar el anuncio."
     );
   }
 }

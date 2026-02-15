@@ -9,20 +9,42 @@ import { config } from "../config";
 
 const commands = [
   new SlashCommandBuilder()
-    .setName("stats")
-    .setDescription("Consulta tus estadísticas")
+    .setName("myrank")
+    .setDescription("Muestra tu resumen de estadisticas")
     .setDefaultMemberPermissions(0n)
     .setDMPermission(false)
-    .addStringOption((option) =>
+    .addIntegerOption((option) =>
       option
-        .setName("period")
-        .setDescription("Periodo de tiempo")
-        .addChoices(
-          { name: "7d", value: "7d" },
-          { name: "30d", value: "30d" },
-          { name: "season", value: "season" },
-          { name: "all", value: "all" }
-        )
+        .setName("dias")
+        .setDescription("Ultimos N dias (1-365)")
+        .setMinValue(1)
+        .setMaxValue(365)
+    )
+    .addIntegerOption((option) =>
+      option
+        .setName("eventos")
+        .setDescription("Ultimos N eventos (1-50)")
+        .setMinValue(1)
+        .setMaxValue(50)
+    ),
+  new SlashCommandBuilder()
+    .setName("lastevents")
+    .setDescription("Muestra tus ultimos eventos con estadisticas")
+    .setDefaultMemberPermissions(0n)
+    .setDMPermission(false)
+    .addIntegerOption((option) =>
+      option
+        .setName("cantidad")
+        .setDescription("Cantidad de eventos (1-10, default 5)")
+        .setMinValue(1)
+        .setMaxValue(10)
+    )
+    .addIntegerOption((option) =>
+      option
+        .setName("dias")
+        .setDescription("Filtrar por ultimos N dias (1-365)")
+        .setMinValue(1)
+        .setMaxValue(365)
     ),
   new SlashCommandBuilder()
     .setName("sync-members")
@@ -55,27 +77,39 @@ const commands = [
         .setName("id")
         .setDescription("ID de la cuenta en la plataforma")
         .setRequired(true)
+    )
+    .addUserOption((option) =>
+      option
+        .setName("usuario")
+        .setDescription("Solo admins: crear cuenta para otro usuario")
+        .setRequired(false)
     ),
   new SlashCommandBuilder()
     .setName("setup-tickets")
-    .setDescription("Envía el botón para crear tickets en este canal")
+    .setDescription("Envia el boton para crear tickets en este canal")
     .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
     .setDMPermission(false),
   new SlashCommandBuilder()
     .setName("anunciar")
-    .setDescription("Publica un anuncio copiando un mensaje (ahora o programado). Solo administradores.")
+    .setDescription(
+      "Publica un anuncio copiando un mensaje (ahora o programado). Solo administradores."
+    )
     .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
     .setDMPermission(false)
     .addStringOption((o) =>
       o
         .setName("mensaje_id")
-        .setDescription("ID del mensaje a copiar (clic derecho en el mensaje → Copiar ID).")
+        .setDescription(
+          "ID del mensaje a copiar (clic derecho en el mensaje -> Copiar ID)."
+        )
         .setRequired(true)
     )
     .addChannelOption((o) =>
       o
         .setName("canal_mensaje")
-        .setDescription("Canal donde está el mensaje a copiar. Si no se elige, se usa este canal.")
+        .setDescription(
+          "Canal donde esta el mensaje a copiar. Si no se elige, se usa este canal."
+        )
         .addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement)
         .setRequired(false)
     )
@@ -88,19 +122,23 @@ const commands = [
     .addStringOption((o) =>
       o
         .setName("hora")
-        .setDescription("Hora de publicación en GMT-3 (ej: 14:30). Si no se pone, se publica al instante.")
+        .setDescription(
+          "Hora de publicacion en GMT-3 (ej: 14:30). Si no se pone, se publica al instante."
+        )
         .setRequired(false)
     )
     .addStringOption((o) =>
       o
         .setName("fecha")
-        .setDescription("Fecha de publicación (YYYY-MM-DD). Para programar una sola vez.")
+        .setDescription("Fecha de publicacion (YYYY-MM-DD). Para programar una sola vez.")
         .setRequired(false)
     )
     .addStringOption((o) =>
       o
         .setName("dias_semana")
-        .setDescription("Días recurrentes separados por coma: lunes,martes,miercoles,jueves,viernes,sabado,domingo")
+        .setDescription(
+          "Dias recurrentes separados por coma: lunes,martes,miercoles,jueves,viernes,sabado,domingo"
+        )
         .setRequired(false)
     ),
 ].map((command) => command.toJSON());

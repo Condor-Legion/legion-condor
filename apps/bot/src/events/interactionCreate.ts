@@ -5,7 +5,8 @@ import {
   handleSyncRoster,
   handleCreateAccount,
   handleSetupTickets,
-  handleStats,
+  handleMyRank,
+  handleLastEvents,
   handleAnunciar,
 } from "../commands/handlers";
 import {
@@ -38,8 +39,12 @@ export function setupInteractionCreateEvent(client: Client): void {
         await handleSetupTickets(interaction);
         return;
       }
-      if (interaction.commandName === "stats") {
-        await handleStats(interaction);
+      if (interaction.commandName === "myrank") {
+        await handleMyRank(interaction);
+        return;
+      }
+      if (interaction.commandName === "lastevents") {
+        await handleLastEvents(interaction);
         return;
       }
       if (interaction.commandName === "anunciar") {

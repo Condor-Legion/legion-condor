@@ -134,6 +134,43 @@ docker compose down
 docker compose down -v
 ```
 
+## Migracion legacy de stats (Google Sheets -> DB)
+
+Esta migracion carga datos historicos del sistema viejo a:
+
+- `ImportCrcon` + `Event` desde la hoja `Eventos BD`
+- `PlayerMatchStats` desde la hoja `Miembros Stats BD`
+
+Script:
+
+```bash
+pnpm run migrate:legacy:stats
+```
+
+Variables de entorno relevantes:
+
+- `STATS_LEGACY_MIGRATION_ENABLED=true` para habilitar la corrida
+- `STATS_LEGACY_EVENT_TEMPLATE_AUTOCREATE=true` para crear un template tecnico si no existe ninguno
+- `STATS_LEGACY_EVENT_TEMPLATE_ID` (opcional) para forzar un template exacto
+- `STATS_LEGACY_EVENT_TEMPLATE_NAME` (opcional) para buscar template por nombre
+- `STATS_LEGACY_SPREADSHEET_ID` (opcional) para usar otra planilla
+- `STATS_LEGACY_EVENTS_SHEET` y `STATS_LEGACY_PLAYER_STATS_SHEET` (opcionales)
+
+Comportamiento importante:
+
+- `Event.rosterTemplateId` es obligatorio en el modelo; no puede ser `null`
+- Si no hay templates y `STATS_LEGACY_EVENT_TEMPLATE_AUTOCREATE=true`, el script crea uno llamado `Legacy Stats Migration` (modo `18x18`)
+- Eso no crea slots de roster por si solo; solo asegura el FK requerido para `Event`
+- La migracion es idempotente: si se vuelve a ejecutar, actualiza `Event/ImportCrcon` y reemplaza sus `PlayerMatchStats` sin duplicar
+
+Flujo recomendado:
+
+```powershell
+$env:STATS_LEGACY_MIGRATION_ENABLED="true"
+pnpm run migrate:legacy:stats
+$env:STATS_LEGACY_MIGRATION_ENABLED="false"
+```
+
 ## Desarrollo local sin Docker (opcional)
 
 Si quieres correr solo la base de datos en Docker y el resto en tu máquina necesitas **pnpm** y **Bun** instalados:

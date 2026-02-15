@@ -33,8 +33,19 @@ TICKETS_ADMIN_ROLE_IDS=...    # roles con acceso a todos los tickets (IDs separa
 
 ## Comandos
 
-### `/stats`
-Consulta estadisticas del usuario (usa la API).
+### `/myrank`
+Muestra tu resumen de rendimiento (K/D, score, promedios por evento).
+Opciones:
+- `dias`: toma stats de los ultimos N dias.
+- `eventos`: toma stats de los ultimos N eventos.
+- Usar solo una de las dos.
+
+### `/lastevents`
+Muestra tus ultimos eventos con detalle de kills/deaths, K/D, score y puntos por rol.
+Opciones:
+- `cantidad`: cantidad de eventos recientes.
+- `dias`: eventos dentro de los ultimos N dias.
+- Usar solo una de las dos.
 
 ### `/sync-members`
 Sincroniza todos los miembros del servidor a la DB.
@@ -48,6 +59,7 @@ Si un miembro no tiene roles de roster, solo se desactiva (`isActive = false`) s
 Solicita crear una cuenta de juego asociada al `Member`.
 Si no existe, crea `DiscordMember` y `Member` usando `nickname` o `username`.
 La cuenta queda aprobada automaticamente.
+Opcional: parametro `usuario` para que un admin cree la cuenta para otra persona.
 
 ### `/setup-tickets`
 Publica en el canal actual el botón para crear tickets de ingreso.  

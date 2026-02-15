@@ -35,7 +35,7 @@ docker compose up -d --build
 Errores comunes:
 
 - Docker no responde: abrir Docker Desktop.
-- Puertos en uso (3000/3001/5432): cerrar procesos o cambiar puertos en `docker-compose.yml`.
+- Puertos en uso (3003/3004/5432): cerrar procesos o cambiar puertos en `docker-compose.yml`.
 
 ## 4) Instalar dependencias locales (para migraciones/seed)
 
@@ -84,12 +84,43 @@ Errores comunes:
 
 ## 8) Verificar
 
-- Web: `http://localhost:3000`
-- Admin: `http://localhost:3000/admin`
-- API health: `http://localhost:3001/health`
+- Web: `http://localhost:3003`
+- Admin: `http://localhost:3003/admin`
+- API health: `http://localhost:3004/health`
 
 ## 9) Logs si algo falla
 
 ```
 docker compose logs -f
 ```
+
+## 10) Migracion legacy de stats (opcional)
+
+Este paso migra datos historicos de Google Sheets a:
+
+- `ImportCrcon` y `Event` (desde `Eventos BD`)
+- `PlayerMatchStats` (desde `Miembros Stats BD`)
+
+Configurar variables en `.env`:
+
+```
+STATS_LEGACY_MIGRATION_ENABLED=true
+STATS_LEGACY_EVENT_TEMPLATE_AUTOCREATE=true
+# STATS_LEGACY_EVENT_TEMPLATE_ID=
+# STATS_LEGACY_EVENT_TEMPLATE_NAME=Legacy Stats Migration
+```
+
+Ejecutar:
+
+```
+pnpm run migrate:legacy:stats
+```
+
+Notas:
+
+- `Event.rosterTemplateId` es obligatorio. Si no hay templates y `AUTOCREATE=true`, se crea uno tecnico (`Legacy Stats Migration`, modo `18x18`).
+- Eso no crea slots de roster por si solo.
+- Al finalizar, volver a desactivar:
+  ```
+  STATS_LEGACY_MIGRATION_ENABLED=false
+  ```
