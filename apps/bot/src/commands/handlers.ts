@@ -32,7 +32,7 @@ const DAY_NAMES: Record<string, number> = {
 
 type MyRankApiResponse = {
   member: { id: string; discordId: string; displayName: string };
-  period: "7d" | "30d" | "season" | "all";
+  period: "7d" | "30d" | "all";
   aggregate: {
     kills: number;
     deaths: number;
@@ -57,7 +57,7 @@ type MyRankApiResponse = {
 
 type LastEventsApiResponse = {
   member: { id: string; discordId: string; displayName: string };
-  period: "7d" | "30d" | "season" | "all";
+  period: "7d" | "30d" | "all";
   events: Array<{
     importId: string;
     eventId: string | null;

@@ -8,7 +8,7 @@ import { z } from "zod";
 
 export const statsRouter = Router();
 
-const statsPeriodEnum = z.enum(["7d", "30d", "season", "all"]);
+const statsPeriodEnum = z.enum(["7d", "30d", "all"]);
 const myRankQuerySchema = z
   .object({
     period: statsPeriodEnum.optional(),
@@ -49,10 +49,7 @@ const lastEventsQuerySchema = z
 type StatsPeriod = z.infer<typeof statsPeriodEnum>;
 
 function resolvePeriodStart(period: StatsPeriod): Date | null {
-  const seasonStart = process.env.SEASON_START_DATE
-    ? new Date(process.env.SEASON_START_DATE)
-    : undefined;
-  return getPeriodStart(period, seasonStart);
+  return getPeriodStart(period);
 }
 
 function resolveDaysStart(days: number): Date {
