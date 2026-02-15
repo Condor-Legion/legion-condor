@@ -433,7 +433,6 @@ export async function handleMyRank(
   if (days !== null && events !== null) {
     await interaction.reply({
       content: "Usa solo una opcion: `dias` o `eventos`.",
-      flags: MessageFlags.Ephemeral,
     });
     return;
   }
@@ -442,7 +441,7 @@ export async function handleMyRank(
   if (days !== null) query.set("days", String(days));
   if (events !== null) query.set("events", String(events));
 
-  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+  await interaction.deferReply();
 
   try {
     const suffix = query.size > 0 ? `?${query.toString()}` : "";
@@ -551,7 +550,6 @@ export async function handleLastEvents(
   if (days !== null && count !== null) {
     await interaction.reply({
       content: "Usa solo una opcion: `dias` o `cantidad`.",
-      flags: MessageFlags.Ephemeral,
     });
     return;
   }
@@ -564,7 +562,7 @@ export async function handleLastEvents(
     query.set("events", String(events));
   }
 
-  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+  await interaction.deferReply();
 
   try {
     const response = await fetch(
