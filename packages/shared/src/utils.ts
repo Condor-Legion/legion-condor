@@ -16,12 +16,10 @@ export function parseCrconGameId(url: string): { host: string; gameId: string } 
 }
 
 export function getPeriodStart(
-  period: "7d" | "30d" | "season" | "all",
-  seasonStart?: Date
+  period: "7d" | "30d" | "all"
 ): Date | null {
   const now = new Date();
   if (period === "all") return null;
-  if (period === "season") return seasonStart ?? new Date(now.getTime() - 90 * 86400000);
   const days = period === "7d" ? 7 : 30;
   return new Date(now.getTime() - days * 86400000);
 }
