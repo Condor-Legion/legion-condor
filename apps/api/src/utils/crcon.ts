@@ -46,6 +46,18 @@ export function getPayloadHash(payload: unknown) {
   return hashPayload(payload);
 }
 
+export function normalizeCrconBaseUrl(baseUrl: string): string {
+  const parsed = new URL(baseUrl);
+  return `${parsed.protocol}//${parsed.host}`;
+}
+
+export function buildCrconScoreboardUrl(baseUrl: string, mapId: string): string {
+  const normalizedBaseUrl = normalizeCrconBaseUrl(baseUrl);
+  return `${normalizedBaseUrl}/api/get_map_scoreboard?map_id=${encodeURIComponent(
+    mapId
+  )}`;
+}
+
 export function extractPlayerStats(payload: unknown): CrconPlayerRow[] {
   if (!payload || typeof payload !== "object") return [];
   const root = payload as Record<string, unknown>;
@@ -117,9 +129,7 @@ export function extractPlayerStats(payload: unknown): CrconPlayerRow[] {
 }
 
 export async function fetchCrconPayload(baseUrl: string, mapId: string) {
-  const url = `${baseUrl}/api/get_map_scoreboard?map_id=${encodeURIComponent(
-    mapId
-  )}`;
+  const url = buildCrconScoreboardUrl(baseUrl, mapId);
   const response = await fetch(url);
   if (!response.ok) {
     throw new Error(`CRCON request failed (${response.status})`);

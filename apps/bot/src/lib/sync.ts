@@ -1,13 +1,58 @@
-import type { Client } from "discord.js";
+import type { Client, Collection, Guild, GuildMember } from "discord.js";
 import { SYNC_CHUNK_SIZE } from "@legion/shared";
 import { config } from "../config";
+
+const MEMBER_FETCH_MAX_ATTEMPTS = 5;
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function resolveRateLimitRetryMs(error: unknown): number | null {
+  if (!(error instanceof Error)) return null;
+  const withPayload = error as Error & {
+    data?: {
+      retry_after?: unknown;
+    };
+  };
+  const retryAfterSeconds = withPayload.data?.retry_after;
+  if (
+    typeof retryAfterSeconds !== "number" ||
+    !Number.isFinite(retryAfterSeconds) ||
+    retryAfterSeconds <= 0
+  ) {
+    return null;
+  }
+  return Math.max(500, Math.ceil(retryAfterSeconds * 1000) + 250);
+}
+
+async function fetchAllGuildMembers(
+  guild: Guild
+): Promise<Collection<string, GuildMember>> {
+  for (let attempt = 1; attempt <= MEMBER_FETCH_MAX_ATTEMPTS; attempt++) {
+    try {
+      return await guild.members.fetch();
+    } catch (error) {
+      const retryMs = resolveRateLimitRetryMs(error);
+      if (!retryMs || attempt === MEMBER_FETCH_MAX_ATTEMPTS) {
+        throw error;
+      }
+      console.warn(
+        `Guild member fetch rate limited guildId=${guild.id} retryMs=${retryMs} attempt=${attempt}/${MEMBER_FETCH_MAX_ATTEMPTS}`
+      );
+      await sleep(retryMs);
+    }
+  }
+
+  throw new Error("Unable to fetch guild members after retries.");
+}
 
 export async function syncMembers(
   client: Client,
   guildIdToSync: string
 ): Promise<number> {
   const guild = await client.guilds.fetch(guildIdToSync);
-  const members = await guild.members.fetch();
+  const members = await fetchAllGuildMembers(guild);
   const payload = members.map((member) => ({
     discordId: member.user.id,
     username: member.user.username,
@@ -45,7 +90,7 @@ export async function syncRoster(
     throw new Error("Missing ROSTER_ROLE_IDS env var.");
   }
   const guild = await client.guilds.fetch(guildIdToSync);
-  const members = await guild.members.fetch();
+  const members = await fetchAllGuildMembers(guild);
   const payload = members
     .filter((member) =>
       config.rosterRoleIds.some((roleId) => member.roles.cache.has(roleId))

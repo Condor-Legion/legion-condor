@@ -2,7 +2,12 @@ import { Router, Request } from "express";
 import { AUDIT_ACTIONS } from "@legion/shared";
 import { prisma } from "../prisma";
 import { getAdminFromRequest, getBotApiKey } from "../auth";
-import { extractPlayerStats, fetchCrconPayload, getPayloadHash } from "../utils/crcon";
+import {
+  buildCrconScoreboardUrl,
+  extractPlayerStats,
+  fetchCrconPayload,
+  getPayloadHash,
+} from "../utils/crcon";
 import { logAudit } from "../utils/audit";
 
 export const importRouter = Router();
@@ -38,6 +43,35 @@ importRouter.post("/crcon-fetch", requireBotOrAdmin, async (req, res) => {
   }
 
   try {
+    const sourceUrl = buildCrconScoreboardUrl(baseUrl, mapId);
+    const existingLoaded = await prisma.importCrcon.findFirst({
+      where: {
+        gameId: mapId,
+        sourceUrl,
+        stats: { some: {} },
+      },
+      orderBy: { importedAt: "desc" },
+      select: { id: true, discordMessageId: true },
+    });
+
+    if (existingLoaded) {
+      let linkedDiscordMessageId = existingLoaded.discordMessageId;
+      if (discordMessageId && !linkedDiscordMessageId) {
+        const updated = await prisma.importCrcon.update({
+          where: { id: existingLoaded.id },
+          data: { discordMessageId },
+          select: { discordMessageId: true },
+        });
+        linkedDiscordMessageId = updated.discordMessageId;
+      }
+
+      return res.json({
+        status: "SKIPPED_ALREADY_IMPORTED",
+        importId: existingLoaded.id,
+        discordMessageId: linkedDiscordMessageId ?? null,
+      });
+    }
+
     const { url, payload } = await fetchCrconPayload(baseUrl, mapId);
     const payloadHash = getPayloadHash(payload);
     const rows = extractPlayerStats(payload);
