@@ -320,7 +320,7 @@ export async function handleCreateAccount(
     if (res.status === 404) {
       await interaction.editReply(
         creatingForAnotherUser
-          ? "Ese usuario no esta en el roster. Ejecuta /sync-roster o /sync-members antes."
+          ? "Ese usuario no esta en el roster. Ejecuta /sync-roster o /sync-miembros antes."
           : "No estas en el roster. Primero ejecuta /sync-roster."
       );
       return;
@@ -373,56 +373,6 @@ export async function handleSetupTickets(
     components: [buildSetupActionRow()],
   });
   await interaction.editReply("Mensaje de tickets enviado.");
-}
-
-export async function handleStats(
-  interaction: ChatInputCommandInteraction
-): Promise<void> {
-  const period = interaction.options.getString("period") ?? "30d";
-  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
-
-  try {
-    const memberRes = await fetch(
-      `${config.apiUrl}/api/members/by-discord/${interaction.user.id}`,
-      {
-        headers: { "x-bot-api-key": config.botApiKey },
-      }
-    );
-    if (!memberRes.ok) {
-      await interaction.editReply("No estas registrado en el roster.");
-      return;
-    }
-    const memberData = await memberRes.json();
-    const memberId = memberData.member?.id;
-    if (!memberId) {
-      await interaction.editReply("No estas registrado en el roster.");
-      return;
-    }
-
-    const statsRes = await fetch(
-      `${config.apiUrl}/api/stats/players/${memberId}?period=${period}`,
-      {
-        headers: { "x-bot-api-key": config.botApiKey },
-      }
-    );
-    if (!statsRes.ok) {
-      await interaction.editReply("No se pudieron obtener tus stats.");
-      return;
-    }
-    const stats = await statsRes.json();
-    const agg = stats.aggregate ?? {
-      kills: 0,
-      deaths: 0,
-      score: 0,
-      matches: 0,
-    };
-    await interaction.editReply(
-      `Stats (${period}): K ${agg.kills} / D ${agg.deaths} / Score ${agg.score} / Matches ${agg.matches}`
-    );
-  } catch (error) {
-    console.error("Stats error:", error);
-    await interaction.editReply("Error consultando stats.");
-  }
 }
 
 export async function handleMyRank(

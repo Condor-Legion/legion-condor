@@ -29,12 +29,14 @@ async function requireBotOrAdmin(
 importRouter.post("/crcon-fetch", requireBotOrAdmin, async (req, res) => {
   const rawBaseUrl = typeof req.body?.baseUrl === "string" ? req.body.baseUrl : null;
   const rawMapId = typeof req.body?.mapId === "string" ? req.body.mapId : null;
+  const rawTitle = typeof req.body?.title === "string" ? req.body.title : null;
   const rawDiscordMessageId =
     typeof req.body?.discordMessageId === "string" ? req.body.discordMessageId : null;
   const baseUrl = rawBaseUrl
     ? rawBaseUrl.replace(/[\u200B-\u200D\uFEFF]/g, "").trim()
     : null;
   const mapId = rawMapId ? rawMapId.replace(/[\u200B-\u200D\uFEFF]/g, "").trim() : null;
+  const title = rawTitle ? rawTitle.replace(/[\u200B-\u200D\uFEFF]/g, "").trim() : null;
   const discordMessageId = rawDiscordMessageId
     ? rawDiscordMessageId.replace(/[\u200B-\u200D\uFEFF]/g, "").trim()
     : null;
@@ -51,24 +53,36 @@ importRouter.post("/crcon-fetch", requireBotOrAdmin, async (req, res) => {
         stats: { some: {} },
       },
       orderBy: { importedAt: "desc" },
-      select: { id: true, discordMessageId: true },
+      select: { id: true, discordMessageId: true, title: true },
     });
 
     if (existingLoaded) {
       let linkedDiscordMessageId = existingLoaded.discordMessageId;
-      if (discordMessageId && !linkedDiscordMessageId) {
+      let linkedTitle = existingLoaded.title ?? null;
+
+      if (
+        (discordMessageId && !linkedDiscordMessageId) ||
+        (title && !linkedTitle)
+      ) {
         const updated = await prisma.importCrcon.update({
           where: { id: existingLoaded.id },
-          data: { discordMessageId },
-          select: { discordMessageId: true },
+          data: {
+            ...(discordMessageId && !linkedDiscordMessageId
+              ? { discordMessageId }
+              : {}),
+            ...(title && !linkedTitle ? { title } : {}),
+          },
+          select: { discordMessageId: true, title: true },
         });
         linkedDiscordMessageId = updated.discordMessageId;
+        linkedTitle = updated.title ?? null;
       }
 
       return res.json({
         status: "SKIPPED_ALREADY_IMPORTED",
         importId: existingLoaded.id,
         discordMessageId: linkedDiscordMessageId ?? null,
+        title: linkedTitle,
       });
     }
 
@@ -83,10 +97,18 @@ importRouter.post("/crcon-fetch", requireBotOrAdmin, async (req, res) => {
       where: { payloadHash }
     });
     if (existing && rows.length === 0) {
-      if (discordMessageId && !existing.discordMessageId) {
+      if (
+        (discordMessageId && !existing.discordMessageId) ||
+        (title && !existing.title)
+      ) {
         await prisma.importCrcon.update({
           where: { id: existing.id },
-          data: { discordMessageId }
+          data: {
+            ...(discordMessageId && !existing.discordMessageId
+              ? { discordMessageId }
+              : {}),
+            ...(title && !existing.title ? { title } : {}),
+          },
         });
       }
       return res.json({ status: "SKIPPED_DUPLICATE", importId: existing.id });
@@ -99,6 +121,7 @@ importRouter.post("/crcon-fetch", requireBotOrAdmin, async (req, res) => {
       data: {
         gameId: mapId,
         sourceUrl: url,
+        title: title && title.length > 0 ? title : null,
         payloadHash,
         status: "SUCCESS",
         discordMessageId: discordMessageId ?? null,
