@@ -4,6 +4,7 @@ import { config } from "../config";
 
 function extractGameLinks(text: string): { baseUrl: string; mapId: string }[] {
   const result: { baseUrl: string; mapId: string }[] = [];
+  const seen = new Set<string>();
   const regex = /https?:\/\/[^\s)]+\/games\/(\d+)/gi;
   let match: RegExpExecArray | null;
   while ((match = regex.exec(text)) !== null) {
@@ -11,13 +12,23 @@ function extractGameLinks(text: string): { baseUrl: string; mapId: string }[] {
       const full = match[0];
       const mapId = match[1];
       const url = new URL(full);
-      result.push({ baseUrl: `${url.protocol}//${url.host}`, mapId });
+      const baseUrl = `${url.protocol}//${url.host}`;
+      const key = `${baseUrl}|${mapId}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      result.push({ baseUrl, mapId });
     } catch {
       // ignore invalid urls
     }
   }
   return result;
 }
+
+type CrconImportResponse = {
+  status: string;
+  importId?: string;
+  discordMessageId?: string | null;
+};
 
 async function fetchLastDiscordMessageId(): Promise<string | null> {
   const res = await fetch(`${config.apiUrl}/api/import/discord-last`, {
@@ -32,7 +43,7 @@ async function triggerImport(
   baseUrl: string,
   mapId: string,
   discordMessageId: string
-): Promise<void> {
+): Promise<CrconImportResponse> {
   const res = await fetch(`${config.apiUrl}/api/import/crcon-fetch`, {
     method: "POST",
     headers: {
@@ -45,6 +56,7 @@ async function triggerImport(
     const text = await res.text();
     throw new Error(`Import failed: ${res.status} ${text}`);
   }
+  return (await res.json()) as CrconImportResponse;
 }
 
 function getTextFromMessage(msg: Message): string {
@@ -64,7 +76,17 @@ async function processMessageForLinks(msg: Message): Promise<void> {
     console.log(
       `Stats link found messageId=${msg.id} baseUrl=${link.baseUrl} mapId=${link.mapId}`
     );
-    await triggerImport(link.baseUrl, link.mapId, msg.id);
+    try {
+      const result = await triggerImport(link.baseUrl, link.mapId, msg.id);
+      console.log(
+        `Stats import result messageId=${msg.id} baseUrl=${link.baseUrl} mapId=${link.mapId} status=${result.status} importId=${result.importId ?? "null"}`
+      );
+    } catch (error) {
+      console.error(
+        `Stats import error messageId=${msg.id} baseUrl=${link.baseUrl} mapId=${link.mapId}:`,
+        error
+      );
+    }
   }
 }
 

@@ -1,4 +1,4 @@
-import { PrismaClient } from "@prisma/client";
+import { AccountProvider, PrismaClient } from "@prisma/client";
 import { createHash } from "crypto";
 
 const ENABLE_FLAG = "STATS_LEGACY_MIGRATION_ENABLED";
@@ -9,6 +9,8 @@ const EVENTS_SHEET_NAME =
   process.env.STATS_LEGACY_EVENTS_SHEET ?? "Eventos BD";
 const PLAYER_STATS_SHEET_NAME =
   process.env.STATS_LEGACY_PLAYER_STATS_SHEET ?? "Miembros Stats BD";
+const MEMBER_ACCOUNTS_SHEET_NAME =
+  process.env.STATS_LEGACY_MEMBER_ACCOUNTS_SHEET ?? "Miembros - Norm";
 const EVENT_TEMPLATE_ID = toEnvText(process.env.STATS_LEGACY_EVENT_TEMPLATE_ID);
 const EVENT_TEMPLATE_NAME = toEnvText(
   process.env.STATS_LEGACY_EVENT_TEMPLATE_NAME
@@ -62,6 +64,12 @@ type LegacyPlayerStats = {
   teamRatio: number;
 };
 
+type LegacyMemberAccount = {
+  discordId: string;
+  provider: AccountProvider;
+  providerId: string;
+};
+
 type MigrationSummary = {
   eventsRead: number;
   eventsValid: number;
@@ -76,6 +84,16 @@ type MigrationSummary = {
   importsUpdated: number;
   duplicateImportsDeleted: number;
   playerStatsInserted: number;
+  memberAccountsRead: number;
+  memberAccountsValid: number;
+  skippedMemberAccounts: number;
+  memberAccountConflicts: number;
+  discordMembersCreated: number;
+  discordMembersUpdated: number;
+  membersCreated: number;
+  gameAccountsCreated: number;
+  gameAccountsUpdated: number;
+  statsRelinked: number;
 };
 
 function toEnvText(value: unknown): string | null {
@@ -89,13 +107,12 @@ function isEnabled(): boolean {
 }
 
 function normalizeHeader(header: string): string {
-  const clean = header
+  return header
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "_")
     .replace(/^_+|_+$/g, "");
-  return clean || "column";
 }
 
 function extractJsonFromGvizPayload(payload: string): string {
@@ -118,19 +135,40 @@ function parseGvizRows(response: GvizResponse): SheetRow[] {
 
   const cols = response.table?.cols ?? [];
   const rows = response.table?.rows ?? [];
-  const headers = cols.map((col, index) =>
-    normalizeHeader(col.label ?? `column_${index}`)
-  );
+  const usedHeaders = new Set<string>();
+  const headers = cols.map((col, index) => {
+    const normalized = normalizeHeader(col.label ?? "");
+    const base = normalized.length > 0 ? normalized : `column_${index}`;
+    const header = usedHeaders.has(base) ? `${base}_${index}` : base;
+    usedHeaders.add(header);
+    return header;
+  });
 
   return rows.map((row) => {
     const record: SheetRow = {};
     const cells = row.c ?? [];
     for (let i = 0; i < headers.length; i += 1) {
       const cell = cells[i];
-      record[headers[i]] = cell?.v ?? cell?.f ?? null;
+      record[headers[i]] = parseGvizCellValue(cell);
     }
     return record;
   });
+}
+
+function parseGvizCellValue(cell: GvizCell): unknown {
+  if (!cell) return null;
+  const value = cell.v;
+  if (typeof value === "number") {
+    if (
+      Number.isInteger(value) &&
+      !Number.isSafeInteger(value) &&
+      typeof cell.f === "string"
+    ) {
+      return cell.f;
+    }
+    return value;
+  }
+  return value ?? cell.f ?? null;
 }
 
 async function fetchSheetRows(sheetName: string): Promise<SheetRow[]> {
@@ -216,6 +254,33 @@ function toBaseUrl(value: unknown): string | null {
   } catch {
     return null;
   }
+}
+
+function normalizeProviderId(value: string | null): string | null {
+  if (!value) return null;
+  const normalized = value
+    .trim()
+    .replace(/^'+/, "")
+    .replace(/\.0+$/, "");
+  return normalized.length > 0 ? normalized : null;
+}
+
+function normalizeDiscordId(value: string | null): string | null {
+  if (!value) return null;
+  const normalized = value.trim().replace(/\.0+$/, "");
+  return /^\d+$/.test(normalized) ? normalized : null;
+}
+
+function inferAccountProvider(providerId: string): AccountProvider {
+  return /^\d+$/.test(providerId) ? "STEAM" : "EPIC";
+}
+
+function buildProviderKey(provider: AccountProvider, providerId: string): string {
+  return `${provider}:${providerId}`;
+}
+
+function getRowValueByIndex(row: SheetRow, index: number): unknown {
+  return Object.values(row)[index];
 }
 
 function buildPayloadHash(legacyEventId: string, mapId: string): string {
@@ -360,7 +425,7 @@ function parseLegacyStats(rows: SheetRow[]) {
 
     const stat: LegacyPlayerStats = {
       legacyEventId,
-      providerId: toText(row.steamid),
+      providerId: normalizeProviderId(toText(row.steamid)),
       playerName,
       kills: toInt(row.mato),
       deaths: toInt(row.murio),
@@ -387,6 +452,180 @@ function parseLegacyStats(rows: SheetRow[]) {
   return { statsByEventId, skipped };
 }
 
+function parseLegacyMemberAccounts(rows: SheetRow[]) {
+  const accountsByProvider = new Map<string, LegacyMemberAccount>();
+  let skipped = 0;
+  let conflicts = 0;
+
+  for (const row of rows) {
+    const discordId = normalizeDiscordId(
+      toText(
+        row.discord_id ??
+          row.discordid ??
+          row.id_discord ??
+          row.id_de_discord ??
+          row.column_0 ??
+          getRowValueByIndex(row, 0)
+      )
+    );
+    const providerId = normalizeProviderId(
+      toText(
+        row.provider_id ??
+          row.providerid ??
+          row.steamid ??
+          row.player_id ??
+          row.column_1 ??
+          getRowValueByIndex(row, 1)
+      )
+    );
+
+    if (!discordId || !providerId) {
+      skipped += 1;
+      continue;
+    }
+
+    const provider = inferAccountProvider(providerId);
+    const key = buildProviderKey(provider, providerId);
+    const existing = accountsByProvider.get(key);
+    if (existing && existing.discordId !== discordId) {
+      conflicts += 1;
+    }
+
+    accountsByProvider.set(key, {
+      discordId,
+      provider,
+      providerId,
+    });
+  }
+
+  return {
+    accounts: Array.from(accountsByProvider.values()),
+    skipped,
+    conflicts,
+  };
+}
+
+async function upsertLegacyMemberAccounts(
+  prisma: PrismaClient,
+  accounts: LegacyMemberAccount[]
+): Promise<{
+  discordMembersCreated: number;
+  discordMembersUpdated: number;
+  membersCreated: number;
+  gameAccountsCreated: number;
+  gameAccountsUpdated: number;
+  statsRelinked: number;
+}> {
+  const result = {
+    discordMembersCreated: 0,
+    discordMembersUpdated: 0,
+    membersCreated: 0,
+    gameAccountsCreated: 0,
+    gameAccountsUpdated: 0,
+    statsRelinked: 0,
+  };
+
+  for (const account of accounts) {
+    await prisma.$transaction(async (tx) => {
+      const existingDiscordMember = await tx.discordMember.findUnique({
+        where: { discordId: account.discordId },
+        select: { discordId: true },
+      });
+      if (!existingDiscordMember) {
+        await tx.discordMember.create({
+          data: {
+            discordId: account.discordId,
+            username: `legacy-${account.discordId}`,
+            nickname: null,
+            joinedAt: null,
+            roles: [],
+            isActive: true,
+          },
+        });
+        result.discordMembersCreated += 1;
+      } else {
+        await tx.discordMember.update({
+          where: { discordId: account.discordId },
+          data: { isActive: true },
+        });
+        result.discordMembersUpdated += 1;
+      }
+
+      let member = await tx.member.findUnique({
+        where: { discordId: account.discordId },
+        select: { id: true },
+      });
+      if (!member) {
+        member = await tx.member.create({
+          data: {
+            discordId: account.discordId,
+            displayName: `Discord ${account.discordId}`,
+            isActive: true,
+          },
+          select: { id: true },
+        });
+        result.membersCreated += 1;
+      } else {
+        await tx.member.update({
+          where: { id: member.id },
+          data: { isActive: true },
+        });
+      }
+
+      const existingAccount = await tx.gameAccount.findUnique({
+        where: {
+          provider_providerId: {
+            provider: account.provider,
+            providerId: account.providerId,
+          },
+        },
+        select: { id: true, memberId: true, approved: true },
+      });
+
+      let accountId: string;
+      if (!existingAccount) {
+        const created = await tx.gameAccount.create({
+          data: {
+            memberId: member.id,
+            provider: account.provider,
+            providerId: account.providerId,
+            approved: true,
+          },
+          select: { id: true },
+        });
+        accountId = created.id;
+        result.gameAccountsCreated += 1;
+      } else {
+        accountId = existingAccount.id;
+        if (
+          existingAccount.memberId !== member.id ||
+          existingAccount.approved !== true
+        ) {
+          await tx.gameAccount.update({
+            where: { id: existingAccount.id },
+            data: {
+              memberId: member.id,
+              approved: true,
+            },
+          });
+          result.gameAccountsUpdated += 1;
+        }
+      }
+
+      const relinked = await tx.playerMatchStats.updateMany({
+        where: {
+          providerId: account.providerId,
+          gameAccountId: null,
+        },
+        data: { gameAccountId: accountId },
+      });
+      result.statsRelinked += relinked.count;
+    });
+  }
+
+  return result;
+}
+
 async function run(): Promise<void> {
   if (!isEnabled()) {
     console.log(
@@ -409,20 +648,37 @@ async function run(): Promise<void> {
     importsUpdated: 0,
     duplicateImportsDeleted: 0,
     playerStatsInserted: 0,
+    memberAccountsRead: 0,
+    memberAccountsValid: 0,
+    skippedMemberAccounts: 0,
+    memberAccountConflicts: 0,
+    discordMembersCreated: 0,
+    discordMembersUpdated: 0,
+    membersCreated: 0,
+    gameAccountsCreated: 0,
+    gameAccountsUpdated: 0,
+    statsRelinked: 0,
   };
 
   console.log("Fetching legacy sheets...");
-  const [eventRows, playerStatsRows] = await Promise.all([
+  const [eventRows, playerStatsRows, memberAccountRows] = await Promise.all([
     fetchSheetRows(EVENTS_SHEET_NAME),
     fetchSheetRows(PLAYER_STATS_SHEET_NAME),
+    fetchSheetRows(MEMBER_ACCOUNTS_SHEET_NAME),
   ]);
 
   summary.eventsRead = eventRows.length;
   summary.statsRead = playerStatsRows.length;
+  summary.memberAccountsRead = memberAccountRows.length;
 
   const { events, skipped: skippedEvents } = parseLegacyEvents(eventRows);
   const { statsByEventId, skipped: skippedStats } =
     parseLegacyStats(playerStatsRows);
+  const {
+    accounts: memberAccounts,
+    skipped: skippedMemberAccounts,
+    conflicts: memberAccountConflicts,
+  } = parseLegacyMemberAccounts(memberAccountRows);
 
   summary.eventsValid = events.size;
   summary.statsValid = Array.from(statsByEventId.values()).reduce(
@@ -431,18 +687,37 @@ async function run(): Promise<void> {
   );
   summary.skippedEvents = skippedEvents;
   summary.skippedStats = skippedStats;
+  summary.memberAccountsValid = memberAccounts.length;
+  summary.skippedMemberAccounts = skippedMemberAccounts;
+  summary.memberAccountConflicts = memberAccountConflicts;
 
   const prisma = new PrismaClient();
   try {
+    if (memberAccounts.length > 0) {
+      console.log(
+        `Upserting legacy member accounts: ${memberAccounts.length} rows...`
+      );
+    }
+    const accountSync = await upsertLegacyMemberAccounts(prisma, memberAccounts);
+    summary.discordMembersCreated = accountSync.discordMembersCreated;
+    summary.discordMembersUpdated = accountSync.discordMembersUpdated;
+    summary.membersCreated = accountSync.membersCreated;
+    summary.gameAccountsCreated = accountSync.gameAccountsCreated;
+    summary.gameAccountsUpdated = accountSync.gameAccountsUpdated;
+    summary.statsRelinked = accountSync.statsRelinked;
+
     const accounts = await prisma.gameAccount.findMany({
-      select: { id: true, providerId: true },
+      select: { id: true, providerId: true, provider: true },
     });
     const eventTemplate = await resolveEventTemplateId(prisma);
     console.log(
       `Using roster template for legacy events: ${eventTemplate.name} (${eventTemplate.id})`
     );
-    const accountByProviderId = new Map(
-      accounts.map((account) => [account.providerId, account.id])
+    const accountByProvider = new Map(
+      accounts.map((account) => [
+        buildProviderKey(account.provider, account.providerId),
+        account.id,
+      ])
     );
 
     const orderedEvents = Array.from(events.values()).sort((a, b) =>
@@ -453,7 +728,9 @@ async function run(): Promise<void> {
       const rawStats = statsByEventId.get(event.legacyEventId) ?? [];
       const preparedStats = rawStats.map((row) => ({
         gameAccountId: row.providerId
-          ? accountByProviderId.get(row.providerId) ?? null
+          ? accountByProvider.get(
+              buildProviderKey(inferAccountProvider(row.providerId), row.providerId)
+            ) ?? null
           : null,
         playerName: row.playerName,
         providerId: row.providerId,
