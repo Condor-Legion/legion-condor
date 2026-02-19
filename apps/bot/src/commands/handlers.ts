@@ -89,6 +89,28 @@ type LastEventsApiResponse = {
   }>;
 };
 
+type GulagApiResponse = {
+  generatedAt: string;
+  windowSize: number;
+  windowEvents: Array<{
+    importId: string;
+    importedAt: string;
+  }>;
+  totalMembersEvaluated: number;
+  gulag: Array<{
+    memberId: string;
+    discordId: string;
+    displayName: string;
+    joinedAt: string | null;
+    tenureDays: number | null;
+    recentEventsPlayed: number;
+    recentEventsMissed: number;
+    lastPlayedAt: string | null;
+    daysWithoutPlay: number | null;
+    status: "GULAG";
+  }>;
+};
+
 type MemberByDiscordApiResponse = {
   member: {
     displayName: string;
@@ -165,6 +187,28 @@ function formatDiscordTimestamp(iso: string): string {
 function truncateFieldValue(value: string, max = 1024): string {
   if (value.length <= max) return value;
   return `${value.slice(0, max - 3)}...`;
+}
+
+function formatDateTimeShort(iso: string | null): string {
+  if (!iso) return "N/D";
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "N/D";
+  return date
+    .toLocaleString("es-AR", {
+      timeZone: "America/Argentina/Buenos_Aires",
+      year: "2-digit",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    })
+    .replace(",", "");
+}
+
+function padTableCell(value: string, width: number): string {
+  const safe = value.length > width ? `${value.slice(0, width - 1)}…` : value;
+  return safe.padEnd(width, " ");
 }
 
 function buildAccountsSummary(
@@ -321,25 +365,20 @@ export async function handleCreateAccount(
     return;
   }
 
+  const isAdmin =
+    interaction.memberPermissions?.has(PermissionFlagsBits.Administrator) ??
+    false;
+  if (!isAdmin) {
+    await interaction.reply({
+      content: "Solo administradores pueden usar este comando.",
+      flags: MessageFlags.Ephemeral,
+    });
+    return;
+  }
+
   const provider = interaction.options.getString("provider", true);
   const providerId = interaction.options.getString("id", true);
-  const requestedUser = interaction.options.getUser("usuario");
-  const targetUser = requestedUser ?? interaction.user;
-  const creatingForAnotherUser = targetUser.id !== interaction.user.id;
-
-  if (creatingForAnotherUser) {
-    const isAdmin =
-      interaction.memberPermissions?.has(PermissionFlagsBits.Administrator) ??
-      false;
-    if (!isAdmin) {
-      await interaction.reply({
-        content:
-          "Solo administradores pueden crear cuentas para otro usuario.",
-        flags: MessageFlags.Ephemeral,
-      });
-      return;
-    }
-  }
+  const targetUser = interaction.options.getUser("usuario", true);
 
   await interaction.deferReply({ flags: MessageFlags.Ephemeral });
   try {
@@ -371,9 +410,7 @@ export async function handleCreateAccount(
 
     if (res.status === 404) {
       await interaction.editReply(
-        creatingForAnotherUser
-          ? "Ese usuario no está en el roster. Ejecutá /sync-roster o /sync-miembros antes."
-          : "No estás en el roster. Primero ejecutá /sync-roster."
+        "Ese usuario no está en el roster. Ejecutá /sync-roster o /sync-miembros antes."
       );
       return;
     }
@@ -390,9 +427,7 @@ export async function handleCreateAccount(
     }
 
     await interaction.editReply(
-      creatingForAnotherUser
-        ? `Cuenta creada correctamente para <@${targetUser.id}>.`
-        : "Cuenta creada correctamente."
+      `Cuenta creada correctamente para <@${targetUser.id}>.`
     );
   } catch (error) {
     console.error("Create account error:", error);
@@ -643,15 +678,6 @@ export async function handleMyAccount(
           inline: false,
         },
         {
-          name: "Puntuación",
-          value: [
-            `Score total: **${formatInt(aggregate.score)}**`,
-            `Score por evento: **${formatFloat(averages.scorePerMatch)}**`,
-            `Combate/Ataque/Defensa/Soporte por evento: **${formatInt(averages.combatPerMatch)} / ${formatInt(averages.offensePerMatch)} / ${formatInt(averages.defensePerMatch)} / ${formatInt(averages.supportPerMatch)}**`,
-          ].join("\n"),
-          inline: false,
-        },
-        {
           name: "Actividad reciente",
           value: truncateFieldValue(recentActivity),
           inline: false,
@@ -663,6 +689,101 @@ export async function handleMyAccount(
   } catch (error) {
     console.error("My account error:", error);
     await interaction.editReply("Error consultando tu cuenta.");
+  }
+}
+
+export async function handleGulag(
+  interaction: ChatInputCommandInteraction
+): Promise<void> {
+  await interaction.deferReply();
+
+  try {
+    const response = await fetch(`${config.apiUrl}/api/stats/gulag`, {
+      headers: { "x-bot-api-key": config.botApiKey },
+    });
+
+    if (!response.ok) {
+      const text = await response.text();
+      await interaction.editReply(
+        `No se pudo consultar Gulag (${response.status}). ${text}`
+      );
+      return;
+    }
+
+    const data = (await response.json()) as GulagApiResponse;
+    if (data.windowSize === 0) {
+      await interaction.editReply(
+        "No hay eventos importados para evaluar Gulag todavía."
+      );
+      return;
+    }
+
+    if (data.gulag.length === 0) {
+      await interaction.editReply(
+        `No hay jugadores en Gulag. Evaluados: ${formatInt(
+          data.totalMembersEvaluated
+        )} | Ventana: últimos ${formatInt(data.windowSize)} eventos.`
+      );
+      return;
+    }
+
+    const maxRows = 20;
+    const rows = data.gulag.slice(0, maxRows);
+    const header = [
+      padTableCell("Nick", 20),
+      padTableCell("Ingreso", 14),
+      padTableCell("Antig", 5),
+      padTableCell("Jug5", 4),
+      padTableCell("Sin5", 4),
+      padTableCell("DiasSin", 7),
+      "Estado",
+    ].join(" ");
+
+    const separator = "-".repeat(header.length);
+    const tableRows = rows.map((row) =>
+      [
+        padTableCell(row.displayName, 20),
+        padTableCell(formatDateTimeShort(row.joinedAt), 14),
+        padTableCell(
+          row.tenureDays === null ? "N/D" : formatInt(row.tenureDays),
+          5
+        ),
+        padTableCell(formatInt(row.recentEventsPlayed), 4),
+        padTableCell(formatInt(row.recentEventsMissed), 4),
+        padTableCell(
+          row.daysWithoutPlay === null ? "N/D" : formatInt(row.daysWithoutPlay),
+          7
+        ),
+        row.status,
+      ].join(" ")
+    );
+
+    const table = [header, separator, ...tableRows].join("\n");
+    const hiddenCount = data.gulag.length - rows.length;
+    const extraLine =
+      hiddenCount > 0
+        ? `\nMostrando ${formatInt(rows.length)} de ${formatInt(
+            data.gulag.length
+          )} jugadores en Gulag.`
+        : "";
+
+    await interaction.editReply(
+      [
+        `Jugadores evaluados: **${formatInt(
+          data.totalMembersEvaluated
+        )}** | Ventana: **últimos ${formatInt(data.windowSize)} eventos**`,
+        `En Gulag: **${formatInt(data.gulag.length)}**`,
+        "```",
+        table,
+        "```",
+        extraLine,
+      ]
+        .join("\n")
+        .trim()
+    );
+  } catch (error) {
+    console.error("Gulag error:", error);
+    await interaction.editReply("Error consultando Gulag.");
   }
 }
 

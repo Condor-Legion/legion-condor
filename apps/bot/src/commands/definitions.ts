@@ -33,6 +33,11 @@ const commands = [
     .setDefaultMemberPermissions(0n)
     .setDMPermission(false),
   new SlashCommandBuilder()
+    .setName("gulag")
+    .setDescription("Muestra los jugadores en estado Gulag")
+    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
+    .setDMPermission(false),
+  new SlashCommandBuilder()
     .setName("ultimos-eventos")
     .setDescription("Muestra tus últimos eventos con estadísticas")
     .setDefaultMemberPermissions(0n)
@@ -64,7 +69,7 @@ const commands = [
   new SlashCommandBuilder()
     .setName("crear-cuenta")
     .setDescription("Solicita crear una cuenta de juego")
-    .setDefaultMemberPermissions(0n)
+    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
     .setDMPermission(false)
     .addStringOption((option) =>
       option
@@ -86,8 +91,8 @@ const commands = [
     .addUserOption((option) =>
       option
         .setName("usuario")
-        .setDescription("Solo admins: crear cuenta para otro usuario")
-        .setRequired(false)
+        .setDescription("Usuario para crear la cuenta")
+        .setRequired(true)
     ),
   new SlashCommandBuilder()
     .setName("config-tickets")

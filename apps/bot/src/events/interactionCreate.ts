@@ -7,6 +7,7 @@ import {
   handleSetupTickets,
   handleMyRank,
   handleMyAccount,
+  handleGulag,
   handleLastEvents,
   handleAnunciar,
 } from "../commands/handlers";
@@ -46,6 +47,10 @@ export function setupInteractionCreateEvent(client: Client): void {
       }
       if (interaction.commandName === "mi-cuenta") {
         await handleMyAccount(interaction);
+        return;
+      }
+      if (interaction.commandName === "gulag") {
+        await handleGulag(interaction);
         return;
       }
       if (interaction.commandName === "ultimos-eventos") {

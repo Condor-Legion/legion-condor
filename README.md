@@ -6,7 +6,7 @@ Sistema de gestiÃ³n para una comunidad de juego: miembros, roster de eventos, 
 
 - **Panel admin (web)**: login con usuario y contraseÃ±a, gestiÃ³n de eventos, roster por evento, importaciÃ³n de datos e historial de auditorÃ­a.
 - **API**: autenticaciÃ³n por sesiÃ³n (cookie), CRUD de miembros y roster, estadÃ­sticas, importaciÃ³n y WebSocket para actualizaciones en tiempo real.
-- **Bot Discord**: integraciÃ³n con la API (por API key) para consultas, sync y tickets de ingreso desde Discord.
+- **Bot Discord**: integraciÃ³n con la API (por API key) para consultas, sync y tickets de ingreso desde Discord. Comandos principales: `/mi-rank`, `/mi-cuenta`, `/ultimos-eventos`, `/gulag` (admin), `/crear-cuenta` (admin).
 - **Base de datos**: PostgreSQL con Prisma.
 
 ## CÃ³mo levantar el proyecto en local (con Docker)
