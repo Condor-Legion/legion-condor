@@ -57,12 +57,13 @@ Opciones:
 
 ### `/gulag` (admin)
 Evalua estado Gulag con la regla:
-- Si un jugador no participa en los ultimos 5 eventos y tiene mas de 1 mes en el clan, entra en Gulag.
+- Si pasaron `N` dias o mas desde su ultimo evento jugado, entra en Gulag.
+- `N` se configura con la variable de entorno `GULAG_INACTIVITY_DAYS` (default: `30`).
 
 Fuente de datos:
 - Base principal: `Member`.
 - Fecha de ingreso al clan: `DiscordMember.joinedAt`.
-- Participacion: `PlayerMatchStats` sobre los ultimos 5 `ImportCrcon` con stats.
+- Participacion: `PlayerMatchStats` + fecha del ultimo `ImportCrcon` jugado por miembro.
 
 Salida:
 - Tabla con jugadores en estado Gulag.

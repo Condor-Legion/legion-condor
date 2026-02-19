@@ -97,11 +97,7 @@ type LastEventsApiResponse = {
 
 type GulagApiResponse = {
   generatedAt: string;
-  windowSize: number;
-  windowEvents: Array<{
-    importId: string;
-    importedAt: string;
-  }>;
+  inactivityDays: number;
   totalMembersEvaluated: number;
   gulag: Array<{
     memberId: string;
@@ -109,8 +105,6 @@ type GulagApiResponse = {
     displayName: string;
     joinedAt: string | null;
     tenureDays: number | null;
-    recentEventsPlayed: number;
-    recentEventsMissed: number;
     eventsWithoutPlay: number;
     lastPlayedAt: string | null;
     daysWithoutPlay: number | null;
@@ -810,9 +804,9 @@ function buildGulagContent(
   data: GulagApiResponse,
   requestedPage: number
 ): GulagRenderResult {
-  if (data.windowSize === 0) {
+  if (data.totalMembersEvaluated === 0) {
     return {
-      content: "No hay eventos importados para evaluar Gulag todavia.",
+      content: "No hay miembros activos para evaluar Gulag.",
       currentPage: 1,
       totalPages: 1,
       hasRows: false,
@@ -823,7 +817,9 @@ function buildGulagContent(
     return {
       content: `No hay jugadores en Gulag. Evaluados: ${formatInt(
         data.totalMembersEvaluated
-      )} | Ventana: ultimos ${formatInt(data.windowSize)} eventos.`,
+      )} | Regla: sin jugar hace ${formatInt(
+        data.inactivityDays
+      )} dias o mas.`,
       currentPage: 1,
       totalPages: 1,
       hasRows: false,
@@ -869,7 +865,9 @@ function buildGulagContent(
   const content = [
     `Jugadores evaluados: **${formatInt(
       data.totalMembersEvaluated
-    )}** | Ventana: **ultimos ${formatInt(data.windowSize)} eventos**`,
+    )}** | Regla: **sin jugar hace ${formatInt(
+      data.inactivityDays
+    )} dias o mas**`,
     `En Gulag: **${formatInt(data.gulag.length)}**`,
     `Pagina: **${formatInt(currentPage)}/${formatInt(totalPages)}**`,
     "```",

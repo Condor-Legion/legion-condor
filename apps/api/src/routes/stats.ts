@@ -333,27 +333,19 @@ statsRouter.get("/myrank/:discordId", requireBotOrAdmin, async (req, res) => {
 
 statsRouter.get("/gulag", requireBotOrAdmin, async (_req, res) => {
   const now = new Date();
-  const monthMs = 30 * 24 * 60 * 60 * 1000;
   const dayMs = 24 * 60 * 60 * 1000;
+  const inactivityDaysRaw = Number(process.env.GULAG_INACTIVITY_DAYS ?? "30");
+  const inactivityDays =
+    Number.isFinite(inactivityDaysRaw) && inactivityDaysRaw > 0
+      ? Math.floor(inactivityDaysRaw)
+      : 30;
+  const inactivityMs = inactivityDays * dayMs;
 
   const allImports = await prisma.importCrcon.findMany({
     where: { stats: { some: {} } },
     orderBy: { importedAt: "desc" },
     select: { id: true, importedAt: true },
   });
-  const recentImports = allImports.slice(0, 5);
-
-  if (recentImports.length === 0) {
-    return res.json({
-      generatedAt: now.toISOString(),
-      windowSize: 0,
-      windowEvents: [],
-      totalMembersEvaluated: 0,
-      gulag: [],
-    });
-  }
-
-  const recentImportIds = recentImports.map((row) => row.id);
   const members = await prisma.member.findMany({
     where: { isActive: true },
     include: {
@@ -367,11 +359,7 @@ statsRouter.get("/gulag", requireBotOrAdmin, async (_req, res) => {
   if (members.length === 0) {
     return res.json({
       generatedAt: now.toISOString(),
-      windowSize: recentImports.length,
-      windowEvents: recentImports.map((row) => ({
-        importId: row.id,
-        importedAt: row.importedAt.toISOString(),
-      })),
+      inactivityDays,
       totalMembersEvaluated: 0,
       gulag: [],
     });
@@ -385,92 +373,15 @@ statsRouter.get("/gulag", requireBotOrAdmin, async (_req, res) => {
     discordMembers.map((member) => [member.discordId, member.joinedAt])
   );
 
-  const accountIdToMemberId = new Map<string, string>();
-  const providerIdToMemberId = new Map<string, string>();
-  const accountIds: string[] = [];
-  const providerIdsSet = new Set<string>();
-
-  for (const member of members) {
-    for (const account of member.gameAccounts) {
-      accountIdToMemberId.set(account.id, member.id);
-      accountIds.push(account.id);
-      if (!providerIdToMemberId.has(account.providerId)) {
-        providerIdToMemberId.set(account.providerId, member.id);
-      }
-      providerIdsSet.add(account.providerId);
-    }
-  }
-
-  const identityWhere: Prisma.PlayerMatchStatsWhereInput[] = [];
-  if (accountIds.length > 0) {
-    identityWhere.push({ gameAccountId: { in: accountIds } });
-  }
-  const providerIds = Array.from(providerIdsSet);
-  if (providerIds.length > 0) {
-    identityWhere.push({ gameAccountId: null, providerId: { in: providerIds } });
-  }
-
-  const recentParticipationRows =
-    identityWhere.length > 0
-      ? await prisma.playerMatchStats.findMany({
-          where: {
-            importCrconId: { in: recentImportIds },
-            OR: identityWhere,
-          },
-          select: {
-            importCrconId: true,
-            gameAccountId: true,
-            providerId: true,
-          },
-        })
-      : [];
-
-  const recentParticipationByMember = new Map<string, Set<string>>();
-  for (const row of recentParticipationRows) {
-    const memberId =
-      (row.gameAccountId
-        ? accountIdToMemberId.get(row.gameAccountId)
-        : undefined) ??
-      (row.providerId ? providerIdToMemberId.get(row.providerId) : undefined);
-    if (!memberId) continue;
-    const playedImports = recentParticipationByMember.get(memberId) ?? new Set();
-    playedImports.add(row.importCrconId);
-    recentParticipationByMember.set(memberId, playedImports);
-  }
-
-  const gulagCandidates = members
-    .map((member) => {
+  const gulagRows = await Promise.all(
+    members.map(async (member) => {
       const joinedAt = joinedAtByDiscordId.get(member.discordId) ?? null;
       const tenureDays =
         joinedAt !== null
           ? Math.floor((now.getTime() - joinedAt.getTime()) / dayMs)
           : null;
-      const recentEventsPlayed =
-        recentParticipationByMember.get(member.id)?.size ?? 0;
-      const recentEventsMissed = recentImports.length - recentEventsPlayed;
-      const inClanLongEnough =
-        joinedAt !== null && now.getTime() - joinedAt.getTime() >= monthMs;
-      const isInGulag = inClanLongEnough && recentEventsPlayed === 0;
-
-      return {
-        memberId: member.id,
-        discordId: member.discordId,
-        displayName: member.displayName,
-        joinedAt,
-        tenureDays,
-        recentEventsPlayed,
-        recentEventsMissed,
-        accounts: member.gameAccounts,
-        isInGulag,
-      };
-    })
-    .filter((row) => row.isInGulag);
-
-  const gulag = await Promise.all(
-    gulagCandidates.map(async (candidate) => {
-      const joinedAt = candidate.joinedAt;
-      const memberAccountIds = candidate.accounts.map((account) => account.id);
-      const memberProviderIds = candidate.accounts.map(
+      const memberAccountIds = member.gameAccounts.map((account) => account.id);
+      const memberProviderIds = member.gameAccounts.map(
         (account) => account.providerId
       );
       const memberIdentityWhere = buildMemberIdentityWhere(
@@ -490,36 +401,39 @@ statsRouter.get("/gulag", requireBotOrAdmin, async (_req, res) => {
         lastPlayedAt = latestPlayed?.importCrcon.importedAt ?? null;
       }
 
+      const baselineDate = lastPlayedAt ?? joinedAt;
       const daysWithoutPlay =
-        lastPlayedAt !== null
-          ? Math.floor((now.getTime() - lastPlayedAt.getTime()) / dayMs)
-          : candidate.tenureDays;
+        baselineDate !== null
+          ? Math.floor((now.getTime() - baselineDate.getTime()) / dayMs)
+          : null;
+      const isInGulag =
+        baselineDate !== null &&
+        now.getTime() - baselineDate.getTime() >= inactivityMs;
+
+      if (!isInGulag) return null;
+
+      const eventsWithoutPlay =
+        baselineDate !== null
+          ? allImports.filter(
+              (importRow) => importRow.importedAt.getTime() > baselineDate.getTime()
+            ).length
+          : 0;
 
       return {
-        memberId: candidate.memberId,
-        discordId: candidate.discordId,
-        displayName: candidate.displayName,
-        joinedAt: candidate.joinedAt?.toISOString() ?? null,
-        tenureDays: candidate.tenureDays,
-        recentEventsPlayed: candidate.recentEventsPlayed,
-        recentEventsMissed: candidate.recentEventsMissed,
+        memberId: member.id,
+        discordId: member.discordId,
+        displayName: member.displayName,
+        joinedAt: joinedAt?.toISOString() ?? null,
+        tenureDays,
         lastPlayedAt: lastPlayedAt?.toISOString() ?? null,
         daysWithoutPlay,
-        eventsWithoutPlay:
-          lastPlayedAt !== null
-            ? allImports.filter(
-                (importRow) => importRow.importedAt.getTime() > lastPlayedAt.getTime()
-              ).length
-            : joinedAt !== null
-            ? allImports.filter(
-                (importRow) =>
-                  importRow.importedAt.getTime() >=
-                  joinedAt.getTime()
-              ).length
-            : allImports.length,
+        eventsWithoutPlay,
         status: "GULAG" as const,
       };
     })
+  );
+  const gulag = gulagRows.filter(
+    (row): row is NonNullable<(typeof gulagRows)[number]> => row !== null
   );
 
   gulag.sort(
@@ -528,11 +442,7 @@ statsRouter.get("/gulag", requireBotOrAdmin, async (_req, res) => {
 
   return res.json({
     generatedAt: now.toISOString(),
-    windowSize: recentImports.length,
-    windowEvents: recentImports.map((row) => ({
-      importId: row.id,
-      importedAt: row.importedAt.toISOString(),
-    })),
+    inactivityDays,
     totalMembersEvaluated: members.length,
     gulag,
   });
