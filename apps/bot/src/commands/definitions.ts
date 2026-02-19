@@ -10,20 +10,20 @@ import { config } from "../config";
 const commands = [
   new SlashCommandBuilder()
     .setName("mi-rank")
-    .setDescription("Muestra tu resumen de estadisticas")
+    .setDescription("Muestra tu resumen de estadísticas")
     .setDefaultMemberPermissions(0n)
     .setDMPermission(false)
     .addIntegerOption((option) =>
       option
         .setName("dias")
-        .setDescription("Ultimos N dias (1-365)")
+        .setDescription("Últimos N días (1-365)")
         .setMinValue(1)
         .setMaxValue(365)
     )
     .addIntegerOption((option) =>
       option
         .setName("eventos")
-        .setDescription("Ultimos N eventos (1-50)")
+        .setDescription("Últimos N eventos (1-50)")
         .setMinValue(1)
         .setMaxValue(50)
     ),
@@ -34,7 +34,7 @@ const commands = [
     .setDMPermission(false),
   new SlashCommandBuilder()
     .setName("ultimos-eventos")
-    .setDescription("Muestra tus ultimos eventos con estadisticas")
+    .setDescription("Muestra tus últimos eventos con estadísticas")
     .setDefaultMemberPermissions(0n)
     .setDMPermission(false)
     .addIntegerOption((option) =>
@@ -47,7 +47,7 @@ const commands = [
     .addIntegerOption((option) =>
       option
         .setName("dias")
-        .setDescription("Filtrar por ultimos N dias (1-365)")
+        .setDescription("Filtrar por últimos N días (1-365)")
         .setMinValue(1)
         .setMaxValue(365)
     ),
@@ -91,7 +91,7 @@ const commands = [
     ),
   new SlashCommandBuilder()
     .setName("config-tickets")
-    .setDescription("Envia el boton para crear tickets en este canal")
+    .setDescription("Envía el botón para crear tickets en este canal")
     .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
     .setDMPermission(false),
   new SlashCommandBuilder()
@@ -113,7 +113,7 @@ const commands = [
       o
         .setName("canal_mensaje")
         .setDescription(
-          "Canal donde esta el mensaje a copiar. Si no se elige, se usa este canal."
+          "Canal donde está el mensaje a copiar. Si no se elige, se usa este canal."
         )
         .addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement)
         .setRequired(false)
@@ -128,21 +128,21 @@ const commands = [
       o
         .setName("hora")
         .setDescription(
-          "Hora de publicacion en GMT-3 (ej: 14:30). Si no se pone, se publica al instante."
+          "Hora de publicación en GMT-3 (ej: 14:30). Si no se pone, se publica al instante."
         )
         .setRequired(false)
     )
     .addStringOption((o) =>
       o
         .setName("fecha")
-        .setDescription("Fecha de publicacion (YYYY-MM-DD). Para programar una sola vez.")
+        .setDescription("Fecha de publicación (YYYY-MM-DD). Para programar una sola vez.")
         .setRequired(false)
     )
     .addStringOption((o) =>
       o
         .setName("dias_semana")
         .setDescription(
-          "Dias recurrentes separados por coma: lunes,martes,miercoles,jueves,viernes,sabado,domingo"
+          "Días recurrentes separados por coma: lunes,martes,miércoles,jueves,viernes,sábado,domingo"
         )
         .setRequired(false)
     ),

@@ -21,13 +21,17 @@ const DAY_NAMES: Record<string, number> = {
   martes: 2,
   mar: 2,
   miercoles: 3,
+  miércoles: 3,
   mie: 3,
+  mié: 3,
   jueves: 4,
   jue: 4,
   viernes: 5,
   vie: 5,
   sabado: 6,
+  sábado: 6,
   sab: 6,
+  sáb: 6,
 };
 
 type MyRankApiResponse = {
@@ -109,10 +113,10 @@ function formatFloat(value: number, digits = 2): string {
 function describeWindow(
   days: number | null,
   events: number | null,
-  fallback = "Historico"
+  fallback = "Histórico"
 ): string {
-  if (typeof days === "number") return `Ultimos ${days} dias`;
-  if (typeof events === "number") return `Ultimos ${events} eventos`;
+  if (typeof days === "number") return `Últimos ${days} días`;
+  if (typeof events === "number") return `Últimos ${events} eventos`;
   return fallback;
 }
 
@@ -127,7 +131,7 @@ function buildRankIdsValue(
 ): string {
   if (accounts.length === 0) {
     return lastUsedProviderId
-      ? `Ultima usada (stats): \`${lastUsedProviderId}\``
+      ? `Última usada (stats): \`${lastUsedProviderId}\``
       : "No vinculado";
   }
 
@@ -139,14 +143,14 @@ function buildRankIdsValue(
 
   const rows = orderedAccounts.map((account) => {
     const isLastUsed = account.providerId === lastUsedProviderId;
-    return `${formatProvider(account.provider)}: \`${account.providerId}\`${isLastUsed ? " (ultima usada)" : ""}`;
+    return `${formatProvider(account.provider)}: \`${account.providerId}\`${isLastUsed ? " (última usada)" : ""}`;
   });
 
   if (
     lastUsedProviderId &&
     !accounts.some((account) => account.providerId === lastUsedProviderId)
   ) {
-    rows.unshift(`Ultima usada (stats): \`${lastUsedProviderId}\``);
+    rows.unshift(`Última usada (stats): \`${lastUsedProviderId}\``);
   }
 
   return rows.join("\n");
@@ -368,8 +372,8 @@ export async function handleCreateAccount(
     if (res.status === 404) {
       await interaction.editReply(
         creatingForAnotherUser
-          ? "Ese usuario no esta en el roster. Ejecuta /sync-roster o /sync-miembros antes."
-          : "No estas en el roster. Primero ejecuta /sync-roster."
+          ? "Ese usuario no está en el roster. Ejecutá /sync-roster o /sync-miembros antes."
+          : "No estás en el roster. Primero ejecutá /sync-roster."
       );
       return;
     }
@@ -417,7 +421,7 @@ export async function handleSetupTickets(
   await interaction.deferReply({ flags: MessageFlags.Ephemeral });
   await interaction.channel.send({
     content:
-      "Presiona el boton para crear tu ticket de ingreso a la Legion Condor.",
+      "Presioná el botón para crear tu ticket de ingreso a la Legión Cóndor.",
     components: [buildSetupActionRow()],
   });
   await interaction.editReply("Mensaje de tickets enviado.");
@@ -430,7 +434,7 @@ export async function handleMyRank(
   const events = interaction.options.getInteger("eventos");
   if (days !== null && events !== null) {
     await interaction.reply({
-      content: "Usa solo una opcion: `dias` o `eventos`.",
+      content: "Usá solo una opción: `dias` o `eventos`.",
     });
     return;
   }
@@ -454,7 +458,7 @@ export async function handleMyRank(
 
     if (rankRes.status === 404) {
       await interaction.editReply(
-        "No encontramos tu cuenta en el roster o todavia no tenes stats vinculadas."
+        "No encontramos tu cuenta en el roster o todavía no tenés stats vinculadas."
       );
       return;
     }
@@ -470,20 +474,20 @@ export async function handleMyRank(
     const data = (await rankRes.json()) as MyRankApiResponse;
     const aggregate = data.aggregate;
     const averages = data.averages;
-    const windowLabel = describeWindow(days, events, "Historico");
+    const windowLabel = describeWindow(days, events, "Histórico");
     const memberData = memberRes.ok
       ? ((await memberRes.json()) as MemberByDiscordApiResponse)
       : null;
     const idValue = memberData
       ? buildRankIdsValue(memberData.member.gameAccounts, data.lastUsedProviderId)
       : data.lastUsedProviderId
-      ? `Ultima usada (stats): \`${data.lastUsedProviderId}\``
+      ? `Última usada (stats): \`${data.lastUsedProviderId}\``
       : "No vinculado";
     const embed = new EmbedBuilder()
       .setColor(0xe74c3c)
       .setTitle("📊 Tu resumen en el clan")
       .setDescription(
-        `Aqui tienes el resumen de tu desempeno.\nVentana: **${windowLabel}**`
+        `Aquí tenés el resumen de tu desempeño.\nVentana: **${windowLabel}**`
       )
       .addFields(
         {
@@ -502,7 +506,7 @@ export async function handleMyRank(
           inline: false,
         },
         {
-          name: "🔫 Estadisticas",
+          name: "🔫 Estadísticas",
           value: [
             `Kills: **${formatInt(aggregate.kills)}**`,
             `Deaths: **${formatInt(aggregate.deaths)}**`,
@@ -519,10 +523,10 @@ export async function handleMyRank(
         {
           name: "🎯 Puntos Promedio",
           value: [
-            `Combate: **${formatFloat(averages.combatPerMatch)}**`,
-            `Ataque: **${formatFloat(averages.offensePerMatch)}**`,
-            `Defensa: **${formatFloat(averages.defensePerMatch)}**`,
-            `Soporte: **${formatFloat(averages.supportPerMatch)}**`,
+            `Combate: **${formatInt(averages.combatPerMatch)}**`,
+            `Ataque: **${formatInt(averages.offensePerMatch)}**`,
+            `Defensa: **${formatInt(averages.defensePerMatch)}**`,
+            `Soporte: **${formatInt(averages.supportPerMatch)}**`,
           ].join("\n"),
           inline: true,
         }
@@ -559,7 +563,7 @@ export async function handleMyAccount(
 
     if (rankRes.status === 404 || memberRes.status === 404) {
       await interaction.editReply(
-        "No encontramos tu cuenta en el roster o todavia no tenes stats vinculadas."
+        "No encontramos tu cuenta en el roster o todavía no tenés stats vinculadas."
       );
       return;
     }
@@ -606,7 +610,7 @@ export async function handleMyAccount(
     const embed = new EmbedBuilder()
       .setColor(0x1abc9c)
       .setTitle("Mi cuenta")
-      .setDescription("Resumen general de tu perfil y estadisticas.")
+      .setDescription("Resumen general de tu perfil y estadísticas.")
       .addFields(
         {
           name: "Usuario",
@@ -624,7 +628,7 @@ export async function handleMyAccount(
           inline: true,
         },
         {
-          name: "Estadisticas generales",
+          name: "Estadísticas generales",
           value: [
             `Kills: **${formatInt(aggregate.kills)}**`,
             `Deaths: **${formatInt(aggregate.deaths)}**`,
@@ -639,15 +643,11 @@ export async function handleMyAccount(
           inline: false,
         },
         {
-          name: "Puntuacion",
+          name: "Puntuación",
           value: [
             `Score total: **${formatInt(aggregate.score)}**`,
             `Score por evento: **${formatFloat(averages.scorePerMatch)}**`,
-            `Combate/Ataque/Defensa/Soporte por evento: **${formatFloat(
-              averages.combatPerMatch
-            )} / ${formatFloat(averages.offensePerMatch)} / ${formatFloat(
-              averages.defensePerMatch
-            )} / ${formatFloat(averages.supportPerMatch)}**`,
+            `Combate/Ataque/Defensa/Soporte por evento: **${formatInt(averages.combatPerMatch)} / ${formatInt(averages.offensePerMatch)} / ${formatInt(averages.defensePerMatch)} / ${formatInt(averages.supportPerMatch)}**`,
           ].join("\n"),
           inline: false,
         },
@@ -673,7 +673,7 @@ export async function handleLastEvents(
   const count = interaction.options.getInteger("cantidad");
   if (days !== null && count !== null) {
     await interaction.reply({
-      content: "Usa solo una opcion: `dias` o `cantidad`.",
+      content: "Usá solo una opción: `dias` o `cantidad`.",
     });
     return;
   }
@@ -698,7 +698,7 @@ export async function handleLastEvents(
 
     if (response.status === 404) {
       await interaction.editReply(
-        "No encontramos tu cuenta en el roster o todavia no tenes stats vinculadas."
+        "No encontramos tu cuenta en el roster o todavía no tenés stats vinculadas."
       );
       return;
     }
@@ -706,7 +706,7 @@ export async function handleLastEvents(
     if (!response.ok) {
       const text = await response.text();
       await interaction.editReply(
-        `No se pudieron obtener tus ultimos eventos (${response.status}). ${text}`
+        `No se pudieron obtener tus últimos eventos (${response.status}). ${text}`
       );
       return;
     }
@@ -722,14 +722,14 @@ export async function handleLastEvents(
 
     const titleWindow =
       typeof days === "number"
-        ? `los ultimos ${days} dias`
-        : `los ultimos ${events} eventos`;
+        ? `los últimos ${days} días`
+        : `los últimos ${events} eventos`;
 
     const embed = new EmbedBuilder()
       .setColor(0xc0392b)
-      .setTitle(`📅 Tu desempeno en ${titleWindow}`)
+      .setTitle(`📅 Tu desempeño en ${titleWindow}`)
       .setDescription(
-        "Aqui esta tu rendimiento en los eventos recientes. ¡Echa un vistazo a tus estadisticas!"
+        "Aquí está tu rendimiento en los eventos recientes."
       )
       .addFields({
         name: "Usuario",
@@ -746,7 +746,7 @@ export async function handleLastEvents(
         event.aggregate.support;
       const roleLine =
         totalPoints === 0
-          ? "**Combate | Ataque | Defensa | Soporte:** El servidor no guardo estas stats."
+          ? "**Combate | Ataque | Defensa | Soporte:** El servidor no guardó estas stats."
           : [
               `**Combate:** ${formatInt(event.aggregate.combat)}`,
               `**Ataque:** ${formatInt(event.aggregate.offense)}`,
@@ -775,7 +775,7 @@ export async function handleLastEvents(
     await interaction.editReply({ embeds: [embed] });
   } catch (error) {
     console.error("Last events error:", error);
-    await interaction.editReply("Error consultando tus ultimos eventos.");
+    await interaction.editReply("Error consultando tus últimos eventos.");
   }
 }
 export async function handleAnunciar(
@@ -861,7 +861,7 @@ export async function handleAnunciar(
     } catch (err) {
       console.error("Anunciar send error:", err);
       await interaction.editReply(
-        "No se pudo enviar el mensaje en ese canal (permisos o canal no valido)."
+        "No se pudo enviar el mensaje en ese canal (permisos o canal no válido)."
       );
     }
     return;
@@ -869,7 +869,7 @@ export async function handleAnunciar(
 
   if (!hora) {
     await interaction.editReply(
-      "Si programas con fecha o dias recurrentes, tenes que indicar la hora (ej: 14:30)."
+      "Si programás con fecha o días recurrentes, tenés que indicar la hora (ej: 14:30)."
     );
     return;
   }
@@ -881,7 +881,7 @@ export async function handleAnunciar(
     recurrenceDays = parseDiasSemana(diasSemanaRaw);
     if (!recurrenceDays) {
       await interaction.editReply(
-        "Dias de la semana no validos. Usa: lunes, martes, miercoles, jueves, viernes, sabado, domingo (separados por coma)."
+        "Días de la semana no válidos. Usá: lunes, martes, miércoles, jueves, viernes, sábado, domingo (separados por coma)."
       );
       return;
     }
@@ -898,7 +898,7 @@ export async function handleAnunciar(
     }
   } else {
     await interaction.editReply(
-      "Indica fecha (para una sola vez) o dias de la semana (para recurrente)."
+      "Indicá fecha (para una sola vez) o días de la semana (para recurrente)."
     );
     return;
   }
@@ -938,13 +938,13 @@ export async function handleAnunciar(
     });
     await interaction.editReply(
       recurrenceDays
-        ? `Anuncio programado de forma recurrente. Proxima publicacion: ${nextAt} (GMT-3).`
+        ? `Anuncio programado de forma recurrente. Próxima publicación: ${nextAt} (GMT-3).`
         : `Anuncio programado para ${nextAt} (GMT-3).`
     );
   } catch (err) {
     console.error("Anunciar schedule error:", err);
     await interaction.editReply(
-      "Error de conexion con la API al programar el anuncio."
+      "Error de conexión con la API al programar el anuncio."
     );
   }
 }
