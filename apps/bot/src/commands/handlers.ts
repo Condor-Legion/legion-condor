@@ -53,6 +53,7 @@ type MyRankApiResponse = {
     defensePerMatch: number;
     supportPerMatch: number;
   };
+  lastUsedProviderId: string | null;
 };
 
 type LastEventsApiResponse = {
@@ -94,6 +95,9 @@ type MemberByDiscordApiResponse = {
   };
 };
 
+type MemberGameAccount =
+  MemberByDiscordApiResponse["member"]["gameAccounts"][number];
+
 function formatInt(value: number): string {
   return new Intl.NumberFormat("es-AR").format(Math.round(value));
 }
@@ -112,23 +116,67 @@ function describeWindow(
   return fallback;
 }
 
-function resolveSteamId(accounts: MemberByDiscordApiResponse["member"]["gameAccounts"]): string {
-  const steam = accounts.find((account) => account.provider === "STEAM");
-  if (steam?.providerId) return steam.providerId;
-  return accounts[0]?.providerId ?? "No vinculado";
+function formatProvider(provider: MemberGameAccount["provider"]): string {
+  if (provider === "XBOX_PASS") return "XBOX";
+  return provider;
 }
 
-function resolveClanRankLabel(
-  killDeathRatio: number,
-  scorePerMatch: number,
-  matches: number
+function buildRankIdsValue(
+  accounts: MemberGameAccount[],
+  lastUsedProviderId: string | null
 ): string {
-  if (matches < 5) return "Recluta";
-  if (killDeathRatio >= 4 || scorePerMatch >= 1200) return "General de Guerra";
-  if (killDeathRatio >= 3 || scorePerMatch >= 900) return "Coronel";
-  if (killDeathRatio >= 2 || scorePerMatch >= 700) return "Capitan";
-  if (killDeathRatio >= 1.4 || scorePerMatch >= 500) return "Sargento";
-  return "Soldado";
+  if (accounts.length === 0) {
+    return lastUsedProviderId
+      ? `Ultima usada (stats): \`${lastUsedProviderId}\``
+      : "No vinculado";
+  }
+
+  const orderedAccounts = [...accounts].sort(
+    (a, b) =>
+      Number(b.providerId === lastUsedProviderId) -
+      Number(a.providerId === lastUsedProviderId)
+  );
+
+  const rows = orderedAccounts.map((account) => {
+    const isLastUsed = account.providerId === lastUsedProviderId;
+    return `${formatProvider(account.provider)}: \`${account.providerId}\`${isLastUsed ? " (ultima usada)" : ""}`;
+  });
+
+  if (
+    lastUsedProviderId &&
+    !accounts.some((account) => account.providerId === lastUsedProviderId)
+  ) {
+    rows.unshift(`Ultima usada (stats): \`${lastUsedProviderId}\``);
+  }
+
+  return rows.join("\n");
+}
+
+function formatDiscordTimestamp(iso: string): string {
+  const parsed = Date.parse(iso);
+  if (Number.isNaN(parsed)) return "Fecha no disponible";
+  return `<t:${Math.floor(parsed / 1000)}:f>`;
+}
+
+function truncateFieldValue(value: string, max = 1024): string {
+  if (value.length <= max) return value;
+  return `${value.slice(0, max - 3)}...`;
+}
+
+function buildAccountsSummary(
+  displayName: string,
+  accounts: MemberGameAccount[]
+): string {
+  if (accounts.length === 0) return "No hay cuentas vinculadas.";
+
+  return accounts
+    .map(
+      (account) =>
+        `Usuario: **${displayName}** | Plataforma: **${formatProvider(
+          account.provider
+        )}** | ID: \`${account.providerId}\``
+    )
+    .join("\n");
 }
 
 function parseDiasSemana(value: string): string {
@@ -426,18 +474,14 @@ export async function handleMyRank(
     const memberData = memberRes.ok
       ? ((await memberRes.json()) as MemberByDiscordApiResponse)
       : null;
-    const steamId = memberData
-      ? resolveSteamId(memberData.member.gameAccounts)
+    const idValue = memberData
+      ? buildRankIdsValue(memberData.member.gameAccounts, data.lastUsedProviderId)
+      : data.lastUsedProviderId
+      ? `Ultima usada (stats): \`${data.lastUsedProviderId}\``
       : "No vinculado";
-    const clanRank = resolveClanRankLabel(
-      aggregate.killDeathRatio,
-      averages.scorePerMatch,
-      aggregate.matches
-    );
-
     const embed = new EmbedBuilder()
       .setColor(0xe74c3c)
-      .setTitle("📊 Tu Rank en el clan")
+      .setTitle("📊 Tu resumen en el clan")
       .setDescription(
         `Aqui tienes el resumen de tu desempeno.\nVentana: **${windowLabel}**`
       )
@@ -448,13 +492,8 @@ export async function handleMyRank(
           inline: true,
         },
         {
-          name: "🔑 SteamID",
-          value: steamId,
-          inline: true,
-        },
-        {
-          name: "🏆 Rango",
-          value: clanRank,
+          name: "🆔 ID",
+          value: truncateFieldValue(idValue),
           inline: true,
         },
         {
@@ -470,7 +509,7 @@ export async function handleMyRank(
             `K.p.m avg: **${formatFloat(averages.killsPerMinute)}**`,
             `K/D avg: **${formatFloat(aggregate.killDeathRatio)}**`,
           ].join("\n"),
-          inline: false,
+          inline: true,
         },
         {
           name: "🎯 Puntos Promedio",
@@ -480,7 +519,7 @@ export async function handleMyRank(
             `Defensa: **${formatFloat(averages.defensePerMatch)}**`,
             `Soporte: **${formatFloat(averages.supportPerMatch)}**`,
           ].join("\n"),
-          inline: false,
+          inline: true,
         }
       )
       .setTimestamp(new Date());
@@ -489,6 +528,136 @@ export async function handleMyRank(
   } catch (error) {
     console.error("My rank error:", error);
     await interaction.editReply("Error consultando tus stats.");
+  }
+}
+
+export async function handleMyAccount(
+  interaction: ChatInputCommandInteraction
+): Promise<void> {
+  await interaction.deferReply();
+
+  try {
+    const [rankRes, memberRes, lastEventRes] = await Promise.all([
+      fetch(`${config.apiUrl}/api/stats/myrank/${interaction.user.id}`, {
+        headers: { "x-bot-api-key": config.botApiKey },
+      }),
+      fetch(`${config.apiUrl}/api/members/by-discord/${interaction.user.id}`, {
+        headers: { "x-bot-api-key": config.botApiKey },
+      }),
+      fetch(
+        `${config.apiUrl}/api/stats/last-events/${interaction.user.id}?events=1`,
+        {
+          headers: { "x-bot-api-key": config.botApiKey },
+        }
+      ),
+    ]);
+
+    if (rankRes.status === 404 || memberRes.status === 404) {
+      await interaction.editReply(
+        "No encontramos tu cuenta en el roster o todavia no tenes stats vinculadas."
+      );
+      return;
+    }
+
+    if (!rankRes.ok) {
+      const text = await rankRes.text();
+      await interaction.editReply(
+        `No se pudieron obtener tus stats (${rankRes.status}). ${text}`
+      );
+      return;
+    }
+
+    if (!memberRes.ok) {
+      const text = await memberRes.text();
+      await interaction.editReply(
+        `No se pudieron obtener tus cuentas (${memberRes.status}). ${text}`
+      );
+      return;
+    }
+
+    const statsData = (await rankRes.json()) as MyRankApiResponse;
+    const memberData = (await memberRes.json()) as MemberByDiscordApiResponse;
+    const lastEventsData = lastEventRes.ok
+      ? ((await lastEventRes.json()) as LastEventsApiResponse)
+      : null;
+    const lastEvent = lastEventsData?.events[0] ?? null;
+
+    const accountsSummary = buildAccountsSummary(
+      statsData.member.displayName,
+      memberData.member.gameAccounts
+    );
+
+    const recentActivity = lastEvent
+      ? [
+          `Evento: **${lastEvent.title}**`,
+          `Kills: **${formatInt(lastEvent.aggregate.kills)}** | Deaths: **${formatInt(lastEvent.aggregate.deaths)}**`,
+          `Importado: ${formatDiscordTimestamp(lastEvent.importedAt)}`,
+        ].join("\n")
+      : "No hay eventos recientes registrados.";
+
+    const averages = statsData.averages;
+    const aggregate = statsData.aggregate;
+
+    const embed = new EmbedBuilder()
+      .setColor(0x1abc9c)
+      .setTitle("Mi cuenta")
+      .setDescription("Resumen general de tu perfil y estadisticas.")
+      .addFields(
+        {
+          name: "Usuario",
+          value: statsData.member.displayName,
+          inline: true,
+        },
+        {
+          name: "Discord",
+          value: `<@${interaction.user.id}>`,
+          inline: true,
+        },
+        {
+          name: "Eventos participados",
+          value: formatInt(aggregate.matches),
+          inline: true,
+        },
+        {
+          name: "Estadisticas generales",
+          value: [
+            `Kills: **${formatInt(aggregate.kills)}**`,
+            `Deaths: **${formatInt(aggregate.deaths)}**`,
+            `K.p.m avg: **${formatFloat(averages.killsPerMinute)}**`,
+            `K/D avg: **${formatFloat(aggregate.killDeathRatio)}**`,
+          ].join("\n"),
+          inline: false,
+        },
+        {
+          name: "Cuentas asociadas",
+          value: truncateFieldValue(accountsSummary),
+          inline: false,
+        },
+        {
+          name: "Puntuacion",
+          value: [
+            `Score total: **${formatInt(aggregate.score)}**`,
+            `Score por evento: **${formatFloat(averages.scorePerMatch)}**`,
+            `Combate/Ataque/Defensa/Soporte por evento: **${formatFloat(
+              averages.combatPerMatch
+            )} / ${formatFloat(averages.offensePerMatch)} / ${formatFloat(
+              averages.defensePerMatch
+            )} / ${formatFloat(averages.supportPerMatch)}**`,
+          ].join("\n"),
+          inline: false,
+        },
+        {
+          name: "Actividad reciente",
+          value: truncateFieldValue(recentActivity),
+          inline: false,
+        }
+      )
+      .setTimestamp(new Date());
+
+    await interaction.editReply({ embeds: [embed] });
+  } catch (error) {
+    console.error("My account error:", error);
+    await interaction.editReply("Error consultando tu cuenta.");
   }
 }
 

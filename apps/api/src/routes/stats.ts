@@ -260,6 +260,7 @@ statsRouter.get("/myrank/:discordId", requireBotOrAdmin, async (req, res) => {
     deathsPerMinute: number;
     killDeathRatio: number;
   }> = [];
+  let lastUsedProviderId: string | null = null;
 
   if (typeof parsed.data.events === "number") {
     const importIds = await resolveRecentImportIdsForMember(
@@ -273,13 +274,24 @@ statsRouter.get("/myrank/:discordId", requireBotOrAdmin, async (req, res) => {
         providerIds
       );
       if (memberIdentityWhere.length > 0) {
+        const scopedWhere: Prisma.PlayerMatchStatsWhereInput = {
+          OR: memberIdentityWhere,
+          importCrconId: { in: importIds },
+        };
         memberStats = await prisma.playerMatchStats.findMany({
-          where: {
-            OR: memberIdentityWhere,
-            importCrconId: { in: importIds },
-          },
+          where: scopedWhere,
           select: memberStatsSelect,
         });
+        const latestUsed = await prisma.playerMatchStats.findFirst({
+          where: scopedWhere,
+          orderBy: { importCrcon: { importedAt: "desc" } },
+          select: {
+            providerId: true,
+            gameAccount: { select: { providerId: true } },
+          },
+        });
+        lastUsedProviderId =
+          latestUsed?.gameAccount?.providerId ?? latestUsed?.providerId ?? null;
       }
     }
   } else {
@@ -300,6 +312,16 @@ statsRouter.get("/myrank/:discordId", requireBotOrAdmin, async (req, res) => {
         where: memberStatsWhere,
         select: memberStatsSelect,
       });
+      const latestUsed = await prisma.playerMatchStats.findFirst({
+        where: memberStatsWhere,
+        orderBy: { importCrcon: { importedAt: "desc" } },
+        select: {
+          providerId: true,
+          gameAccount: { select: { providerId: true } },
+        },
+      });
+      lastUsedProviderId =
+        latestUsed?.gameAccount?.providerId ?? latestUsed?.providerId ?? null;
     }
   }
 
@@ -375,6 +397,7 @@ statsRouter.get("/myrank/:discordId", requireBotOrAdmin, async (req, res) => {
       killDeathRatio:
         aggregate.matches > 0 ? aggregate.killDeathRatio / aggregate.matches : 0,
     },
+    lastUsedProviderId,
     averages,
   });
 });

@@ -28,6 +28,11 @@ const commands = [
         .setMaxValue(50)
     ),
   new SlashCommandBuilder()
+    .setName("mi-cuenta")
+    .setDescription("Muestra tu perfil y cuentas asociadas")
+    .setDefaultMemberPermissions(0n)
+    .setDMPermission(false),
+  new SlashCommandBuilder()
     .setName("ultimos-eventos")
     .setDescription("Muestra tus ultimos eventos con estadisticas")
     .setDefaultMemberPermissions(0n)
