@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { leaderboardQuerySchema, statsQuerySchema } from "@legion/shared";
+import { leaderboardQuerySchema } from "@legion/shared";
 import { prisma } from "../prisma";
 import { getAdminFromRequest, getBotApiKey } from "../auth";
 import { getPeriodStart } from "@legion/shared";
@@ -147,76 +147,6 @@ async function requireBotOrAdmin(
   if (!admin) return res.status(401).json({ error: "Unauthorized" });
   return next();
 }
-
-statsRouter.get("/matches", requireBotOrAdmin, async (req, res) => {
-  const from =
-    typeof req.query.from === "string" ? new Date(req.query.from) : undefined;
-  const to =
-    typeof req.query.to === "string" ? new Date(req.query.to) : undefined;
-  const matches = await prisma.importCrcon.findMany({
-    where: {
-      importedAt: {
-        gte: from,
-        lte: to,
-      },
-    },
-    orderBy: { importedAt: "desc" },
-  });
-  return res.json({ matches });
-});
-
-statsRouter.get("/matches/:importId", requireBotOrAdmin, async (req, res) => {
-  const match = await prisma.importCrcon.findUnique({
-    where: { id: req.params.importId },
-    include: { stats: true },
-  });
-  if (!match) return res.status(404).json({ error: "Not found" });
-  return res.json({ match });
-});
-
-statsRouter.get("/players/:memberId", requireBotOrAdmin, async (req, res) => {
-  const parsed = statsQuerySchema.safeParse(req.query);
-  if (!parsed.success) return res.status(400).json({ error: "Invalid query" });
-
-  const member = await prisma.member.findUnique({
-    where: { id: req.params.memberId },
-    include: { gameAccounts: true },
-  });
-  if (!member) return res.status(404).json({ error: "Not found" });
-
-  const periodStart = resolvePeriodStart(parsed.data.period);
-  const importWhere = buildImportWhere(periodStart, true);
-
-  const accountIds = member.gameAccounts.map((account) => account.id);
-  const stats = await prisma.playerMatchStats.findMany({
-    where: {
-      gameAccountId: { in: accountIds },
-      importCrcon: importWhere,
-    },
-  });
-
-  const aggregate = stats.reduce<{
-    kills: number;
-    deaths: number;
-    score: number;
-    matches: number;
-  }>(
-    (acc, row) => {
-      acc.kills += row.kills;
-      acc.deaths += row.deaths;
-      acc.score += row.score;
-      acc.matches += 1;
-      return acc;
-    },
-    { kills: 0, deaths: 0, score: 0, matches: 0 }
-  );
-
-  return res.json({
-    member: { id: member.id, displayName: member.displayName },
-    period: parsed.data.period,
-    aggregate,
-  });
-});
 
 statsRouter.get("/myrank/:discordId", requireBotOrAdmin, async (req, res) => {
   const parsed = myRankQuerySchema.safeParse(req.query);
@@ -407,12 +337,12 @@ statsRouter.get("/gulag", requireBotOrAdmin, async (_req, res) => {
   const monthMs = 30 * 24 * 60 * 60 * 1000;
   const dayMs = 24 * 60 * 60 * 1000;
 
-  const recentImports = await prisma.importCrcon.findMany({
+  const allImports = await prisma.importCrcon.findMany({
     where: { stats: { some: {} } },
     orderBy: { importedAt: "desc" },
-    take: 5,
     select: { id: true, importedAt: true },
   });
+  const recentImports = allImports.slice(0, 5);
 
   if (recentImports.length === 0) {
     return res.json({
@@ -539,6 +469,7 @@ statsRouter.get("/gulag", requireBotOrAdmin, async (_req, res) => {
 
   const gulag = await Promise.all(
     gulagCandidates.map(async (candidate) => {
+      const joinedAt = candidate.joinedAt;
       const memberAccountIds = candidate.accounts.map((account) => account.id);
       const memberProviderIds = candidate.accounts.map(
         (account) => account.providerId
@@ -575,6 +506,18 @@ statsRouter.get("/gulag", requireBotOrAdmin, async (_req, res) => {
         recentEventsMissed: candidate.recentEventsMissed,
         lastPlayedAt: lastPlayedAt?.toISOString() ?? null,
         daysWithoutPlay,
+        eventsWithoutPlay:
+          lastPlayedAt !== null
+            ? allImports.filter(
+                (importRow) => importRow.importedAt.getTime() > lastPlayedAt.getTime()
+              ).length
+            : joinedAt !== null
+            ? allImports.filter(
+                (importRow) =>
+                  importRow.importedAt.getTime() >=
+                  joinedAt.getTime()
+              ).length
+            : allImports.length,
         status: "GULAG" as const,
       };
     })

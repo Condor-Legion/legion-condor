@@ -105,6 +105,7 @@ type GulagApiResponse = {
     tenureDays: number | null;
     recentEventsPlayed: number;
     recentEventsMissed: number;
+    eventsWithoutPlay: number;
     lastPlayedAt: string | null;
     daysWithoutPlay: number | null;
     status: "GULAG";
@@ -187,23 +188,6 @@ function formatDiscordTimestamp(iso: string): string {
 function truncateFieldValue(value: string, max = 1024): string {
   if (value.length <= max) return value;
   return `${value.slice(0, max - 3)}...`;
-}
-
-function formatDateTimeShort(iso: string | null): string {
-  if (!iso) return "N/D";
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return "N/D";
-  return date
-    .toLocaleString("es-AR", {
-      timeZone: "America/Argentina/Buenos_Aires",
-      year: "2-digit",
-      month: "2-digit",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: false,
-    })
-    .replace(",", "");
 }
 
 function padTableCell(value: string, width: number): string {
@@ -695,6 +679,9 @@ export async function handleMyAccount(
 export async function handleGulag(
   interaction: ChatInputCommandInteraction
 ): Promise<void> {
+  const requestedPage = interaction.options.getInteger("pagina") ?? 1;
+  const pageSize = 20;
+
   await interaction.deferReply();
 
   try {
@@ -713,7 +700,7 @@ export async function handleGulag(
     const data = (await response.json()) as GulagApiResponse;
     if (data.windowSize === 0) {
       await interaction.editReply(
-        "No hay eventos importados para evaluar Gulag todavía."
+        "No hay eventos importados para evaluar Gulag todavia."
       );
       return;
     }
@@ -722,61 +709,60 @@ export async function handleGulag(
       await interaction.editReply(
         `No hay jugadores en Gulag. Evaluados: ${formatInt(
           data.totalMembersEvaluated
-        )} | Ventana: últimos ${formatInt(data.windowSize)} eventos.`
+        )} | Ventana: ultimos ${formatInt(data.windowSize)} eventos.`
       );
       return;
     }
 
-    const maxRows = 20;
-    const rows = data.gulag.slice(0, maxRows);
+    const totalPages = Math.max(1, Math.ceil(data.gulag.length / pageSize));
+    const currentPage = Math.min(Math.max(requestedPage, 1), totalPages);
+    const pageStart = (currentPage - 1) * pageSize;
+    const rows = data.gulag.slice(pageStart, pageStart + pageSize);
+
     const header = [
-      padTableCell("Nick", 20),
-      padTableCell("Ingreso", 14),
-      padTableCell("Antig", 5),
-      padTableCell("Jug5", 4),
-      padTableCell("Sin5", 4),
-      padTableCell("DiasSin", 7),
+      padTableCell("Nick", 24),
+      padTableCell("EvSinJugar", 10),
+      padTableCell("DiasSin", 8),
       "Estado",
     ].join(" ");
 
     const separator = "-".repeat(header.length);
     const tableRows = rows.map((row) =>
       [
-        padTableCell(row.displayName, 20),
-        padTableCell(formatDateTimeShort(row.joinedAt), 14),
-        padTableCell(
-          row.tenureDays === null ? "N/D" : formatInt(row.tenureDays),
-          5
-        ),
-        padTableCell(formatInt(row.recentEventsPlayed), 4),
-        padTableCell(formatInt(row.recentEventsMissed), 4),
+        padTableCell(row.displayName, 24),
+        padTableCell(formatInt(row.eventsWithoutPlay), 10),
         padTableCell(
           row.daysWithoutPlay === null ? "N/D" : formatInt(row.daysWithoutPlay),
-          7
+          8
         ),
         row.status,
       ].join(" ")
     );
 
     const table = [header, separator, ...tableRows].join("\n");
-    const hiddenCount = data.gulag.length - rows.length;
-    const extraLine =
-      hiddenCount > 0
-        ? `\nMostrando ${formatInt(rows.length)} de ${formatInt(
-            data.gulag.length
-          )} jugadores en Gulag.`
+    const shownFrom = pageStart + 1;
+    const shownTo = pageStart + rows.length;
+    const adjustedPageNotice =
+      requestedPage !== currentPage
+        ? `\nPagina solicitada ${formatInt(
+            requestedPage
+          )} no existe. Mostrando pagina ${formatInt(currentPage)}.`
         : "";
 
     await interaction.editReply(
       [
         `Jugadores evaluados: **${formatInt(
           data.totalMembersEvaluated
-        )}** | Ventana: **últimos ${formatInt(data.windowSize)} eventos**`,
+        )}** | Ventana: **ultimos ${formatInt(data.windowSize)} eventos**`,
         `En Gulag: **${formatInt(data.gulag.length)}**`,
+        `Pagina: **${formatInt(currentPage)}/${formatInt(totalPages)}**`,
         "```",
         table,
         "```",
-        extraLine,
+        `Mostrando ${formatInt(shownFrom)}-${formatInt(shownTo)} de ${formatInt(
+          data.gulag.length
+        )} jugadores en Gulag.`,
+        adjustedPageNotice,
       ]
         .join("\n")
         .trim()

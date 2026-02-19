@@ -36,7 +36,13 @@ const commands = [
     .setName("gulag")
     .setDescription("Muestra los jugadores en estado Gulag")
     .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
-    .setDMPermission(false),
+    .setDMPermission(false)
+    .addIntegerOption((option) =>
+      option
+        .setName("pagina")
+        .setDescription("Página a mostrar (default 1)")
+        .setMinValue(1)
+    ),
   new SlashCommandBuilder()
     .setName("ultimos-eventos")
     .setDescription("Muestra tus últimos eventos con estadísticas")
