@@ -47,20 +47,6 @@ const lastEventsQuerySchema = z
 
 type StatsPeriod = z.infer<typeof statsPeriodEnum>;
 
-function resolveHighestRoleNameFromDiscordRoles(
-  roles: unknown
-): string | null {
-  if (!Array.isArray(roles)) return null;
-  for (const role of roles) {
-    if (!role || typeof role !== "object") continue;
-    const name = (role as { name?: unknown }).name;
-    if (typeof name !== "string") continue;
-    const trimmed = name.trim();
-    if (trimmed.length > 0) return trimmed;
-  }
-  return null;
-}
-
 function resolvePeriodStart(period: StatsPeriod): Date | null {
   return getPeriodStart(period);
 }
@@ -576,16 +562,10 @@ statsRouter.get("/members-report", requireBotOrAdmin, async (_req, res) => {
 
   const discordMembers = await prisma.discordMember.findMany({
     where: { discordId: { in: members.map((member) => member.discordId) } },
-    select: { discordId: true, joinedAt: true, roles: true },
+    select: { discordId: true, joinedAt: true },
   });
-  const discordMetaByDiscordId = new Map(
-    discordMembers.map((member) => [
-      member.discordId,
-      {
-        joinedAt: member.joinedAt,
-        highestRoleName: resolveHighestRoleNameFromDiscordRoles(member.roles),
-      },
-    ])
+  const joinedAtByDiscordId = new Map(
+    discordMembers.map((member) => [member.discordId, member.joinedAt])
   );
 
   const accountIdToMemberId = new Map<string, string>();
@@ -705,8 +685,7 @@ statsRouter.get("/members-report", requireBotOrAdmin, async (_req, res) => {
   }
 
   const rows = members.map((member) => {
-    const discordMeta = discordMetaByDiscordId.get(member.discordId);
-    const joinedAt = discordMeta?.joinedAt ?? null;
+    const joinedAt = joinedAtByDiscordId.get(member.discordId) ?? null;
     const tenureDays =
       joinedAt !== null
         ? Math.floor((now.getTime() - joinedAt.getTime()) / dayMs)
@@ -724,7 +703,6 @@ statsRouter.get("/members-report", requireBotOrAdmin, async (_req, res) => {
       displayName: member.displayName,
       joinedAt: joinedAt?.toISOString() ?? null,
       tenureDays,
-      function: discordMeta?.highestRoleName ?? "Miembro",
       eventsParticipated: matches,
       kills: stats?.kills ?? 0,
       deaths: stats?.deaths ?? 0,

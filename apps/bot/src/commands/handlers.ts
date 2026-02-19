@@ -128,7 +128,6 @@ type MembersReportApiResponse = {
     displayName: string;
     joinedAt: string | null;
     tenureDays: number | null;
-    function: string;
     eventsParticipated: number;
     kills: number;
     deaths: number;
@@ -1006,9 +1005,6 @@ export async function handlePrintMembers(
             <td data-sort="${tenureSortValue}">${
               row.tenureDays === null ? "N/D" : formatInt(row.tenureDays)
             }</td>
-            <td data-sort="${escapeHtml(row.function.toLowerCase())}">${escapeHtml(
-              row.function
-            )}</td>
             <td data-sort="${row.eventsParticipated}">${formatInt(
               row.eventsParticipated
             )}</td>
@@ -1256,16 +1252,15 @@ export async function handlePrintMembers(
             <th class="sortable" data-index="2" data-type="text">Nick</th>
             <th class="sortable" data-index="3" data-type="text">Ingreso</th>
             <th class="sortable" data-index="4" data-type="number">Antiguedad (Dias)</th>
-            <th class="sortable" data-index="5" data-type="text">Funcion</th>
-            <th class="sortable" data-index="6" data-type="number">Eventos Participados</th>
-            <th class="sortable" data-index="7" data-type="number">Mato</th>
-            <th class="sortable" data-index="8" data-type="number">Murio</th>
-            <th class="sortable" data-index="9" data-type="number">Avg. K/D</th>
-            <th class="sortable" data-index="10" data-type="number">Avg. Pts de combate</th>
-            <th class="sortable" data-index="11" data-type="number">Avg. Pts de ataque</th>
-            <th class="sortable" data-index="12" data-type="number">Avg. Pts de defensa</th>
-            <th class="sortable" data-index="13" data-type="number">Avg. Pts de soporte</th>
-            <th class="sortable" data-index="14" data-type="number">Avg. Muertes x Min</th>
+            <th class="sortable" data-index="5" data-type="number">Eventos Participados</th>
+            <th class="sortable" data-index="6" data-type="number">Mato</th>
+            <th class="sortable" data-index="7" data-type="number">Murio</th>
+            <th class="sortable" data-index="8" data-type="number">Avg. K/D</th>
+            <th class="sortable" data-index="9" data-type="number">Avg. Pts de combate</th>
+            <th class="sortable" data-index="10" data-type="number">Avg. Pts de ataque</th>
+            <th class="sortable" data-index="11" data-type="number">Avg. Pts de defensa</th>
+            <th class="sortable" data-index="12" data-type="number">Avg. Pts de soporte</th>
+            <th class="sortable" data-index="13" data-type="number">Avg. Muertes x Min</th>
           </tr>
         </thead>
         <tbody>
@@ -1284,7 +1279,7 @@ export async function handlePrintMembers(
       const visibleLabel = document.getElementById("members-visible");
       const headers = Array.from(table.querySelectorAll("th.sortable"));
 
-      const state = { index: 7, dir: "desc" };
+      const state = { index: 6, dir: "desc" };
 
       function normalizeText(value) {
         return String(value || "").toLowerCase();
@@ -1359,7 +1354,7 @@ export async function handlePrintMembers(
             state.dir = state.dir === "asc" ? "desc" : "asc";
           } else {
             state.index = clickedIndex;
-            state.dir = clickedIndex === 7 ? "desc" : "asc";
+            state.dir = clickedIndex === 6 ? "desc" : "asc";
           }
           sortRows();
           updateHeaderState();

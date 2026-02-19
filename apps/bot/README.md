@@ -76,7 +76,6 @@ Columnas:
 - Nick
 - Ingreso
 - Antiguedad (Dias)
-- Funcion
 - Eventos Participados
 - Mato / Murio
 - Avg. K/D
