@@ -1,10 +1,10 @@
 ﻿# Legion Condor Bot
 
 Este bot de Discord sirve para:
-- Ejecutar comandos de estadisticas (por ejemplo `/mi-rank` y `/ultimos-eventos`).
+- Ejecutar comandos de estadisticas (`/mi-rank`, `/mi-cuenta`, `/ultimos-eventos` y `/gulag`).
 - Sincronizar miembros del servidor a la base de datos (`/sync-miembros`).
 - Sincronizar el roster desde roles de Discord (`/sync-roster`).
-- Solicitar cuentas de juego (`/crear-cuenta`).
+- Crear cuentas de juego desde administracion (`/crear-cuenta`).
 - Programar una sync automatica cada X horas.
 - Leer un canal de stats y disparar imports (links `/games/{id}`).
 
@@ -34,11 +34,19 @@ TICKETS_ADMIN_ROLE_IDS=...    # roles con acceso a todos los tickets (IDs separa
 ## Comandos
 
 ### `/mi-rank`
-Muestra tu resumen de rendimiento (K/D, score, promedios por evento).
+Muestra tu resumen de rendimiento en la ventana elegida.
+Incluye usuario, IDs vinculados (marcando la ultima usada en stats), eventos participados y promedios.
 Opciones:
 - `dias`: toma stats de los ultimos N dias.
 - `eventos`: toma stats de los ultimos N eventos.
 - Usar solo una de las dos.
+
+### `/mi-cuenta`
+Muestra resumen general del jugador:
+- Usuario y Discord.
+- Estadisticas generales (kills, deaths, KPM, K/D).
+- Cuentas asociadas.
+- Actividad reciente.
 
 ### `/ultimos-eventos`
 Muestra tus ultimos eventos con detalle de kills/deaths, K/D, score y puntos por rol.
@@ -46,6 +54,34 @@ Opciones:
 - `cantidad`: cantidad de eventos recientes.
 - `dias`: eventos dentro de los ultimos N dias.
 - Usar solo una de las dos.
+
+### `/gulag` (admin)
+Evalua estado Gulag con la regla:
+- Si pasaron `N` dias o mas desde su ultimo evento jugado, entra en Gulag.
+- `N` se configura con la variable de entorno `GULAG_INACTIVITY_DAYS` (default: `30`).
+
+Fuente de datos:
+- Base principal: `Member`.
+- Fecha de ingreso al clan: `DiscordMember.joinedAt`.
+- Participacion: `PlayerMatchStats` + fecha del ultimo `ImportCrcon` jugado por miembro.
+
+Salida:
+- Tabla con jugadores en estado Gulag.
+- Resumen de miembros evaluados y cantidad en Gulag.
+- Paginacion por botones (`< Anterior` / `Siguiente >`) en el mismo mensaje.
+
+### `/imprimir-miembros` (admin)
+Genera y adjunta un archivo HTML con tabla de miembros del roster (`Member`) y estadisticas agregadas.
+Columnas:
+- SteamID64/ID
+- Nick
+- Ingreso
+- Antiguedad (Dias)
+- Eventos Participados
+- Mato / Murio
+- Avg. K/D
+- Avg. Pts (combate, ataque, defensa, soporte)
+- Avg. Muertes x Min
 
 ### `/sync-miembros`
 Sincroniza todos los miembros del servidor a la DB.
@@ -55,11 +91,14 @@ Sincroniza el roster en la tabla `Member` usando roles de Discord.
 Solo se agregan/actualizan los miembros que tengan algun rol listado en `ROSTER_ROLE_IDS`.
 Si un miembro no tiene roles de roster, solo se desactiva (`isActive = false`) si pasaron 7 dias desde que fue creado en `Member`.
 
-### `/crear-cuenta`
-Solicita crear una cuenta de juego asociada al `Member`.
+### `/crear-cuenta` (admin)
+Crea una cuenta de juego asociada a un usuario del roster (`Member`).
 Si no existe, crea `DiscordMember` y `Member` usando `nickname` o `username`.
 La cuenta queda aprobada automaticamente.
-Opcional: parametro `usuario` para que un admin cree la cuenta para otra persona.
+Todos los parametros son obligatorios:
+- `provider`
+- `id`
+- `usuario`
 
 ### `/config-tickets`
 Publica en el canal actual el botÃ³n para crear tickets de ingreso.  
@@ -73,8 +112,9 @@ Ejecutarlo en el canal donde querÃ©s el botÃ³n de tickets (cualquier canal).
 - El bot publica en el canal un resumen con las respuestas completas.
 
 **Visibilidad / permisos**  
-Ambos comandos estÃ¡n **ocultos por defecto** (`defaultMemberPermissions = 0`).
-DebÃ©s habilitarlos manualmente en Discord:
+- `/crear-cuenta`, `/gulag` y `/config-tickets` requieren permisos de administrador.
+- `/mi-rank`, `/mi-cuenta`, `/ultimos-eventos`, `/sync-miembros` y `/sync-roster` usan `defaultMemberPermissions = 0`.
+- Debes habilitar manualmente los que correspondan en Discord:
 
 Server Settings -> Integrations -> Bots & Apps -> comando -> Permissions
 

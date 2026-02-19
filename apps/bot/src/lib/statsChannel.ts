@@ -61,6 +61,29 @@ async function triggerImport(
 }
 
 function extractImportTitle(msg: Message): string | null {
+  const extractBetweenPipes = (text: string): string | null => {
+    const lines = text.split(/\r?\n/);
+    for (const line of lines) {
+      const match = line.match(/\|([^|\r\n]+)\|/);
+      if (!match) continue;
+      const candidate = match[1]?.trim();
+      if (candidate) return candidate;
+    }
+    return null;
+  };
+
+  const pipeSources: string[] = [];
+  if (msg.content) pipeSources.push(msg.content);
+  for (const embed of msg.embeds) {
+    if (embed.title) pipeSources.push(embed.title);
+    if (embed.description) pipeSources.push(embed.description);
+  }
+
+  for (const source of pipeSources) {
+    const titleFromPipes = extractBetweenPipes(source);
+    if (titleFromPipes) return titleFromPipes;
+  }
+
   for (const embed of msg.embeds) {
     const title = embed.title?.trim();
     if (title) return title;

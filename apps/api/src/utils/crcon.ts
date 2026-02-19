@@ -1,4 +1,4 @@
-import { hashPayload, parseCrconGameId } from "@legion/shared";
+import { hashPayload } from "@legion/shared";
 
 export type CrconPlayerRow = {
   playerName: string;
@@ -36,10 +36,6 @@ function readString(...values: unknown[]): string | undefined {
     if (str.length > 0) return str;
   }
   return undefined;
-}
-
-export function parseCrconUrl(url: string) {
-  return parseCrconGameId(url);
 }
 
 export function getPayloadHash(payload: unknown) {
@@ -87,7 +83,7 @@ export function extractPlayerStats(payload: unknown): CrconPlayerRow[] {
     );
     if (!playerName) continue;
 
-    result.push({
+    const parsedRow: CrconPlayerRow = {
       playerName,
       providerId: readString(row.player_id, row.playerId, row.playerID, row.id),
       kills: readNumber(row.kills),
@@ -123,7 +119,17 @@ export function extractPlayerStats(payload: unknown): CrconPlayerRow[] {
       support: readNumber(row.support),
       teamSide: readString(team?.side, row.team_side, row.teamSide),
       teamRatio: readNumber(team?.ratio, row.team_ratio)
-    });
+    };
+
+    const scoreSum = parsedRow.combat + parsedRow.offense + parsedRow.defense;
+    const noScoreActivity = scoreSum === 0;
+    const noCombatParticipation =
+      parsedRow.kills + parsedRow.deaths === 0 && parsedRow.combat === 0;
+    if (noScoreActivity || noCombatParticipation) {
+      continue;
+    }
+
+    result.push(parsedRow);
   }
   return result;
 }

@@ -6,6 +6,10 @@ import {
   handleCreateAccount,
   handleSetupTickets,
   handleMyRank,
+  handleMyAccount,
+  handleGulag,
+  handlePrintMembers,
+  handleGulagPageButton,
   handleLastEvents,
   handleAnunciar,
 } from "../commands/handlers";
@@ -43,6 +47,18 @@ export function setupInteractionCreateEvent(client: Client): void {
         await handleMyRank(interaction);
         return;
       }
+      if (interaction.commandName === "mi-cuenta") {
+        await handleMyAccount(interaction);
+        return;
+      }
+      if (interaction.commandName === "gulag") {
+        await handleGulag(interaction);
+        return;
+      }
+      if (interaction.commandName === "imprimir-miembros") {
+        await handlePrintMembers(interaction);
+        return;
+      }
       if (interaction.commandName === "ultimos-eventos") {
         await handleLastEvents(interaction);
         return;
@@ -59,6 +75,11 @@ export function setupInteractionCreateEvent(client: Client): void {
           content: "Esta acción solo funciona dentro de un servidor.",
           flags: MessageFlags.Ephemeral,
         });
+        return;
+      }
+
+      if (interaction.customId.startsWith("gulag_page:")) {
+        await handleGulagPageButton(interaction);
         return;
       }
 

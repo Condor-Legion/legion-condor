@@ -9,20 +9,41 @@ export default function ImportPage() {
   const [url, setUrl] = useState("");
   const [status, setStatus] = useState<string | null>(null);
 
+  function parseCrconUrl(input: string): { baseUrl: string; mapId: string } {
+    const parsed = new URL(input.trim());
+    const segments = parsed.pathname.split("/").filter(Boolean);
+    if (segments[0] !== "games" || !segments[1]) {
+      throw new Error("URL invalida. Debe tener formato /games/{id}");
+    }
+    return {
+      baseUrl: `${parsed.protocol}//${parsed.host}`,
+      mapId: segments[1],
+    };
+  }
+
   async function handleImport(e: React.FormEvent) {
     e.preventDefault();
     setStatus(null);
-    const res = await fetch(`${apiUrl}/api/import/crcon`, {
+    let payload: { baseUrl: string; mapId: string };
+    try {
+      payload = parseCrconUrl(url);
+    } catch {
+      setStatus("URL invalida. Usa formato: http://host:puerto/games/{id}");
+      return;
+    }
+
+    const res = await fetch(`${apiUrl}/api/import/crcon-fetch`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       credentials: "include",
-      body: JSON.stringify({ url })
+      body: JSON.stringify(payload),
     });
     if (res.ok) {
       const data = await res.json();
       setStatus(`Importado: ${data.importId} (stats: ${data.statsCount})`);
     } else {
-      setStatus("Error al importar.");
+      const text = await res.text();
+      setStatus(`Error al importar (${res.status}): ${text}`);
     }
   }
 
