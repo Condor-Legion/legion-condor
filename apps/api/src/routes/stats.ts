@@ -428,6 +428,7 @@ statsRouter.get(
                 id: true,
                 gameId: true,
                 sourceUrl: true,
+                title: true,
                 importedAt: true,
                 event: {
                   select: {
@@ -487,7 +488,10 @@ statsRouter.get(
         sourceUrl: row.importCrcon.sourceUrl,
         importedAt: row.importCrcon.importedAt,
         eventId: row.importCrcon.event?.id ?? null,
-        title: row.importCrcon.event?.title ?? `Evento ${row.importCrcon.gameId}`,
+        title:
+          row.importCrcon.event?.title ??
+          row.importCrcon.title ??
+          `Evento ${row.importCrcon.id}`,
         eventDate: row.importCrcon.event?.scheduledAt ?? null,
         kills: row.kills,
         deaths: row.deaths,

@@ -9,7 +9,7 @@ import { config } from "../config";
 
 const commands = [
   new SlashCommandBuilder()
-    .setName("myrank")
+    .setName("mi-rank")
     .setDescription("Muestra tu resumen de estadisticas")
     .setDefaultMemberPermissions(0n)
     .setDMPermission(false)
@@ -28,7 +28,7 @@ const commands = [
         .setMaxValue(50)
     ),
   new SlashCommandBuilder()
-    .setName("lastevents")
+    .setName("ultimos-eventos")
     .setDescription("Muestra tus ultimos eventos con estadisticas")
     .setDefaultMemberPermissions(0n)
     .setDMPermission(false)
@@ -47,7 +47,7 @@ const commands = [
         .setMaxValue(365)
     ),
   new SlashCommandBuilder()
-    .setName("sync-members")
+    .setName("sync-miembros")
     .setDescription("Sincroniza miembros del servidor a la base de datos")
     .setDefaultMemberPermissions(0n)
     .setDMPermission(false),
@@ -57,7 +57,7 @@ const commands = [
     .setDefaultMemberPermissions(0n)
     .setDMPermission(false),
   new SlashCommandBuilder()
-    .setName("create-account")
+    .setName("crear-cuenta")
     .setDescription("Solicita crear una cuenta de juego")
     .setDefaultMemberPermissions(0n)
     .setDMPermission(false)
@@ -85,7 +85,7 @@ const commands = [
         .setRequired(false)
     ),
   new SlashCommandBuilder()
-    .setName("setup-tickets")
+    .setName("config-tickets")
     .setDescription("Envia el boton para crear tickets en este canal")
     .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
     .setDMPermission(false),

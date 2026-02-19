@@ -794,6 +794,7 @@ async function run(): Promise<void> {
             data: {
               gameId: event.mapId,
               sourceUrl: event.sourceUrl,
+              title: event.title,
               payloadHash: event.payloadHash,
               status: "SUCCESS",
               importedAt: event.importedAt,
@@ -819,6 +820,7 @@ async function run(): Promise<void> {
             data: {
               gameId: event.mapId,
               sourceUrl: event.sourceUrl,
+              title: event.title,
               status: "SUCCESS",
               errorMessage: null,
               importedAt: event.importedAt,

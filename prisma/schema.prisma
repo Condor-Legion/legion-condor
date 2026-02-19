@@ -163,6 +163,7 @@ model ImportCrcon {
   id           String        @id @default(cuid())
   gameId       String
   sourceUrl    String
+  title        String?
   payloadHash  String
   status       ImportStatus
   errorMessage String?

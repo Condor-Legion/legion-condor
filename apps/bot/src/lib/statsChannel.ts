@@ -42,7 +42,8 @@ async function fetchLastDiscordMessageId(): Promise<string | null> {
 async function triggerImport(
   baseUrl: string,
   mapId: string,
-  discordMessageId: string
+  discordMessageId: string,
+  title: string | null
 ): Promise<CrconImportResponse> {
   const res = await fetch(`${config.apiUrl}/api/import/crcon-fetch`, {
     method: "POST",
@@ -50,13 +51,26 @@ async function triggerImport(
       "Content-Type": "application/json",
       "x-bot-api-key": config.botApiKey,
     },
-    body: JSON.stringify({ baseUrl, mapId, discordMessageId }),
+    body: JSON.stringify({ baseUrl, mapId, discordMessageId, title }),
   });
   if (!res.ok) {
     const text = await res.text();
     throw new Error(`Import failed: ${res.status} ${text}`);
   }
   return (await res.json()) as CrconImportResponse;
+}
+
+function extractImportTitle(msg: Message): string | null {
+  for (const embed of msg.embeds) {
+    const title = embed.title?.trim();
+    if (title) return title;
+  }
+
+  const cleanedContent = (msg.content ?? "")
+    .replace(/https?:\/\/[^\s)]+/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  return cleanedContent.length > 0 ? cleanedContent : null;
 }
 
 function getTextFromMessage(msg: Message): string {
@@ -72,12 +86,18 @@ function getTextFromMessage(msg: Message): string {
 async function processMessageForLinks(msg: Message): Promise<void> {
   const text = getTextFromMessage(msg);
   const links = extractGameLinks(text);
+  const importTitle = extractImportTitle(msg);
   for (const link of links) {
     console.log(
       `Stats link found messageId=${msg.id} baseUrl=${link.baseUrl} mapId=${link.mapId}`
     );
     try {
-      const result = await triggerImport(link.baseUrl, link.mapId, msg.id);
+      const result = await triggerImport(
+        link.baseUrl,
+        link.mapId,
+        msg.id,
+        importTitle
+      );
       console.log(
         `Stats import result messageId=${msg.id} baseUrl=${link.baseUrl} mapId=${link.mapId} status=${result.status} importId=${result.importId ?? "null"}`
       );
