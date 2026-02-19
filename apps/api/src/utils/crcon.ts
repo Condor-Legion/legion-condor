@@ -1,4 +1,4 @@
-import { hashPayload, parseCrconGameId } from "@legion/shared";
+import { hashPayload } from "@legion/shared";
 
 export type CrconPlayerRow = {
   playerName: string;
@@ -36,10 +36,6 @@ function readString(...values: unknown[]): string | undefined {
     if (str.length > 0) return str;
   }
   return undefined;
-}
-
-export function parseCrconUrl(url: string) {
-  return parseCrconGameId(url);
 }
 
 export function getPayloadHash(payload: unknown) {

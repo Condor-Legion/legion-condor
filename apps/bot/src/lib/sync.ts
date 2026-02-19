@@ -60,6 +60,7 @@ export async function syncMembers(
     joinedAt: member.joinedAt ? member.joinedAt.toISOString() : null,
     roles: member.roles.cache
       .filter((role) => role.id !== guild.id)
+      .sort((a, b) => b.position - a.position)
       .map((role) => ({ id: role.id, name: role.name })),
   }));
 

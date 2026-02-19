@@ -988,23 +988,42 @@ export async function handlePrintMembers(
     const data = (await response.json()) as MembersReportApiResponse;
     const rowsHtml = data.rows
       .map((row, index) => {
+        const joinedAtText = formatDateLocal(row.joinedAt);
+        const joinedAtSortValue = row.joinedAt ?? "";
+        const tenureSortValue = row.tenureDays ?? -1;
         return `
           <tr>
-            <td>${index + 1}</td>
-            <td><code>${escapeHtml(row.id ?? "N/D")}</code></td>
-            <td>${escapeHtml(row.displayName)}</td>
-            <td>${escapeHtml(formatDateLocal(row.joinedAt))}</td>
-            <td>${row.tenureDays === null ? "N/D" : formatInt(row.tenureDays)}</td>
-            <td>${escapeHtml(row.function)}</td>
-            <td>${formatInt(row.eventsParticipated)}</td>
-            <td>${formatInt(row.kills)}</td>
-            <td>${formatInt(row.deaths)}</td>
-            <td>${formatFloat(row.avgKillDeathRatio)}</td>
-            <td>${formatInt(row.avgCombat)}</td>
-            <td>${formatInt(row.avgOffense)}</td>
-            <td>${formatInt(row.avgDefense)}</td>
-            <td>${formatInt(row.avgSupport)}</td>
-            <td>${formatFloat(row.avgDeathsPerMinute)}</td>
+            <td class="rank" data-sort="${index + 1}">${index + 1}</td>
+            <td data-sort="${escapeHtml(row.id ?? "")}"><code>${escapeHtml(
+              row.id ?? "N/D"
+            )}</code></td>
+            <td data-sort="${escapeHtml(row.displayName.toLowerCase())}">${escapeHtml(
+              row.displayName
+            )}</td>
+            <td data-sort="${escapeHtml(joinedAtSortValue)}">${escapeHtml(
+              joinedAtText
+            )}</td>
+            <td data-sort="${tenureSortValue}">${
+              row.tenureDays === null ? "N/D" : formatInt(row.tenureDays)
+            }</td>
+            <td data-sort="${escapeHtml(row.function.toLowerCase())}">${escapeHtml(
+              row.function
+            )}</td>
+            <td data-sort="${row.eventsParticipated}">${formatInt(
+              row.eventsParticipated
+            )}</td>
+            <td data-sort="${row.kills}">${formatInt(row.kills)}</td>
+            <td data-sort="${row.deaths}">${formatInt(row.deaths)}</td>
+            <td data-sort="${row.avgKillDeathRatio}">${formatFloat(
+              row.avgKillDeathRatio
+            )}</td>
+            <td data-sort="${row.avgCombat}">${formatInt(row.avgCombat)}</td>
+            <td data-sort="${row.avgOffense}">${formatInt(row.avgOffense)}</td>
+            <td data-sort="${row.avgDefense}">${formatInt(row.avgDefense)}</td>
+            <td data-sort="${row.avgSupport}">${formatInt(row.avgSupport)}</td>
+            <td data-sort="${row.avgDeathsPerMinute}">${formatFloat(
+              row.avgDeathsPerMinute
+            )}</td>
           </tr>`;
       })
       .join("\n");
@@ -1036,7 +1055,7 @@ export async function handlePrintMembers(
         var(--bg);
     }
     .wrap {
-      width: min(98vw, 1800px);
+      width: min(1800px, calc(100vw - 16px));
       margin: 22px auto;
       padding: 18px;
       background: linear-gradient(180deg, rgba(17,24,39,0.95), rgba(15,23,42,0.95));
@@ -1070,16 +1089,39 @@ export async function handlePrintMembers(
       color: var(--muted);
       font-size: 13px;
     }
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+    .search {
+      width: min(100%, 420px);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(2, 6, 23, 0.75);
+      color: var(--text);
+      padding: 8px 10px;
+      outline: none;
+      font-size: 13px;
+    }
+    .search::placeholder {
+      color: var(--muted);
+    }
     .table-wrap {
       border: 1px solid var(--line);
       border-radius: 10px;
-      overflow: auto;
+      overflow-x: auto;
+      overflow-y: hidden;
+      -webkit-overflow-scrolling: touch;
       background: rgba(2, 6, 23, 0.5);
     }
     table {
       width: 100%;
       border-collapse: collapse;
-      min-width: 1400px;
+      min-width: 1180px;
       font-size: 13px;
     }
     thead th {
@@ -1092,6 +1134,23 @@ export async function handlePrintMembers(
       text-align: left;
       padding: 10px 12px;
       white-space: nowrap;
+    }
+    thead th.sortable {
+      cursor: pointer;
+      user-select: none;
+    }
+    thead th.sortable::after {
+      content: "  ↕";
+      color: #64748b;
+      font-size: 11px;
+    }
+    thead th.sort-asc::after {
+      content: "  ↑";
+      color: #cbd5e1;
+    }
+    thead th.sort-desc::after {
+      content: "  ↓";
+      color: #cbd5e1;
     }
     tbody td {
       border-bottom: 1px solid rgba(43,54,72,0.6);
@@ -1111,6 +1170,59 @@ export async function handlePrintMembers(
       border-radius: 6px;
       font-family: Consolas, "Courier New", monospace;
       font-size: 12px;
+      overflow-wrap: anywhere;
+      word-break: break-word;
+    }
+    @media (max-width: 960px) {
+      .wrap {
+        width: calc(100vw - 12px);
+        margin: 8px auto;
+        padding: 12px;
+        border-radius: 12px;
+      }
+      .top {
+        gap: 8px 12px;
+        margin-bottom: 10px;
+      }
+      h1 {
+        font-size: 18px;
+      }
+      .badge {
+        padding: 3px 8px;
+        font-size: 11px;
+      }
+      .meta {
+        font-size: 12px;
+      }
+      .toolbar {
+        flex-direction: column;
+        align-items: stretch;
+      }
+      .search {
+        width: 100%;
+      }
+      table {
+        min-width: 860px;
+        font-size: 12px;
+      }
+      thead th,
+      tbody td {
+        padding: 8px 9px;
+      }
+    }
+    @media (max-width: 560px) {
+      body {
+        background: var(--bg);
+      }
+      .wrap {
+        width: calc(100vw - 8px);
+        margin: 4px auto;
+        padding: 10px;
+      }
+      table {
+        min-width: 760px;
+        font-size: 11px;
+      }
     }
   </style>
 </head>
@@ -1124,25 +1236,36 @@ export async function handlePrintMembers(
         formatDateTimeLocal(data.generatedAt)
       )}</strong></span>
     </div>
+    <div class="toolbar">
+      <input
+        id="members-search"
+        class="search"
+        type="search"
+        placeholder="Buscar en todas las columnas..."
+      />
+      <span class="meta">Mostrando: <strong id="members-visible">${formatInt(
+        data.rows.length
+      )}</strong> / <strong>${formatInt(data.rows.length)}</strong></span>
+    </div>
     <div class="table-wrap">
-      <table>
+      <table id="members-table">
         <thead>
           <tr>
-            <th>#</th>
-            <th>SteamID64 / ID</th>
-            <th>Nick</th>
-            <th>Ingreso</th>
-            <th>Antiguedad (Dias)</th>
-            <th>Funcion</th>
-            <th>Eventos Participados</th>
-            <th>Mato</th>
-            <th>Murio</th>
-            <th>Avg. K/D</th>
-            <th>Avg. Pts de combate</th>
-            <th>Avg. Pts de ataque</th>
-            <th>Avg. Pts de defensa</th>
-            <th>Avg. Pts de soporte</th>
-            <th>Avg. Muertes x Min</th>
+            <th class="sortable" data-index="0" data-type="number">#</th>
+            <th class="sortable" data-index="1" data-type="text">SteamID64 / ID</th>
+            <th class="sortable" data-index="2" data-type="text">Nick</th>
+            <th class="sortable" data-index="3" data-type="text">Ingreso</th>
+            <th class="sortable" data-index="4" data-type="number">Antiguedad (Dias)</th>
+            <th class="sortable" data-index="5" data-type="text">Funcion</th>
+            <th class="sortable" data-index="6" data-type="number">Eventos Participados</th>
+            <th class="sortable" data-index="7" data-type="number">Mato</th>
+            <th class="sortable" data-index="8" data-type="number">Murio</th>
+            <th class="sortable" data-index="9" data-type="number">Avg. K/D</th>
+            <th class="sortable" data-index="10" data-type="number">Avg. Pts de combate</th>
+            <th class="sortable" data-index="11" data-type="number">Avg. Pts de ataque</th>
+            <th class="sortable" data-index="12" data-type="number">Avg. Pts de defensa</th>
+            <th class="sortable" data-index="13" data-type="number">Avg. Pts de soporte</th>
+            <th class="sortable" data-index="14" data-type="number">Avg. Muertes x Min</th>
           </tr>
         </thead>
         <tbody>
@@ -1151,6 +1274,110 @@ export async function handlePrintMembers(
       </table>
     </div>
   </div>
+  <script>
+    (function () {
+      const table = document.getElementById("members-table");
+      if (!table) return;
+      const tbody = table.tBodies[0];
+      if (!tbody) return;
+      const searchInput = document.getElementById("members-search");
+      const visibleLabel = document.getElementById("members-visible");
+      const headers = Array.from(table.querySelectorAll("th.sortable"));
+
+      const state = { index: 7, dir: "desc" };
+
+      function normalizeText(value) {
+        return String(value || "").toLowerCase();
+      }
+
+      function parseCellValue(row, columnIndex, type) {
+        const cell = row.cells[columnIndex];
+        if (!cell) return type === "number" ? Number.NEGATIVE_INFINITY : "";
+        const rawValue = cell.getAttribute("data-sort") || cell.textContent || "";
+        if (type === "number") {
+          const clean = String(rawValue)
+            .replace(/\\./g, "")
+            .replace(/,/g, ".")
+            .replace(/[^0-9.-]/g, "");
+          const numeric = Number(clean);
+          return Number.isFinite(numeric) ? numeric : Number.NEGATIVE_INFINITY;
+        }
+        return normalizeText(rawValue);
+      }
+
+      function updateHeaderState() {
+        headers.forEach(function (header) {
+          header.classList.remove("sort-asc", "sort-desc");
+          const index = Number(header.getAttribute("data-index"));
+          if (index === state.index) {
+            header.classList.add(state.dir === "asc" ? "sort-asc" : "sort-desc");
+          }
+        });
+      }
+
+      function sortRows() {
+        const rows = Array.from(tbody.rows);
+        const activeHeader = headers.find(function (header) {
+          return Number(header.getAttribute("data-index")) === state.index;
+        });
+        const type = activeHeader?.getAttribute("data-type") || "text";
+        rows.sort(function (a, b) {
+          const aValue = parseCellValue(a, state.index, type);
+          const bValue = parseCellValue(b, state.index, type);
+          if (aValue < bValue) return state.dir === "asc" ? -1 : 1;
+          if (aValue > bValue) return state.dir === "asc" ? 1 : -1;
+          return 0;
+        });
+        rows.forEach(function (row) {
+          tbody.appendChild(row);
+        });
+      }
+
+      function applyFilter() {
+        const term = normalizeText(searchInput && searchInput.value ? searchInput.value.trim() : "");
+        let visibleCount = 0;
+        Array.from(tbody.rows).forEach(function (row) {
+          const show =
+            term.length === 0 ||
+            normalizeText(row.textContent || "").indexOf(term) !== -1;
+          row.style.display = show ? "" : "none";
+          const rankCell = row.querySelector("td.rank");
+          if (show) {
+            visibleCount += 1;
+            if (rankCell) rankCell.textContent = String(visibleCount);
+          } else if (rankCell) {
+            rankCell.textContent = "";
+          }
+        });
+        if (visibleLabel) visibleLabel.textContent = String(visibleCount);
+      }
+
+      headers.forEach(function (header) {
+        header.addEventListener("click", function () {
+          const clickedIndex = Number(header.getAttribute("data-index"));
+          if (clickedIndex === state.index) {
+            state.dir = state.dir === "asc" ? "desc" : "asc";
+          } else {
+            state.index = clickedIndex;
+            state.dir = clickedIndex === 7 ? "desc" : "asc";
+          }
+          sortRows();
+          updateHeaderState();
+          applyFilter();
+        });
+      });
+
+      if (searchInput) {
+        searchInput.addEventListener("input", function () {
+          applyFilter();
+        });
+      }
+
+      sortRows();
+      updateHeaderState();
+      applyFilter();
+    })();
+  </script>
 </body>
 </html>`;
 

@@ -158,8 +158,6 @@ const commands = [
     ),
 ].map((command) => command.toJSON());
 
-export const commandDefinitions = commands;
-
 export async function registerCommands(
   appId: string,
   guildIdOrUndefined: string | undefined

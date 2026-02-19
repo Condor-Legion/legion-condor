@@ -1,5 +1,4 @@
 import { Router } from "express";
-import { leaderboardQuerySchema } from "@legion/shared";
 import { prisma } from "../prisma";
 import { getAdminFromRequest, getBotApiKey } from "../auth";
 import { getPeriodStart } from "@legion/shared";
@@ -47,6 +46,20 @@ const lastEventsQuerySchema = z
   });
 
 type StatsPeriod = z.infer<typeof statsPeriodEnum>;
+
+function resolveHighestRoleNameFromDiscordRoles(
+  roles: unknown
+): string | null {
+  if (!Array.isArray(roles)) return null;
+  for (const role of roles) {
+    if (!role || typeof role !== "object") continue;
+    const name = (role as { name?: unknown }).name;
+    if (typeof name !== "string") continue;
+    const trimmed = name.trim();
+    if (trimmed.length > 0) return trimmed;
+  }
+  return null;
+}
 
 function resolvePeriodStart(period: StatsPeriod): Date | null {
   return getPeriodStart(period);
@@ -563,10 +576,16 @@ statsRouter.get("/members-report", requireBotOrAdmin, async (_req, res) => {
 
   const discordMembers = await prisma.discordMember.findMany({
     where: { discordId: { in: members.map((member) => member.discordId) } },
-    select: { discordId: true, joinedAt: true },
+    select: { discordId: true, joinedAt: true, roles: true },
   });
-  const joinedAtByDiscordId = new Map(
-    discordMembers.map((member) => [member.discordId, member.joinedAt])
+  const discordMetaByDiscordId = new Map(
+    discordMembers.map((member) => [
+      member.discordId,
+      {
+        joinedAt: member.joinedAt,
+        highestRoleName: resolveHighestRoleNameFromDiscordRoles(member.roles),
+      },
+    ])
   );
 
   const accountIdToMemberId = new Map<string, string>();
@@ -686,7 +705,8 @@ statsRouter.get("/members-report", requireBotOrAdmin, async (_req, res) => {
   }
 
   const rows = members.map((member) => {
-    const joinedAt = joinedAtByDiscordId.get(member.discordId) ?? null;
+    const discordMeta = discordMetaByDiscordId.get(member.discordId);
+    const joinedAt = discordMeta?.joinedAt ?? null;
     const tenureDays =
       joinedAt !== null
         ? Math.floor((now.getTime() - joinedAt.getTime()) / dayMs)
@@ -704,7 +724,7 @@ statsRouter.get("/members-report", requireBotOrAdmin, async (_req, res) => {
       displayName: member.displayName,
       joinedAt: joinedAt?.toISOString() ?? null,
       tenureDays,
-      function: "Miembro",
+      function: discordMeta?.highestRoleName ?? "Miembro",
       eventsParticipated: matches,
       kills: stats?.kills ?? 0,
       deaths: stats?.deaths ?? 0,
@@ -719,6 +739,7 @@ statsRouter.get("/members-report", requireBotOrAdmin, async (_req, res) => {
       lastPlayedAt: stats?.lastPlayedAt?.toISOString() ?? null,
     };
   });
+  rows.sort((a, b) => b.kills - a.kills || a.displayName.localeCompare(b.displayName));
 
   return res.json({
     generatedAt: now.toISOString(),
@@ -898,74 +919,3 @@ statsRouter.get(
   }
 );
 
-statsRouter.get("/leaderboard", requireBotOrAdmin, async (req, res) => {
-  const parsed = leaderboardQuerySchema.safeParse(req.query);
-  if (!parsed.success) return res.status(400).json({ error: "Invalid query" });
-
-  const periodStart = resolvePeriodStart(parsed.data.period);
-  const importWhere = buildImportWhere(periodStart, true);
-
-  const stats = await prisma.playerMatchStats.findMany({
-    where: {
-      importCrcon: importWhere,
-      gameAccountId: { not: null },
-    },
-    select: {
-      gameAccountId: true,
-      kills: true,
-      deaths: true,
-      score: true,
-    },
-  });
-
-  const accountIds = Array.from(
-    new Set(stats.map((row) => row.gameAccountId).filter(Boolean))
-  ) as string[];
-  const accounts = await prisma.gameAccount.findMany({
-    where: { id: { in: accountIds } },
-  });
-  const accountToMember = new Map(
-    accounts.map((account) => [account.id, account.memberId])
-  );
-
-  const aggregated = new Map<string, { memberId: string; value: number }>();
-  for (const row of stats) {
-    if (!row.gameAccountId) continue;
-    const key = accountToMember.get(row.gameAccountId);
-    if (!key) continue;
-    const value =
-      parsed.data.metric === "deaths"
-        ? row.deaths
-        : parsed.data.metric === "score"
-        ? row.score
-        : row.kills;
-    const existing = aggregated.get(key) ?? { memberId: key, value: 0 };
-    existing.value += value;
-    aggregated.set(key, existing);
-  }
-
-  const ranked = Array.from(aggregated.values())
-    .sort((a, b) => b.value - a.value)
-    .slice(0, parsed.data.limit);
-
-  const memberIds = ranked.map((r) => r.memberId);
-  const members = await prisma.member.findMany({
-    where: { id: { in: memberIds } },
-  });
-  const memberMap = new Map<string, { id: string; displayName: string }>(
-    members.map((m) => [m.id, { id: m.id, displayName: m.displayName }])
-  );
-
-  return res.json({
-    leaderboard: ranked.map((r) => {
-      const member = memberMap.get(r.memberId);
-      return {
-        memberId: r.memberId,
-        displayName: member?.displayName ?? "Unknown",
-        value: r.value,
-      };
-    }),
-    metric: parsed.data.metric,
-    period: parsed.data.period,
-  });
-});
