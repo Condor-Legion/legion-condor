@@ -512,6 +512,11 @@ export async function handleMyRank(
           inline: true,
         },
         {
+          name: "\u200B",
+          value: "\u200B",
+          inline: true,
+        },
+        {
           name: "🎯 Puntos Promedio",
           value: [
             `Combate: **${formatFloat(averages.combatPerMatch)}**`,
