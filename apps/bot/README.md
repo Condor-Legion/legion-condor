@@ -67,6 +67,7 @@ Fuente de datos:
 Salida:
 - Tabla con jugadores en estado Gulag.
 - Resumen de miembros evaluados y cantidad en Gulag.
+- Paginacion por botones (`< Anterior` / `Siguiente >`) en el mismo mensaje.
 
 ### `/sync-miembros`
 Sincroniza todos los miembros del servidor a la DB.

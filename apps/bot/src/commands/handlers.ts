@@ -1,9 +1,13 @@
 import type { Client } from "discord.js";
 import {
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
   MessageFlags,
   PermissionFlagsBits,
   AttachmentBuilder,
   EmbedBuilder,
+  type ButtonInteraction,
   type Message,
   type ChatInputCommandInteraction,
   type TextBasedChannel,
@@ -13,6 +17,8 @@ import { syncMembers, syncRoster } from "../lib/sync";
 import { buildSetupActionRow } from "../tickets";
 
 const GMT3 = "-03:00";
+const GULAG_PAGE_SIZE = 20;
+const GULAG_PAGE_BUTTON_PREFIX = "gulag_page";
 const DAY_NAMES: Record<string, number> = {
   domingo: 0,
   dom: 0,
@@ -191,7 +197,12 @@ function truncateFieldValue(value: string, max = 1024): string {
 }
 
 function padTableCell(value: string, width: number): string {
-  const safe = value.length > width ? `${value.slice(0, width - 1)}…` : value;
+  const normalized = value.replace(/\s+/g, " ").trim();
+  const chars = Array.from(normalized);
+  const safe =
+    chars.length > width
+      ? `${chars.slice(0, Math.max(0, width - 3)).join("")}...`
+      : normalized;
   return safe.padEnd(width, " ");
 }
 
@@ -676,100 +687,227 @@ export async function handleMyAccount(
   }
 }
 
+type GulagRenderResult = {
+  content: string;
+  currentPage: number;
+  totalPages: number;
+  hasRows: boolean;
+};
+
+function buildGulagPageCustomId(page: number): string {
+  return `${GULAG_PAGE_BUTTON_PREFIX}:${page}`;
+}
+
+function parseGulagPageCustomId(customId: string): { page: number } | null {
+  const [prefix, pageRaw] = customId.split(":");
+  if (prefix !== GULAG_PAGE_BUTTON_PREFIX) return null;
+  const page = Number(pageRaw);
+  if (!Number.isInteger(page) || page < 1) return null;
+  return { page };
+}
+
+function buildGulagPaginationComponents(
+  currentPage: number,
+  totalPages: number
+): Array<ActionRowBuilder<ButtonBuilder>> {
+  if (totalPages <= 1) return [];
+
+  const previousPage = Math.max(1, currentPage - 1);
+  const nextPage = Math.min(totalPages, currentPage + 1);
+
+  return [
+    new ActionRowBuilder<ButtonBuilder>().addComponents(
+      new ButtonBuilder()
+        .setCustomId(buildGulagPageCustomId(previousPage))
+        .setLabel("< Anterior")
+        .setStyle(ButtonStyle.Secondary)
+        .setDisabled(currentPage <= 1),
+      new ButtonBuilder()
+        .setCustomId(`gulag_page_info:${currentPage}:${totalPages}`)
+        .setLabel(`Pagina ${currentPage}/${totalPages}`)
+        .setStyle(ButtonStyle.Primary)
+        .setDisabled(true),
+      new ButtonBuilder()
+        .setCustomId(buildGulagPageCustomId(nextPage))
+        .setLabel("Siguiente >")
+        .setStyle(ButtonStyle.Secondary)
+        .setDisabled(currentPage >= totalPages)
+    ),
+  ];
+}
+
+async function requestGulagData(): Promise<
+  { data: GulagApiResponse } | { error: string }
+> {
+  const response = await fetch(`${config.apiUrl}/api/stats/gulag`, {
+    headers: { "x-bot-api-key": config.botApiKey },
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    return { error: `No se pudo consultar Gulag (${response.status}). ${text}` };
+  }
+
+  return { data: (await response.json()) as GulagApiResponse };
+}
+
+function buildGulagContent(
+  data: GulagApiResponse,
+  requestedPage: number
+): GulagRenderResult {
+  if (data.windowSize === 0) {
+    return {
+      content: "No hay eventos importados para evaluar Gulag todavia.",
+      currentPage: 1,
+      totalPages: 1,
+      hasRows: false,
+    };
+  }
+
+  if (data.gulag.length === 0) {
+    return {
+      content: `No hay jugadores en Gulag. Evaluados: ${formatInt(
+        data.totalMembersEvaluated
+      )} | Ventana: ultimos ${formatInt(data.windowSize)} eventos.`,
+      currentPage: 1,
+      totalPages: 1,
+      hasRows: false,
+    };
+  }
+
+  const totalPages = Math.max(1, Math.ceil(data.gulag.length / GULAG_PAGE_SIZE));
+  const safeRequestedPage = Number.isInteger(requestedPage) ? requestedPage : 1;
+  const currentPage = Math.min(Math.max(safeRequestedPage, 1), totalPages);
+  const pageStart = (currentPage - 1) * GULAG_PAGE_SIZE;
+  const rows = data.gulag.slice(pageStart, pageStart + GULAG_PAGE_SIZE);
+
+  const header = [
+    padTableCell("Nick", 20),
+    padTableCell("EvSinJugar", 10),
+    padTableCell("DiasSin", 8),
+    "Estado",
+  ].join(" ");
+
+  const separator = "-".repeat(header.length);
+  const tableRows = rows.map((row) =>
+    [
+      padTableCell(row.displayName, 20),
+      padTableCell(formatInt(row.eventsWithoutPlay), 10),
+      padTableCell(
+        row.daysWithoutPlay === null ? "N/D" : formatInt(row.daysWithoutPlay),
+        8
+      ),
+      row.status,
+    ].join(" ")
+  );
+
+  const table = [header, separator, ...tableRows].join("\n");
+  const shownFrom = pageStart + 1;
+  const shownTo = pageStart + rows.length;
+  const adjustedPageNotice =
+    safeRequestedPage !== currentPage
+      ? `\nPagina solicitada ${formatInt(
+          safeRequestedPage
+        )} no existe. Mostrando pagina ${formatInt(currentPage)}.`
+      : "";
+
+  const content = [
+    `Jugadores evaluados: **${formatInt(
+      data.totalMembersEvaluated
+    )}** | Ventana: **ultimos ${formatInt(data.windowSize)} eventos**`,
+    `En Gulag: **${formatInt(data.gulag.length)}**`,
+    `Pagina: **${formatInt(currentPage)}/${formatInt(totalPages)}**`,
+    "```",
+    table,
+    "```",
+    `Mostrando ${formatInt(shownFrom)}-${formatInt(shownTo)} de ${formatInt(
+      data.gulag.length
+    )} jugadores en Gulag.`,
+    adjustedPageNotice,
+  ]
+    .join("\n")
+    .trim();
+
+  return { content, currentPage, totalPages, hasRows: true };
+}
+
 export async function handleGulag(
   interaction: ChatInputCommandInteraction
 ): Promise<void> {
-  const requestedPage = interaction.options.getInteger("pagina") ?? 1;
-  const pageSize = 20;
-
   await interaction.deferReply();
 
   try {
-    const response = await fetch(`${config.apiUrl}/api/stats/gulag`, {
-      headers: { "x-bot-api-key": config.botApiKey },
+    const result = await requestGulagData();
+    if ("error" in result) {
+      await interaction.editReply({ content: result.error, components: [] });
+      return;
+    }
+
+    const rendered = buildGulagContent(result.data, 1);
+    const components = rendered.hasRows
+      ? buildGulagPaginationComponents(rendered.currentPage, rendered.totalPages)
+      : [];
+
+    await interaction.editReply({
+      content: rendered.content,
+      components,
     });
-
-    if (!response.ok) {
-      const text = await response.text();
-      await interaction.editReply(
-        `No se pudo consultar Gulag (${response.status}). ${text}`
-      );
-      return;
-    }
-
-    const data = (await response.json()) as GulagApiResponse;
-    if (data.windowSize === 0) {
-      await interaction.editReply(
-        "No hay eventos importados para evaluar Gulag todavia."
-      );
-      return;
-    }
-
-    if (data.gulag.length === 0) {
-      await interaction.editReply(
-        `No hay jugadores en Gulag. Evaluados: ${formatInt(
-          data.totalMembersEvaluated
-        )} | Ventana: ultimos ${formatInt(data.windowSize)} eventos.`
-      );
-      return;
-    }
-
-    const totalPages = Math.max(1, Math.ceil(data.gulag.length / pageSize));
-    const currentPage = Math.min(Math.max(requestedPage, 1), totalPages);
-    const pageStart = (currentPage - 1) * pageSize;
-    const rows = data.gulag.slice(pageStart, pageStart + pageSize);
-
-    const header = [
-      padTableCell("Nick", 24),
-      padTableCell("EvSinJugar", 10),
-      padTableCell("DiasSin", 8),
-      "Estado",
-    ].join(" ");
-
-    const separator = "-".repeat(header.length);
-    const tableRows = rows.map((row) =>
-      [
-        padTableCell(row.displayName, 24),
-        padTableCell(formatInt(row.eventsWithoutPlay), 10),
-        padTableCell(
-          row.daysWithoutPlay === null ? "N/D" : formatInt(row.daysWithoutPlay),
-          8
-        ),
-        row.status,
-      ].join(" ")
-    );
-
-    const table = [header, separator, ...tableRows].join("\n");
-    const shownFrom = pageStart + 1;
-    const shownTo = pageStart + rows.length;
-    const adjustedPageNotice =
-      requestedPage !== currentPage
-        ? `\nPagina solicitada ${formatInt(
-            requestedPage
-          )} no existe. Mostrando pagina ${formatInt(currentPage)}.`
-        : "";
-
-    await interaction.editReply(
-      [
-        `Jugadores evaluados: **${formatInt(
-          data.totalMembersEvaluated
-        )}** | Ventana: **ultimos ${formatInt(data.windowSize)} eventos**`,
-        `En Gulag: **${formatInt(data.gulag.length)}**`,
-        `Pagina: **${formatInt(currentPage)}/${formatInt(totalPages)}**`,
-        "```",
-        table,
-        "```",
-        `Mostrando ${formatInt(shownFrom)}-${formatInt(shownTo)} de ${formatInt(
-          data.gulag.length
-        )} jugadores en Gulag.`,
-        adjustedPageNotice,
-      ]
-        .join("\n")
-        .trim()
-    );
   } catch (error) {
     console.error("Gulag error:", error);
-    await interaction.editReply("Error consultando Gulag.");
+    await interaction.editReply({
+      content: "Error consultando Gulag.",
+      components: [],
+    });
+  }
+}
+
+export async function handleGulagPageButton(
+  interaction: ButtonInteraction
+): Promise<void> {
+  const parsed = parseGulagPageCustomId(interaction.customId);
+  if (!parsed) {
+    await interaction.reply({
+      content: "Boton de paginacion invalido.",
+      flags: MessageFlags.Ephemeral,
+    });
+    return;
+  }
+
+  const isAdmin =
+    interaction.memberPermissions?.has(PermissionFlagsBits.Administrator) ??
+    false;
+  if (!isAdmin) {
+    await interaction.reply({
+      content: "Solo administradores pueden usar esta paginacion.",
+      flags: MessageFlags.Ephemeral,
+    });
+    return;
+  }
+
+  await interaction.deferUpdate();
+
+  try {
+    const result = await requestGulagData();
+    if ("error" in result) {
+      await interaction.editReply({ content: result.error, components: [] });
+      return;
+    }
+
+    const rendered = buildGulagContent(result.data, parsed.page);
+    const components = rendered.hasRows
+      ? buildGulagPaginationComponents(rendered.currentPage, rendered.totalPages)
+      : [];
+
+    await interaction.editReply({
+      content: rendered.content,
+      components,
+    });
+  } catch (error) {
+    console.error("Gulag pagination error:", error);
+    await interaction.editReply({
+      content: "Error consultando Gulag.",
+      components: [],
+    });
   }
 }
 

@@ -8,6 +8,7 @@ import {
   handleMyRank,
   handleMyAccount,
   handleGulag,
+  handleGulagPageButton,
   handleLastEvents,
   handleAnunciar,
 } from "../commands/handlers";
@@ -69,6 +70,11 @@ export function setupInteractionCreateEvent(client: Client): void {
           content: "Esta acción solo funciona dentro de un servidor.",
           flags: MessageFlags.Ephemeral,
         });
+        return;
+      }
+
+      if (interaction.customId.startsWith("gulag_page:")) {
+        await handleGulagPageButton(interaction);
         return;
       }
 
