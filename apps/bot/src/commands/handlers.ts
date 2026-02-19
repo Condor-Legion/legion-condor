@@ -118,6 +118,30 @@ type GulagApiResponse = {
   }>;
 };
 
+type MembersReportApiResponse = {
+  generatedAt: string;
+  totalMembers: number;
+  rows: Array<{
+    memberId: string;
+    discordId: string;
+    id: string | null;
+    displayName: string;
+    joinedAt: string | null;
+    tenureDays: number | null;
+    function: string;
+    eventsParticipated: number;
+    kills: number;
+    deaths: number;
+    avgKillDeathRatio: number;
+    avgCombat: number;
+    avgOffense: number;
+    avgDefense: number;
+    avgSupport: number;
+    avgDeathsPerMinute: number;
+    lastPlayedAt: string | null;
+  }>;
+};
+
 type MemberByDiscordApiResponse = {
   member: {
     displayName: string;
@@ -194,6 +218,38 @@ function formatDiscordTimestamp(iso: string): string {
 function truncateFieldValue(value: string, max = 1024): string {
   if (value.length <= max) return value;
   return `${value.slice(0, max - 3)}...`;
+}
+
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function formatDateLocal(iso: string | null): string {
+  if (!iso) return "N/D";
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "N/D";
+  return date.toLocaleDateString("es-AR", {
+    timeZone: "America/Argentina/Buenos_Aires",
+  });
+}
+
+function formatDateTimeLocal(iso: string): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "N/D";
+  return date.toLocaleString("es-AR", {
+    timeZone: "America/Argentina/Buenos_Aires",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
 }
 
 function padTableCell(value: string, width: number): string {
@@ -908,6 +964,208 @@ export async function handleGulagPageButton(
       content: "Error consultando Gulag.",
       components: [],
     });
+  }
+}
+
+export async function handlePrintMembers(
+  interaction: ChatInputCommandInteraction
+): Promise<void> {
+  await interaction.deferReply();
+
+  try {
+    const response = await fetch(`${config.apiUrl}/api/stats/members-report`, {
+      headers: { "x-bot-api-key": config.botApiKey },
+    });
+
+    if (!response.ok) {
+      const text = await response.text();
+      await interaction.editReply(
+        `No se pudo generar el reporte (${response.status}). ${text}`
+      );
+      return;
+    }
+
+    const data = (await response.json()) as MembersReportApiResponse;
+    const rowsHtml = data.rows
+      .map((row, index) => {
+        return `
+          <tr>
+            <td>${index + 1}</td>
+            <td><code>${escapeHtml(row.id ?? "N/D")}</code></td>
+            <td>${escapeHtml(row.displayName)}</td>
+            <td>${escapeHtml(formatDateLocal(row.joinedAt))}</td>
+            <td>${row.tenureDays === null ? "N/D" : formatInt(row.tenureDays)}</td>
+            <td>${escapeHtml(row.function)}</td>
+            <td>${formatInt(row.eventsParticipated)}</td>
+            <td>${formatInt(row.kills)}</td>
+            <td>${formatInt(row.deaths)}</td>
+            <td>${formatFloat(row.avgKillDeathRatio)}</td>
+            <td>${formatInt(row.avgCombat)}</td>
+            <td>${formatInt(row.avgOffense)}</td>
+            <td>${formatInt(row.avgDefense)}</td>
+            <td>${formatInt(row.avgSupport)}</td>
+            <td>${formatFloat(row.avgDeathsPerMinute)}</td>
+          </tr>`;
+      })
+      .join("\n");
+
+    const html = `<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Reporte de Miembros</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --panel: #111827;
+      --line: #2b3648;
+      --text: #e5e7eb;
+      --muted: #9ca3af;
+      --accent: #22c55e;
+      --accent-soft: rgba(34, 197, 94, 0.18);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", Tahoma, sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(1000px 400px at -10% -20%, #1f2937 0%, transparent 65%),
+        radial-gradient(1000px 400px at 110% -20%, #0b3b2e 0%, transparent 65%),
+        var(--bg);
+    }
+    .wrap {
+      width: min(98vw, 1800px);
+      margin: 22px auto;
+      padding: 18px;
+      background: linear-gradient(180deg, rgba(17,24,39,0.95), rgba(15,23,42,0.95));
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      box-shadow: 0 18px 35px rgba(0,0,0,0.35);
+    }
+    .top {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px 24px;
+      align-items: baseline;
+      margin-bottom: 14px;
+    }
+    h1 {
+      margin: 0;
+      font-size: 22px;
+      letter-spacing: 0.3px;
+    }
+    .badge {
+      border: 1px solid var(--accent);
+      color: #c8ffd8;
+      background: var(--accent-soft);
+      border-radius: 999px;
+      padding: 4px 10px;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+    .meta {
+      color: var(--muted);
+      font-size: 13px;
+    }
+    .table-wrap {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      overflow: auto;
+      background: rgba(2, 6, 23, 0.5);
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 1400px;
+      font-size: 13px;
+    }
+    thead th {
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      background: #0b1220;
+      color: #d1d5db;
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+      padding: 10px 12px;
+      white-space: nowrap;
+    }
+    tbody td {
+      border-bottom: 1px solid rgba(43,54,72,0.6);
+      padding: 9px 12px;
+      white-space: nowrap;
+    }
+    tbody tr:nth-child(even) {
+      background: rgba(255,255,255,0.02);
+    }
+    tbody tr:hover {
+      background: rgba(34,197,94,0.08);
+    }
+    code {
+      color: #cfe3ff;
+      background: rgba(99,102,241,0.15);
+      padding: 2px 6px;
+      border-radius: 6px;
+      font-family: Consolas, "Courier New", monospace;
+      font-size: 12px;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="top">
+      <h1>Reporte de Miembros</h1>
+      <span class="badge">Roster</span>
+      <span class="meta">Total miembros: <strong>${formatInt(data.totalMembers)}</strong></span>
+      <span class="meta">Generado: <strong>${escapeHtml(
+        formatDateTimeLocal(data.generatedAt)
+      )}</strong></span>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>SteamID64 / ID</th>
+            <th>Nick</th>
+            <th>Ingreso</th>
+            <th>Antiguedad (Dias)</th>
+            <th>Funcion</th>
+            <th>Eventos Participados</th>
+            <th>Mato</th>
+            <th>Murio</th>
+            <th>Avg. K/D</th>
+            <th>Avg. Pts de combate</th>
+            <th>Avg. Pts de ataque</th>
+            <th>Avg. Pts de defensa</th>
+            <th>Avg. Pts de soporte</th>
+            <th>Avg. Muertes x Min</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rowsHtml}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</body>
+</html>`;
+
+    const fileName = `miembros-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-")}.html`;
+    const attachment = new AttachmentBuilder(Buffer.from(html, "utf-8"), {
+      name: fileName,
+    });
+
+    await interaction.editReply({
+      content: `Reporte generado. Miembros: ${formatInt(data.totalMembers)}.`,
+      files: [attachment],
+    });
+  } catch (error) {
+    console.error("Print members error:", error);
+    await interaction.editReply("Error generando el reporte de miembros.");
   }
 }
 

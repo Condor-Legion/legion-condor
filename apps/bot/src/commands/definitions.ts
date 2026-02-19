@@ -38,6 +38,11 @@ const commands = [
     .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
     .setDMPermission(false),
   new SlashCommandBuilder()
+    .setName("imprimir-miembros")
+    .setDescription("Genera un HTML con tabla de miembros y stats")
+    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
+    .setDMPermission(false),
+  new SlashCommandBuilder()
     .setName("ultimos-eventos")
     .setDescription("Muestra tus últimos eventos con estadísticas")
     .setDefaultMemberPermissions(0n)

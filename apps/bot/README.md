@@ -69,6 +69,20 @@ Salida:
 - Resumen de miembros evaluados y cantidad en Gulag.
 - Paginacion por botones (`< Anterior` / `Siguiente >`) en el mismo mensaje.
 
+### `/imprimir-miembros` (admin)
+Genera y adjunta un archivo HTML con tabla de miembros del roster (`Member`) y estadisticas agregadas.
+Columnas:
+- SteamID64/ID
+- Nick
+- Ingreso
+- Antiguedad (Dias)
+- Funcion
+- Eventos Participados
+- Mato / Murio
+- Avg. K/D
+- Avg. Pts (combate, ataque, defensa, soporte)
+- Avg. Muertes x Min
+
 ### `/sync-miembros`
 Sincroniza todos los miembros del servidor a la DB.
 

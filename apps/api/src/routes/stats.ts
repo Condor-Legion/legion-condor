@@ -539,6 +539,194 @@ statsRouter.get("/gulag", requireBotOrAdmin, async (_req, res) => {
   });
 });
 
+statsRouter.get("/members-report", requireBotOrAdmin, async (_req, res) => {
+  const now = new Date();
+  const dayMs = 24 * 60 * 60 * 1000;
+
+  const members = await prisma.member.findMany({
+    where: { isActive: true },
+    include: {
+      gameAccounts: {
+        select: { id: true, providerId: true },
+      },
+    },
+    orderBy: { displayName: "asc" },
+  });
+
+  if (members.length === 0) {
+    return res.json({
+      generatedAt: now.toISOString(),
+      totalMembers: 0,
+      rows: [],
+    });
+  }
+
+  const discordMembers = await prisma.discordMember.findMany({
+    where: { discordId: { in: members.map((member) => member.discordId) } },
+    select: { discordId: true, joinedAt: true },
+  });
+  const joinedAtByDiscordId = new Map(
+    discordMembers.map((member) => [member.discordId, member.joinedAt])
+  );
+
+  const accountIdToMemberId = new Map<string, string>();
+  const accountIdToProviderId = new Map<string, string>();
+  const providerIdToMemberId = new Map<string, string>();
+  const accountIds: string[] = [];
+  const providerIdsSet = new Set<string>();
+
+  for (const member of members) {
+    for (const account of member.gameAccounts) {
+      accountIdToMemberId.set(account.id, member.id);
+      accountIdToProviderId.set(account.id, account.providerId);
+      accountIds.push(account.id);
+      if (!providerIdToMemberId.has(account.providerId)) {
+        providerIdToMemberId.set(account.providerId, member.id);
+      }
+      providerIdsSet.add(account.providerId);
+    }
+  }
+
+  const identityWhere: Prisma.PlayerMatchStatsWhereInput[] = [];
+  if (accountIds.length > 0) {
+    identityWhere.push({ gameAccountId: { in: accountIds } });
+  }
+  const providerIds = Array.from(providerIdsSet);
+  if (providerIds.length > 0) {
+    identityWhere.push({ gameAccountId: null, providerId: { in: providerIds } });
+  }
+
+  const importWhere = buildImportWhere(null, true);
+  const statsRows =
+    identityWhere.length > 0
+      ? await prisma.playerMatchStats.findMany({
+          where: {
+            OR: identityWhere,
+            importCrcon: importWhere,
+          },
+          select: {
+            importCrconId: true,
+            gameAccountId: true,
+            providerId: true,
+            kills: true,
+            deaths: true,
+            combat: true,
+            offense: true,
+            defense: true,
+            support: true,
+            deathsPerMinute: true,
+            killDeathRatio: true,
+            importCrcon: {
+              select: {
+                importedAt: true,
+              },
+            },
+          },
+        })
+      : [];
+
+  type Accumulator = {
+    kills: number;
+    deaths: number;
+    combat: number;
+    offense: number;
+    defense: number;
+    support: number;
+    deathsPerMinute: number;
+    killDeathRatio: number;
+    matches: Set<string>;
+    lastPlayedAt: Date | null;
+    lastUsedProviderId: string | null;
+  };
+
+  const statsByMemberId = new Map<string, Accumulator>();
+  for (const row of statsRows) {
+    const memberId =
+      (row.gameAccountId
+        ? accountIdToMemberId.get(row.gameAccountId)
+        : undefined) ??
+      (row.providerId ? providerIdToMemberId.get(row.providerId) : undefined);
+    if (!memberId) continue;
+
+    const current = statsByMemberId.get(memberId) ?? {
+      kills: 0,
+      deaths: 0,
+      combat: 0,
+      offense: 0,
+      defense: 0,
+      support: 0,
+      deathsPerMinute: 0,
+      killDeathRatio: 0,
+      matches: new Set<string>(),
+      lastPlayedAt: null,
+      lastUsedProviderId: null,
+    };
+
+    current.kills += row.kills;
+    current.deaths += row.deaths;
+    current.combat += row.combat;
+    current.offense += row.offense;
+    current.defense += row.defense;
+    current.support += row.support;
+    current.deathsPerMinute += row.deathsPerMinute;
+    current.killDeathRatio += row.killDeathRatio;
+    current.matches.add(row.importCrconId);
+
+    const importedAt = row.importCrcon.importedAt;
+    if (current.lastPlayedAt === null || importedAt > current.lastPlayedAt) {
+      current.lastPlayedAt = importedAt;
+      const providerId = row.gameAccountId
+        ? accountIdToProviderId.get(row.gameAccountId) ?? row.providerId
+        : row.providerId;
+      current.lastUsedProviderId =
+        providerId ?? null;
+    }
+
+    statsByMemberId.set(memberId, current);
+  }
+
+  const rows = members.map((member) => {
+    const joinedAt = joinedAtByDiscordId.get(member.discordId) ?? null;
+    const tenureDays =
+      joinedAt !== null
+        ? Math.floor((now.getTime() - joinedAt.getTime()) / dayMs)
+        : null;
+    const stats = statsByMemberId.get(member.id);
+    const matches = stats?.matches.size ?? 0;
+
+    const fallbackAccount = member.gameAccounts[0]?.providerId ?? null;
+    const idValue = stats?.lastUsedProviderId ?? fallbackAccount;
+
+    return {
+      memberId: member.id,
+      discordId: member.discordId,
+      id: idValue,
+      displayName: member.displayName,
+      joinedAt: joinedAt?.toISOString() ?? null,
+      tenureDays,
+      function: "Miembro",
+      eventsParticipated: matches,
+      kills: stats?.kills ?? 0,
+      deaths: stats?.deaths ?? 0,
+      avgKillDeathRatio:
+        matches > 0 && stats ? stats.killDeathRatio / matches : 0,
+      avgCombat: matches > 0 && stats ? stats.combat / matches : 0,
+      avgOffense: matches > 0 && stats ? stats.offense / matches : 0,
+      avgDefense: matches > 0 && stats ? stats.defense / matches : 0,
+      avgSupport: matches > 0 && stats ? stats.support / matches : 0,
+      avgDeathsPerMinute:
+        matches > 0 && stats ? stats.deathsPerMinute / matches : 0,
+      lastPlayedAt: stats?.lastPlayedAt?.toISOString() ?? null,
+    };
+  });
+
+  return res.json({
+    generatedAt: now.toISOString(),
+    totalMembers: rows.length,
+    rows,
+  });
+});
+
 statsRouter.get(
   "/last-events/:discordId",
   requireBotOrAdmin,

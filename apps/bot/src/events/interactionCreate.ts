@@ -8,6 +8,7 @@ import {
   handleMyRank,
   handleMyAccount,
   handleGulag,
+  handlePrintMembers,
   handleGulagPageButton,
   handleLastEvents,
   handleAnunciar,
@@ -52,6 +53,10 @@ export function setupInteractionCreateEvent(client: Client): void {
       }
       if (interaction.commandName === "gulag") {
         await handleGulag(interaction);
+        return;
+      }
+      if (interaction.commandName === "imprimir-miembros") {
+        await handlePrintMembers(interaction);
         return;
       }
       if (interaction.commandName === "ultimos-eventos") {
