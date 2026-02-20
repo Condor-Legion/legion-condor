@@ -72,8 +72,10 @@ export async function handleTicketCreate(
 
     const ticketData = await ticketRes.json();
     const createdTicketId = ticketData.ticket?.id ?? ticketData.id;
-    const cuidCounter = createdTicketId.slice(9, 14);
-const channelName = `ticket-${cuidCounter || createdTicketId.slice(-4)}`;
+    const ticketNumber =
+      ticketData.ticket?.number ?? ticketData.number ?? 0;
+    const displayNumber = String(ticketNumber).padStart(4, "0");
+    const channelName = `ticket-${displayNumber}`;
 
     const guild = await interaction.guild!.fetch();
     const categoryId =
@@ -434,6 +436,10 @@ export async function handleTicketCompleteEntry(
     const ticketData = await ticketRes.json();
     const ticket = ticketData.ticket;
     const discordId = ticket?.discordId;
+    const ticketDisplayNumber =
+      ticket?.number != null
+        ? String(ticket.number).padStart(4, "0")
+        : ticketId;
     if (!discordId) {
       await interaction.editReply("Ticket sin usuario asociado.");
       return;
@@ -488,7 +494,7 @@ export async function handleTicketCompleteEntry(
     }
     const messages = await fetchAllMessages(channel);
     const { text: transcriptText, participantIds } = buildTranscriptText(
-      ticketId,
+      ticketDisplayNumber,
       discordId,
       messages
     );
@@ -507,7 +513,7 @@ export async function handleTicketCompleteEntry(
       })
       .join(", ");
     const embed = new EmbedBuilder()
-      .setTitle(`Ticket completado — ticket-${ticketId}`)
+      .setTitle(`Ticket completado — ticket-${ticketDisplayNumber}`)
       .setDescription(
         [
           `**Creador:** <@${discordId}> (${discordId})`,
@@ -518,7 +524,7 @@ export async function handleTicketCompleteEntry(
       .setTimestamp()
       .setColor(0x2ecc71);
     const file = new AttachmentBuilder(Buffer.from(transcriptText, "utf-8"), {
-      name: `ticket-${ticketId}-transcript.txt`,
+      name: `ticket-${ticketDisplayNumber}-transcript.txt`,
     });
     await logChannel.send({ embeds: [embed], files: [file] });
 

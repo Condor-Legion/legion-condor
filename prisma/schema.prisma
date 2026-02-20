@@ -230,6 +230,7 @@ model AuditLog {
 
 model RecruitmentTicket {
   id         String                  @id @default(cuid())
+  number     Int                     @unique // Número secuencial de 4 dígitos para mostrar (ticket-0001)
   discordId  String
   channelId  String?                 @unique
   platform   AccountProvider?
