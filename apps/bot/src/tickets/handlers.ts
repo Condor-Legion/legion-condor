@@ -7,7 +7,7 @@ import {
   type ButtonInteraction,
   type GuildTextBasedChannel,
   type Message,
-  type ModalSubmitInteraction,
+  type ModalSubmitInteraction
 } from "discord.js";
 import { config } from "../config";
 import {
@@ -18,7 +18,7 @@ import {
   buildSurveyContinueRow,
   buildSurveyModalStep1,
   buildSurveyModalStep2,
-  type SurveyAnswers,
+  type SurveyAnswers
 } from "./builders";
 import { surveyCache } from "./cache";
 
@@ -29,7 +29,7 @@ export async function handleTicketCreate(
     await interaction.reply({
       content:
         "Tickets no configurados: falta TICKETS_ADMIN_ROLE_IDS en el entorno del bot.",
-      flags: MessageFlags.Ephemeral,
+      flags: MessageFlags.Ephemeral
     });
     return;
   }
@@ -57,9 +57,9 @@ export async function handleTicketCreate(
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "x-bot-api-key": config.botApiKey,
+        "x-bot-api-key": config.botApiKey
       },
-      body: JSON.stringify({ discordId: interaction.user.id }),
+      body: JSON.stringify({ discordId: interaction.user.id })
     });
 
     if (!ticketRes.ok) {
@@ -72,15 +72,14 @@ export async function handleTicketCreate(
 
     const ticketData = await ticketRes.json();
     const createdTicketId = ticketData.ticket?.id ?? ticketData.id;
-    const ticketNumber =
-      ticketData.ticket?.number ?? ticketData.number ?? 0;
+    const ticketNumber = ticketData.ticket?.number ?? ticketData.number ?? 0;
     const displayNumber = String(ticketNumber).padStart(4, "0");
     const channelName = `ticket-${displayNumber}`;
 
     const guild = await interaction.guild!.fetch();
     const categoryId =
       interaction.channel && "parentId" in interaction.channel
-        ? interaction.channel.parentId ?? undefined
+        ? (interaction.channel.parentId ?? undefined)
         : undefined;
     const channel = await guild.channels.create({
       name: channelName,
@@ -89,25 +88,25 @@ export async function handleTicketCreate(
       permissionOverwrites: [
         {
           id: guild.id,
-          deny: [PermissionFlagsBits.ViewChannel],
+          deny: [PermissionFlagsBits.ViewChannel]
         },
         {
           id: interaction.user.id,
           allow: [
             PermissionFlagsBits.ViewChannel,
             PermissionFlagsBits.SendMessages,
-            PermissionFlagsBits.ReadMessageHistory,
-          ],
+            PermissionFlagsBits.ReadMessageHistory
+          ]
         },
         ...config.ticketAdminRoleIds.map((roleId) => ({
           id: roleId,
           allow: [
             PermissionFlagsBits.ViewChannel,
             PermissionFlagsBits.SendMessages,
-            PermissionFlagsBits.ReadMessageHistory,
-          ],
-        })),
-      ],
+            PermissionFlagsBits.ReadMessageHistory
+          ]
+        }))
+      ]
     });
 
     const channelPatchRes = await fetch(
@@ -116,15 +115,17 @@ export async function handleTicketCreate(
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
-          "x-bot-api-key": config.botApiKey,
+          "x-bot-api-key": config.botApiKey
         },
-        body: JSON.stringify({ channelId: channel.id }),
+        body: JSON.stringify({ channelId: channel.id })
       }
     );
 
     if (!channelPatchRes.ok) {
       const text = await channelPatchRes.text();
-      await channel.delete("No se pudo vincular el canal al ticket.").catch(() => {});
+      await channel
+        .delete("No se pudo vincular el canal al ticket.")
+        .catch(() => {});
       await interaction.editReply(
         `Error vinculando canal: ${channelPatchRes.status} ${text}`
       );
@@ -133,7 +134,7 @@ export async function handleTicketCreate(
 
     await channel.send({
       content: buildSurveyMessage(interaction.user.id),
-      components: [buildTicketActionRow(createdTicketId)],
+      components: [buildTicketActionRow(createdTicketId)]
     });
 
     await interaction.editReply(`Ticket creado: <#${channel.id}>`);
@@ -167,7 +168,7 @@ export async function handleSurveyStart(
     await interaction
       .reply({
         content: "Falta el identificador del ticket.",
-        flags: MessageFlags.Ephemeral,
+        flags: MessageFlags.Ephemeral
       })
       .catch((err) =>
         console.error("[tickets] Error replying missing ticketId", err)
@@ -186,7 +187,7 @@ export async function handleSurveyStart(
       .reply({
         content:
           "No se pudo abrir el formulario. Probá de nuevo o contactá a un admin.",
-        flags: MessageFlags.Ephemeral,
+        flags: MessageFlags.Ephemeral
       })
       .catch((replyErr) =>
         console.error("[tickets] Error al enviar mensaje de fallo", replyErr)
@@ -202,7 +203,7 @@ export function handleSurveyContinue(
     interaction
       .reply({
         content: "Falta el identificador del ticket.",
-        flags: MessageFlags.Ephemeral,
+        flags: MessageFlags.Ephemeral
       })
       .catch(() => {});
     return;
@@ -217,35 +218,35 @@ export async function handleTicketClose(
   if (!ticketId) {
     await interaction.reply({
       content: "Falta el identificador del ticket.",
-      flags: MessageFlags.Ephemeral,
+      flags: MessageFlags.Ephemeral
     });
     return;
   }
   await interaction.deferReply({ flags: MessageFlags.Ephemeral });
   try {
-    const ticketRes = await fetch(
-      `${config.apiUrl}/api/tickets/${ticketId}`,
-      { headers: { "x-bot-api-key": config.botApiKey } }
-    );
+    const ticketRes = await fetch(`${config.apiUrl}/api/tickets/${ticketId}`, {
+      headers: { "x-bot-api-key": config.botApiKey }
+    });
     if (ticketRes.ok && config.ticketPendingRoleId) {
       const ticketData = await ticketRes.json();
       const ticket = ticketData.ticket;
       const discordId = ticket?.discordId;
-      const surveyCompleted =
-        ticket?.platform && ticket?.playerId;
+      const surveyCompleted = ticket?.platform && ticket?.playerId;
       if (discordId && surveyCompleted) {
         const member = await interaction
           .guild!.members.fetch(discordId)
           .catch(() => null);
         if (member) {
-          await member.roles.remove(config.ticketPendingRoleId!).catch(() => {});
+          await member.roles
+            .remove(config.ticketPendingRoleId!)
+            .catch(() => {});
         }
       }
     }
 
     const res = await fetch(`${config.apiUrl}/api/tickets/${ticketId}/close`, {
       method: "PATCH",
-      headers: { "x-bot-api-key": config.botApiKey },
+      headers: { "x-bot-api-key": config.botApiKey }
     });
     if (!res.ok) {
       const text = await res.text();
@@ -279,34 +280,31 @@ export async function handleTicketGrantRole(
   if (!ticketId) {
     await interaction.reply({
       content: "Falta el identificador del ticket.",
-      flags: MessageFlags.Ephemeral,
+      flags: MessageFlags.Ephemeral
     });
     return;
   }
   if (!isTicketAdmin(interaction)) {
     await interaction.reply({
       content: "Solo los administradores pueden usar este botón.",
-      flags: MessageFlags.Ephemeral,
+      flags: MessageFlags.Ephemeral
     });
     return;
   }
   if (!config.ticketPendingRoleId) {
     await interaction.reply({
       content: "No está configurado TICKETS_PENDING_ROLE_ID.",
-      flags: MessageFlags.Ephemeral,
+      flags: MessageFlags.Ephemeral
     });
     return;
   }
   await interaction.deferReply({ flags: MessageFlags.Ephemeral });
   try {
-    const res = await fetch(
-      `${config.apiUrl}/api/tickets/${ticketId}`,
-      { headers: { "x-bot-api-key": config.botApiKey } }
-    );
+    const res = await fetch(`${config.apiUrl}/api/tickets/${ticketId}`, {
+      headers: { "x-bot-api-key": config.botApiKey }
+    });
     if (!res.ok) {
-      await interaction.editReply(
-        `Error al obtener el ticket: ${res.status}`
-      );
+      await interaction.editReply(`Error al obtener el ticket: ${res.status}`);
       return;
     }
     const data = await res.json();
@@ -315,13 +313,15 @@ export async function handleTicketGrantRole(
       await interaction.editReply("Ticket sin usuario asociado.");
       return;
     }
-    const member = await interaction.guild!.members.fetch(discordId).catch(() => null);
+    const member = await interaction
+      .guild!.members.fetch(discordId)
+      .catch(() => null);
     if (!member) {
       await interaction.editReply("No se encontró al usuario en el servidor.");
       return;
     }
     await member.roles.add(config.ticketPendingRoleId!);
-    await interaction.editReply("Rol de pendiente asignado correctamente.");
+    await interaction.editReply("Rol de Pre-Aspirante asignado correctamente.");
   } catch (error) {
     console.error("Grant ticket role error:", error);
     await interaction.editReply("Error al asignar el rol.").catch(() => {});
@@ -342,9 +342,8 @@ async function fetchAllMessages(
     for (const msg of batch.values()) {
       messages.push(msg);
     }
-    const oldestInBatch = batch.reduce(
-      (oldest, m) =>
-        m.createdTimestamp < oldest.createdTimestamp ? m : oldest
+    const oldestInBatch = batch.reduce((oldest, m) =>
+      m.createdTimestamp < oldest.createdTimestamp ? m : oldest
     );
     beforeId = oldestInBatch.id;
     if (batch.size < 100) break;
@@ -363,7 +362,7 @@ function buildTranscriptText(
     `=== Ticket ${ticketId} ===`,
     `Creador: ${creatorDiscordId}`,
     "",
-    "--- Participantes ---",
+    "--- Participantes ---"
   ];
   for (const msg of messages) {
     if (msg.author.bot) continue;
@@ -382,8 +381,7 @@ function buildTranscriptText(
     const content = msg.content || "(sin texto)";
     const attachments =
       msg.attachments.size > 0
-        ? " " +
-          msg.attachments.map((a) => a.url).join(" ")
+        ? " " + msg.attachments.map((a) => a.url).join(" ")
         : "";
     lines.push(`[${date}] ${author}: ${content}${attachments}`);
   }
@@ -397,14 +395,14 @@ export async function handleTicketCompleteEntry(
   if (!ticketId) {
     await interaction.reply({
       content: "Falta el identificador del ticket.",
-      flags: MessageFlags.Ephemeral,
+      flags: MessageFlags.Ephemeral
     });
     return;
   }
   if (!isTicketAdmin(interaction)) {
     await interaction.reply({
       content: "Solo los administradores pueden usar este botón.",
-      flags: MessageFlags.Ephemeral,
+      flags: MessageFlags.Ephemeral
     });
     return;
   }
@@ -412,25 +410,26 @@ export async function handleTicketCompleteEntry(
     await interaction.reply({
       content:
         "Faltan TICKETS_PENDING_ROLE_ID o TICKETS_MEMBER_ROLE_ID en la configuración.",
-      flags: MessageFlags.Ephemeral,
+      flags: MessageFlags.Ephemeral
     });
     return;
   }
   if (!config.ticketLogChannelId) {
     await interaction.reply({
       content: "Falta TICKETS_LOG_CHANNEL_ID para guardar el transcript.",
-      flags: MessageFlags.Ephemeral,
+      flags: MessageFlags.Ephemeral
     });
     return;
   }
   await interaction.deferReply({ flags: MessageFlags.Ephemeral });
   try {
-    const ticketRes = await fetch(
-      `${config.apiUrl}/api/tickets/${ticketId}`,
-      { headers: { "x-bot-api-key": config.botApiKey } }
-    );
+    const ticketRes = await fetch(`${config.apiUrl}/api/tickets/${ticketId}`, {
+      headers: { "x-bot-api-key": config.botApiKey }
+    });
     if (!ticketRes.ok) {
-      await interaction.editReply(`Error al obtener el ticket: ${ticketRes.status}`);
+      await interaction.editReply(
+        `Error al obtener el ticket: ${ticketRes.status}`
+      );
       return;
     }
     const ticketData = await ticketRes.json();
@@ -452,30 +451,35 @@ export async function handleTicketCompleteEntry(
       );
       return;
     }
-    const member = await interaction.guild!.members.fetch(discordId).catch(() => null);
+    const member = await interaction
+      .guild!.members.fetch(discordId)
+      .catch(() => null);
     if (!member) {
       await interaction.editReply("No se encontró al usuario en el servidor.");
       return;
     }
 
-    const accountRes = await fetch(`${config.apiUrl}/api/discord/account-requests`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-bot-api-key": config.botApiKey,
-      },
-      body: JSON.stringify({
-        discordId,
-        provider: platform,
-        providerId: playerId,
-        username: member.user.username,
-        nickname: member.nickname ?? null,
-        joinedAt: member.joinedAt?.toISOString() ?? null,
-        roles: member.roles.cache
-          .filter((r) => r.id !== interaction.guild!.id)
-          .map((r) => ({ id: r.id, name: r.name })),
-      }),
-    });
+    const accountRes = await fetch(
+      `${config.apiUrl}/api/discord/account-requests`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-bot-api-key": config.botApiKey
+        },
+        body: JSON.stringify({
+          discordId,
+          provider: platform,
+          providerId: playerId,
+          username: member.user.username,
+          nickname: member.nickname ?? null,
+          joinedAt: member.joinedAt?.toISOString() ?? null,
+          roles: member.roles.cache
+            .filter((r) => r.id !== interaction.guild!.id)
+            .map((r) => ({ id: r.id, name: r.name }))
+        })
+      }
+    );
     if (!accountRes.ok && accountRes.status !== 409) {
       const text = await accountRes.text();
       await interaction.editReply(
@@ -502,7 +506,10 @@ export async function handleTicketCompleteEntry(
     const logChannel = await interaction.guild!.channels.fetch(
       config.ticketLogChannelId!
     );
-    if (logChannel?.type !== ChannelType.GuildText || !logChannel.isSendable()) {
+    if (
+      logChannel?.type !== ChannelType.GuildText ||
+      !logChannel.isSendable()
+    ) {
       await interaction.editReply("No se pudo acceder al canal de logs.");
       return;
     }
@@ -518,13 +525,13 @@ export async function handleTicketCompleteEntry(
         [
           `**Creador:** <@${discordId}> (${discordId})`,
           `**Participantes:** ${participantList || "—"}`,
-          `**Mensajes:** ${messages.length}`,
+          `**Mensajes:** ${messages.length}`
         ].join("\n")
       )
       .setTimestamp()
       .setColor(0x2ecc71);
     const file = new AttachmentBuilder(Buffer.from(transcriptText, "utf-8"), {
-      name: `ticket-${ticketDisplayNumber}-transcript.txt`,
+      name: `ticket-${ticketDisplayNumber}-transcript.txt`
     });
     await logChannel.send({ embeds: [embed], files: [file] });
 
@@ -532,7 +539,7 @@ export async function handleTicketCompleteEntry(
       `${config.apiUrl}/api/tickets/${ticketId}/close`,
       {
         method: "PATCH",
-        headers: { "x-bot-api-key": config.botApiKey },
+        headers: { "x-bot-api-key": config.botApiKey }
       }
     );
     if (!closeRes.ok) {
@@ -547,7 +554,9 @@ export async function handleTicketCompleteEntry(
     await channel.delete("Ticket completado").catch(() => {});
   } catch (error) {
     console.error("Complete entry error:", error);
-    await interaction.editReply("Error al completar el ingreso.").catch(() => {});
+    await interaction
+      .editReply("Error al completar el ingreso.")
+      .catch(() => {});
   }
 }
 
@@ -559,7 +568,7 @@ export async function handleSurveyStep1(
   if (!ticketId) {
     await interaction.reply({
       content: "Falta el identificador del ticket.",
-      flags: MessageFlags.Ephemeral,
+      flags: MessageFlags.Ephemeral
     });
     return;
   }
@@ -569,7 +578,7 @@ export async function handleSurveyStep1(
   if (!validPlatforms.includes(platform)) {
     await interaction.reply({
       content: "Elegí una plataforma (Steam, Epic o Xbox Pass).",
-      flags: MessageFlags.Ephemeral,
+      flags: MessageFlags.Ephemeral
     });
     return;
   }
@@ -581,7 +590,7 @@ export async function handleSurveyStep1(
   if (!playerId) {
     await interaction.reply({
       content: "El ID de jugador es obligatorio.",
-      flags: MessageFlags.Ephemeral,
+      flags: MessageFlags.Ephemeral
     });
     return;
   }
@@ -623,12 +632,12 @@ export async function handleSurveyStep1(
     username,
     playerId,
     availability,
-    discovery,
+    discovery
   });
 
   await interaction.editReply({
     content: "Datos del paso 1 guardados. Continuá con la segunda parte.",
-    components: [buildSurveyContinueRow(ticketId)],
+    components: [buildSurveyContinueRow(ticketId)]
   });
 }
 
@@ -639,7 +648,7 @@ export async function handleSurveyStep2(
   if (!ticketId) {
     await interaction.reply({
       content: "Falta el identificador del ticket.",
-      flags: MessageFlags.Ephemeral,
+      flags: MessageFlags.Ephemeral
     });
     return;
   }
@@ -647,7 +656,7 @@ export async function handleSurveyStep2(
   if (!cached || cached.userId !== interaction.user.id) {
     await interaction.reply({
       content: "No se encontró la encuesta previa. Iniciá nuevamente.",
-      flags: MessageFlags.Ephemeral,
+      flags: MessageFlags.Ephemeral
     });
     return;
   }
@@ -668,14 +677,14 @@ export async function handleSurveyStep2(
       method: "PATCH",
       headers: {
         "Content-Type": "application/json",
-        "x-bot-api-key": config.botApiKey,
+        "x-bot-api-key": config.botApiKey
       },
       body: JSON.stringify({
         displayName,
         platform: cached.platform,
         username: cached.username,
-        playerId: cached.playerId,
-      }),
+        playerId: cached.playerId
+      })
     });
 
     if (!res.ok) {
@@ -698,7 +707,7 @@ export async function handleSurveyStep2(
         level,
         role,
         competitive,
-        interview,
+        interview
       };
       await channel.send(buildSurveySummary(displayName, summary));
 
