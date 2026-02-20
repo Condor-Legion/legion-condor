@@ -36,6 +36,18 @@ enum PaymentProvider {
   STRIPE
 }
 
+enum EventType {
+  T18X18
+  T36X36
+  T49X49
+  PRACTICE
+}
+
+enum RecruitmentTicketStatus {
+  OPEN
+  CLOSED
+}
+
 model AdminUser {
   id           String      @id @default(cuid())
   username     String      @unique
@@ -93,6 +105,7 @@ model Event {
   mapName          String?
   side             String?
   rosterTemplateId String
+  type             EventType              @default(T36X36)
   version          Int                    @default(1)
   createdAt        DateTime               @default(now())
   updatedAt        DateTime               @updatedAt
@@ -150,9 +163,11 @@ model ImportCrcon {
   id           String        @id @default(cuid())
   gameId       String
   sourceUrl    String
+  title        String?
   payloadHash  String
   status       ImportStatus
   errorMessage String?
+  discordMessageId String?
   importedAt   DateTime      @default(now())
   importedById String?
   eventId      String?
@@ -164,6 +179,7 @@ model ImportCrcon {
   @@index([gameId])
   @@index([importedAt])
   @@index([payloadHash])
+  @@index([discordMessageId])
 }
 
 model RawPayload {
@@ -179,10 +195,22 @@ model PlayerMatchStats {
   importCrconId String
   gameAccountId String?
   playerName    String
+  providerId    String?
   kills         Int
   deaths        Int
+  killsStreak   Int         @default(0)
+  teamkills     Int         @default(0)
+  deathsByTk    Int         @default(0)
+  killsPerMinute Float      @default(0)
+  deathsPerMinute Float     @default(0)
+  killDeathRatio Float      @default(0)
   score         Int
-  teamId        String?
+  combat        Int         @default(0)
+  offense       Int         @default(0)
+  defense       Int         @default(0)
+  support       Int         @default(0)
+  teamSide      String?
+  teamRatio     Float       @default(0)
   importCrcon   ImportCrcon @relation(fields: [importCrconId], references: [id], onDelete: Cascade)
   gameAccount   GameAccount? @relation(fields: [gameAccountId], references: [id], onDelete: SetNull)
 
@@ -207,6 +235,23 @@ model AuditLog {
   @@index([entityType, entityId])
   @@index([targetMemberId])
   @@index([createdAt])
+}
+
+model RecruitmentTicket {
+  id         String                  @id @default(cuid())
+  number     Int                     @unique // Número secuencial de 4 dígitos para mostrar (ticket-0001)
+  discordId  String
+  channelId  String?                 @unique
+  platform   AccountProvider?
+  username   String?
+  playerId   String?
+  status     RecruitmentTicketStatus @default(OPEN)
+  validatedAt DateTime?
+  createdAt  DateTime                @default(now())
+  updatedAt  DateTime                @updatedAt
+  closedAt   DateTime?
+
+  @@index([discordId])
 }
 
 model VipOrder {
@@ -255,4 +300,20 @@ model DiscordMember {
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model ScheduledAnnouncement {
+  id               String    @id @default(cuid())
+  guildId          String
+  channelId        String
+  content          String    @default("")
+  embedsJson       String?
+  attachmentUrlsJson String?  // [{ url, name }] para reenviar adjuntos al publicar
+  scheduledAt      DateTime
+  recurrenceDays   String?   // 0=Dom, 1=Lun, ..., 6=Sab (comma-separated)
+  createdById      String?
+  createdAt        DateTime  @default(now())
+
+  @@index([scheduledAt])
+  @@index([guildId])
 }

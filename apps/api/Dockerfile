@@ -1,7 +1,7 @@
 FROM node:20-alpine AS builder
 WORKDIR /app
 RUN corepack enable && corepack prepare pnpm@9.15.0 --activate
-COPY package.json pnpm-workspace.yaml .npmrc ./
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml .npmrc ./
 COPY apps/api/package.json apps/api/tsconfig.json apps/api/ ./apps/api/
 COPY packages/shared/package.json packages/shared/tsconfig.json packages/shared/ ./packages/shared/
 COPY prisma ./prisma
@@ -23,5 +23,8 @@ COPY --from=builder /app/apps/api/dist ./apps/api/dist
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /tmp/shared-deps/node_modules ./shared-deps-tmp
 RUN rm -rf packages/shared/node_modules && mv shared-deps-tmp packages/shared/node_modules
+COPY apps/api/docker-entrypoint.sh /app/docker-entrypoint.sh
+RUN sed -i 's/\r$//' /app/docker-entrypoint.sh && chmod +x /app/docker-entrypoint.sh
 EXPOSE 3001
+ENTRYPOINT ["/app/docker-entrypoint.sh"]
 CMD ["bun", "run", "apps/api/dist/index.js"]

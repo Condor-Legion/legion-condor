@@ -39,3 +39,5 @@ coverage
 
 .history/
 
+.env.dev
+.env.prod
