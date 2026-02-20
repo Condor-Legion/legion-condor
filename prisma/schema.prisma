@@ -36,6 +36,13 @@ enum PaymentProvider {
   STRIPE
 }
 
+enum EventType {
+  T18X18
+  T36X36
+  T49X49
+  PRACTICE
+}
+
 enum RecruitmentTicketStatus {
   OPEN
   CLOSED
@@ -98,6 +105,7 @@ model Event {
   mapName          String?
   side             String?
   rosterTemplateId String
+  type             EventType              @default(T36X36)
   version          Int                    @default(1)
   createdAt        DateTime               @default(now())
   updatedAt        DateTime               @updatedAt
@@ -155,6 +163,7 @@ model ImportCrcon {
   id           String        @id @default(cuid())
   gameId       String
   sourceUrl    String
+  title        String?
   payloadHash  String
   status       ImportStatus
   errorMessage String?

@@ -5,7 +5,12 @@ import {
   handleSyncRoster,
   handleCreateAccount,
   handleSetupTickets,
-  handleStats,
+  handleMyRank,
+  handleMyAccount,
+  handleGulag,
+  handlePrintMembers,
+  handleGulagPageButton,
+  handleLastEvents,
   handleAnunciar,
 } from "../commands/handlers";
 import {
@@ -22,7 +27,7 @@ import {
 export function setupInteractionCreateEvent(client: Client): void {
   client.on(Events.InteractionCreate, async (interaction) => {
     if (interaction.isChatInputCommand()) {
-      if (interaction.commandName === "sync-members") {
+      if (interaction.commandName === "sync-miembros") {
         await handleSyncMembers(interaction, client);
         return;
       }
@@ -30,16 +35,32 @@ export function setupInteractionCreateEvent(client: Client): void {
         await handleSyncRoster(interaction, client);
         return;
       }
-      if (interaction.commandName === "create-account") {
+      if (interaction.commandName === "crear-cuenta") {
         await handleCreateAccount(interaction);
         return;
       }
-      if (interaction.commandName === "setup-tickets") {
+      if (interaction.commandName === "config-tickets") {
         await handleSetupTickets(interaction);
         return;
       }
-      if (interaction.commandName === "stats") {
-        await handleStats(interaction);
+      if (interaction.commandName === "mi-rank") {
+        await handleMyRank(interaction);
+        return;
+      }
+      if (interaction.commandName === "mi-cuenta") {
+        await handleMyAccount(interaction);
+        return;
+      }
+      if (interaction.commandName === "gulag") {
+        await handleGulag(interaction);
+        return;
+      }
+      if (interaction.commandName === "imprimir-miembros") {
+        await handlePrintMembers(interaction);
+        return;
+      }
+      if (interaction.commandName === "ultimos-eventos") {
+        await handleLastEvents(interaction);
         return;
       }
       if (interaction.commandName === "anunciar") {
@@ -54,6 +75,11 @@ export function setupInteractionCreateEvent(client: Client): void {
           content: "Esta acción solo funciona dentro de un servidor.",
           flags: MessageFlags.Ephemeral,
         });
+        return;
+      }
+
+      if (interaction.customId.startsWith("gulag_page:")) {
+        await handleGulagPageButton(interaction);
         return;
       }
 

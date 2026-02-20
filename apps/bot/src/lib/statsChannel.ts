@@ -4,6 +4,7 @@ import { config } from "../config";
 
 function extractGameLinks(text: string): { baseUrl: string; mapId: string }[] {
   const result: { baseUrl: string; mapId: string }[] = [];
+  const seen = new Set<string>();
   const regex = /https?:\/\/[^\s)]+\/games\/(\d+)/gi;
   let match: RegExpExecArray | null;
   while ((match = regex.exec(text)) !== null) {
@@ -11,13 +12,23 @@ function extractGameLinks(text: string): { baseUrl: string; mapId: string }[] {
       const full = match[0];
       const mapId = match[1];
       const url = new URL(full);
-      result.push({ baseUrl: `${url.protocol}//${url.host}`, mapId });
+      const baseUrl = `${url.protocol}//${url.host}`;
+      const key = `${baseUrl}|${mapId}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      result.push({ baseUrl, mapId });
     } catch {
       // ignore invalid urls
     }
   }
   return result;
 }
+
+type CrconImportResponse = {
+  status: string;
+  importId?: string;
+  discordMessageId?: string | null;
+};
 
 async function fetchLastDiscordMessageId(): Promise<string | null> {
   const res = await fetch(`${config.apiUrl}/api/import/discord-last`, {
@@ -31,20 +42,58 @@ async function fetchLastDiscordMessageId(): Promise<string | null> {
 async function triggerImport(
   baseUrl: string,
   mapId: string,
-  discordMessageId: string
-): Promise<void> {
+  discordMessageId: string,
+  title: string | null
+): Promise<CrconImportResponse> {
   const res = await fetch(`${config.apiUrl}/api/import/crcon-fetch`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       "x-bot-api-key": config.botApiKey,
     },
-    body: JSON.stringify({ baseUrl, mapId, discordMessageId }),
+    body: JSON.stringify({ baseUrl, mapId, discordMessageId, title }),
   });
   if (!res.ok) {
     const text = await res.text();
     throw new Error(`Import failed: ${res.status} ${text}`);
   }
+  return (await res.json()) as CrconImportResponse;
+}
+
+function extractImportTitle(msg: Message): string | null {
+  const extractBetweenPipes = (text: string): string | null => {
+    const lines = text.split(/\r?\n/);
+    for (const line of lines) {
+      const match = line.match(/\|([^|\r\n]+)\|/);
+      if (!match) continue;
+      const candidate = match[1]?.trim();
+      if (candidate) return candidate;
+    }
+    return null;
+  };
+
+  const pipeSources: string[] = [];
+  if (msg.content) pipeSources.push(msg.content);
+  for (const embed of msg.embeds) {
+    if (embed.title) pipeSources.push(embed.title);
+    if (embed.description) pipeSources.push(embed.description);
+  }
+
+  for (const source of pipeSources) {
+    const titleFromPipes = extractBetweenPipes(source);
+    if (titleFromPipes) return titleFromPipes;
+  }
+
+  for (const embed of msg.embeds) {
+    const title = embed.title?.trim();
+    if (title) return title;
+  }
+
+  const cleanedContent = (msg.content ?? "")
+    .replace(/https?:\/\/[^\s)]+/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  return cleanedContent.length > 0 ? cleanedContent : null;
 }
 
 function getTextFromMessage(msg: Message): string {
@@ -60,11 +109,27 @@ function getTextFromMessage(msg: Message): string {
 async function processMessageForLinks(msg: Message): Promise<void> {
   const text = getTextFromMessage(msg);
   const links = extractGameLinks(text);
+  const importTitle = extractImportTitle(msg);
   for (const link of links) {
     console.log(
       `Stats link found messageId=${msg.id} baseUrl=${link.baseUrl} mapId=${link.mapId}`
     );
-    await triggerImport(link.baseUrl, link.mapId, msg.id);
+    try {
+      const result = await triggerImport(
+        link.baseUrl,
+        link.mapId,
+        msg.id,
+        importTitle
+      );
+      console.log(
+        `Stats import result messageId=${msg.id} baseUrl=${link.baseUrl} mapId=${link.mapId} status=${result.status} importId=${result.importId ?? "null"}`
+      );
+    } catch (error) {
+      console.error(
+        `Stats import error messageId=${msg.id} baseUrl=${link.baseUrl} mapId=${link.mapId}:`,
+        error
+      );
+    }
   }
 }
 

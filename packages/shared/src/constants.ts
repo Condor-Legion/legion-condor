@@ -16,7 +16,7 @@ export const AUDIT_ACTIONS = {
   PAYMENT_CONFIRMED: "PAYMENT_CONFIRMED",
 } as const;
 
-export const PERIODS = ["7d", "30d", "season", "all"] as const;
+export const PERIODS = ["7d", "30d", "all"] as const;
 export type Period = (typeof PERIODS)[number];
 
 /** Tamaño de lote para sync Discord (miembros/roster) bot ↔ API */
