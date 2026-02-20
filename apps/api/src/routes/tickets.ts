@@ -138,8 +138,13 @@ ticketsRouter.post("/", requireBotOrAdmin, async (req, res) => {
           approved: true,
         },
       });
+      const max = await tx.recruitmentTicket.aggregate({
+        _max: { number: true },
+      });
+      const nextNumber = (max._max.number ?? 0) + 1;
       const ticket = await tx.recruitmentTicket.create({
         data: {
+          number: nextNumber,
           discordId,
           channelId,
           platform,
@@ -155,8 +160,14 @@ ticketsRouter.post("/", requireBotOrAdmin, async (req, res) => {
     return res.status(201).json(result);
   }
 
-  const ticket = await prisma.recruitmentTicket.create({
-    data: { discordId, channelId, status: "OPEN" },
+  const ticket = await prisma.$transaction(async (tx) => {
+    const max = await tx.recruitmentTicket.aggregate({
+      _max: { number: true },
+    });
+    const nextNumber = (max._max.number ?? 0) + 1;
+    return tx.recruitmentTicket.create({
+      data: { number: nextNumber, discordId, channelId, status: "OPEN" },
+    });
   });
   return res.status(201).json({ ticket });
 });
