@@ -11,7 +11,7 @@ const commands = [
   new SlashCommandBuilder()
     .setName("mi-rank")
     .setDescription("Muestra tu resumen de estadísticas")
-    .setDefaultMemberPermissions(0n)
+    .setDefaultMemberPermissions(null)
     .setDMPermission(false)
     .addIntegerOption((option) =>
       option
@@ -30,7 +30,7 @@ const commands = [
   new SlashCommandBuilder()
     .setName("mi-cuenta")
     .setDescription("Muestra tu perfil y cuentas asociadas")
-    .setDefaultMemberPermissions(0n)
+    .setDefaultMemberPermissions(null)
     .setDMPermission(false),
   new SlashCommandBuilder()
     .setName("gulag")
@@ -45,7 +45,7 @@ const commands = [
   new SlashCommandBuilder()
     .setName("ultimos-eventos")
     .setDescription("Muestra tus últimos eventos con estadísticas")
-    .setDefaultMemberPermissions(0n)
+    .setDefaultMemberPermissions(null)
     .setDMPermission(false)
     .addIntegerOption((option) =>
       option
@@ -64,12 +64,12 @@ const commands = [
   new SlashCommandBuilder()
     .setName("sync-miembros")
     .setDescription("Sincroniza miembros del servidor a la base de datos")
-    .setDefaultMemberPermissions(0n)
+    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
     .setDMPermission(false),
   new SlashCommandBuilder()
     .setName("sync-roster")
     .setDescription("Sincroniza el roster desde roles de Discord")
-    .setDefaultMemberPermissions(0n)
+    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
     .setDMPermission(false),
   new SlashCommandBuilder()
     .setName("crear-cuenta")
@@ -99,6 +99,50 @@ const commands = [
         .setDescription("Usuario para crear la cuenta")
         .setRequired(true)
     ),
+  new SlashCommandBuilder()
+    .setName("top-condor")
+    .setDescription(
+      "Leaderboard del Ascenso del Cóndor (semana actual por defecto)"
+    )
+    .setDefaultMemberPermissions(null)
+    .setDMPermission(false)
+    .addStringOption((option) =>
+      option
+        .setName("metrica")
+        .setDescription("Métrica para ordenar (default: ascenso)")
+        .setRequired(false)
+        .addChoices(
+          { name: "Ascenso (Combate + Ataque)", value: "ascenso" },
+          { name: "Kills", value: "kills" },
+          { name: "Score Total", value: "score" },
+          { name: "K/D Ratio", value: "kdr" },
+          { name: "Combate", value: "combat" },
+          { name: "Ataque", value: "offense" },
+          { name: "Defensa", value: "defense" },
+          { name: "Soporte", value: "support" }
+        )
+    )
+    .addIntegerOption((option) =>
+      option
+        .setName("dias")
+        .setDescription("Filtrar por últimos N días (1-365)")
+        .setMinValue(1)
+        .setMaxValue(365)
+    )
+    .addIntegerOption((option) =>
+      option
+        .setName("cantidad")
+        .setDescription("Cantidad de jugadores a mostrar (1-25, default 10)")
+        .setMinValue(1)
+        .setMaxValue(25)
+    ),
+  new SlashCommandBuilder()
+    .setName("rank-condor")
+    .setDescription(
+      "Muestra tus stats del Ascenso del Cóndor: score semanal + últimas 5 partidas clasificadas"
+    )
+    .setDefaultMemberPermissions(null)
+    .setDMPermission(false),
   new SlashCommandBuilder()
     .setName("config-tickets")
     .setDescription("Envía el botón para crear tickets en este canal")

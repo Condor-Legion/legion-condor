@@ -12,6 +12,8 @@ import {
   handleGulagPageButton,
   handleLastEvents,
   handleAnunciar,
+  handleTopCondor,
+  handleRankCondor,
 } from "../commands/handlers";
 import {
   handleTicketCreate,
@@ -61,6 +63,14 @@ export function setupInteractionCreateEvent(client: Client): void {
       }
       if (interaction.commandName === "ultimos-eventos") {
         await handleLastEvents(interaction);
+        return;
+      }
+      if (interaction.commandName === "top-condor") {
+        await handleTopCondor(interaction);
+        return;
+      }
+      if (interaction.commandName === "rank-condor") {
+        await handleRankCondor(interaction);
         return;
       }
       if (interaction.commandName === "anunciar") {
