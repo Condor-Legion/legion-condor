@@ -76,10 +76,22 @@ export interface PlayerMatchStats {
   importCrconId: string;
   gameAccountId?: string | null;
   playerName: string;
+  providerId?: string | null;
   kills: number;
   deaths: number;
+  killsStreak: number;
+  teamkills: number;
+  deathsByTk: number;
+  killsPerMinute: number;
+  deathsPerMinute: number;
+  killDeathRatio: number;
   score: number;
-  teamId?: string | null;
+  combat: number;
+  offense: number;
+  defense: number;
+  support: number;
+  teamSide?: string | null;
+  teamRatio: number;
 }
 
 export interface AuditLogEntry {
