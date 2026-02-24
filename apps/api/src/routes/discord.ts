@@ -1,8 +1,9 @@
 import { Router } from "express";
 import { z } from "zod";
 import { SYNC_CHUNK_SIZE } from "@legion/shared";
-import { prisma } from "../prisma";
 import { getAdminFromRequest, getBotApiKey } from "../auth";
+import { prisma } from "../prisma";
+import { syncRosterSheet } from "../utils/googleSheets";
 
 export const discordRouter = Router();
 
@@ -28,10 +29,12 @@ const rosterMemberSchema = z.object({
   displayName: z.string().min(1),
   username: z.string().optional(),
   nickname: z.string().nullable().optional(),
+  joinedAt: z.string().datetime().nullable().optional(),
+  roles: z.array(roleSchema).optional(),
 });
 
 const rosterSyncBodySchema = z.object({
-  members: z.array(rosterMemberSchema).min(1),
+  members: z.array(rosterMemberSchema),
 });
 
 const accountRequestSchema = z.object({
@@ -238,13 +241,16 @@ discordRouter.post("/roster/sync", requireBotOrAdmin, async (req, res) => {
             update: {
               username: member.username ?? member.displayName,
               nickname: member.nickname ?? null,
+              joinedAt: member.joinedAt ? new Date(member.joinedAt) : null,
+              roles: member.roles ?? [],
               isActive: true,
             },
             create: {
               discordId: member.discordId,
               username: member.username ?? member.displayName,
               nickname: member.nickname ?? null,
-              roles: [],
+              joinedAt: member.joinedAt ? new Date(member.joinedAt) : null,
+              roles: member.roles ?? [],
               isActive: true,
             },
           }),
@@ -262,7 +268,24 @@ discordRouter.post("/roster/sync", requireBotOrAdmin, async (req, res) => {
     data: { isActive: false },
   });
 
-  return res.json({ ok: true, count: members.length });
+  const sheetRows = members.map((member) => ({
+    discordId: member.discordId,
+    username: member.username ?? member.displayName,
+    displayName: resolveDisplayName({
+      nickname: member.nickname,
+      username: member.username,
+      fallback: member.displayName,
+    }),
+    joinedAt: member.joinedAt ?? null,
+    roleIds: (member.roles ?? []).map((role) => role.id),
+  }));
+  await syncRosterSheet(sheetRows);
+
+  return res.json({
+    ok: true,
+    count: members.length,
+    sheetUpdated: true,
+  });
 });
 
 // --- Anuncios programados (comando /anunciar del bot) ---
