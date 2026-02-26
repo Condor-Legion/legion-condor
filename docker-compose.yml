@@ -80,5 +80,19 @@ services:
     depends_on:
       - api
 
+  deploy-listener:
+    build:
+      context: .
+      dockerfile: deploy-listener/Dockerfile
+    environment:
+      GITHUB_WEBHOOK_SECRET: ${GITHUB_WEBHOOK_SECRET:-}
+      REPO_DIR: /repo
+      PORT: 9000
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - "${REPO_PATH:-.}:/repo"
+    ports:
+      - "9000:9000"
+
 volumes:
   postgres_data:
