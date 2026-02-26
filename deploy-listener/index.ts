@@ -131,12 +131,15 @@ Bun.serve({
     );
 
     const services = detectServicesFromPaths(touched);
-    if (services.length === 0) {
-      return Response.json({ ok: true, action: "noop" });
-    }
 
+    // Siempre ejecutamos el script de deploy: si no hay servicios afectados,
+    // deploy.sh solo hará git pull y terminará.
     await spawnDeploy(services);
-    return Response.json({ ok: true, action: "deploy", services });
+    return Response.json({
+      ok: true,
+      action: services.length === 0 ? "pull-only" : "deploy",
+      services,
+    });
   },
 });
 
