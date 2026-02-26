@@ -1,6 +1,5 @@
 import {
   ChannelType,
-  PermissionFlagsBits,
   REST,
   Routes,
   SlashCommandBuilder,
@@ -11,7 +10,7 @@ const commands = [
   new SlashCommandBuilder()
     .setName("mi-rank")
     .setDescription("Muestra tu resumen de estadísticas")
-    .setDefaultMemberPermissions(null)
+    .setDefaultMemberPermissions(0n)
     .setDMPermission(false)
     .addIntegerOption((option) =>
       option
@@ -30,22 +29,22 @@ const commands = [
   new SlashCommandBuilder()
     .setName("mi-cuenta")
     .setDescription("Muestra tu perfil y cuentas asociadas")
-    .setDefaultMemberPermissions(null)
+    .setDefaultMemberPermissions(0n)
     .setDMPermission(false),
   new SlashCommandBuilder()
     .setName("gulag")
     .setDescription("Muestra los jugadores en estado Gulag")
-    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
+    .setDefaultMemberPermissions(0n)
     .setDMPermission(false),
   new SlashCommandBuilder()
     .setName("imprimir-miembros")
     .setDescription("Genera un HTML con tabla de miembros y stats")
-    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
+    .setDefaultMemberPermissions(0n)
     .setDMPermission(false),
   new SlashCommandBuilder()
     .setName("ultimos-eventos")
     .setDescription("Muestra tus últimos eventos con estadísticas")
-    .setDefaultMemberPermissions(null)
+    .setDefaultMemberPermissions(0n)
     .setDMPermission(false)
     .addIntegerOption((option) =>
       option
@@ -64,17 +63,17 @@ const commands = [
   new SlashCommandBuilder()
     .setName("sync-miembros")
     .setDescription("Sincroniza miembros del servidor a la base de datos")
-    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
+    .setDefaultMemberPermissions(0n)
     .setDMPermission(false),
   new SlashCommandBuilder()
     .setName("sync-roster")
     .setDescription("Sincroniza el roster desde roles de Discord")
-    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
+    .setDefaultMemberPermissions(0n)
     .setDMPermission(false),
   new SlashCommandBuilder()
     .setName("crear-cuenta")
     .setDescription("Solicita crear una cuenta de juego")
-    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
+    .setDefaultMemberPermissions(0n)
     .setDMPermission(false)
     .addStringOption((option) =>
       option
@@ -104,7 +103,7 @@ const commands = [
     .setDescription(
       "Leaderboard del Ascenso del Cóndor (semana actual por defecto)"
     )
-    .setDefaultMemberPermissions(null)
+    .setDefaultMemberPermissions(0n)
     .setDMPermission(false)
     .addStringOption((option) =>
       option
@@ -141,19 +140,19 @@ const commands = [
     .setDescription(
       "Muestra tus stats del Ascenso del Cóndor: score semanal + últimas 5 partidas clasificadas"
     )
-    .setDefaultMemberPermissions(null)
+    .setDefaultMemberPermissions(0n)
     .setDMPermission(false),
   new SlashCommandBuilder()
     .setName("config-tickets")
     .setDescription("Envía el botón para crear tickets en este canal")
-    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
+    .setDefaultMemberPermissions(0n)
     .setDMPermission(false),
   new SlashCommandBuilder()
     .setName("anunciar")
     .setDescription(
       "Publica un anuncio copiando un mensaje (ahora o programado). Solo administradores."
     )
-    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
+    .setDefaultMemberPermissions(0n)
     .setDMPermission(false)
     .addStringOption((o) =>
       o
