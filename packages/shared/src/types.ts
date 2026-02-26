@@ -69,6 +69,7 @@ export interface ImportCrcon {
   importedAt: string;
   importedById?: string | null;
   eventId?: string | null;
+  mapName?: string | null;
 }
 
 export interface PlayerMatchStats {
@@ -79,6 +80,7 @@ export interface PlayerMatchStats {
   providerId?: string | null;
   kills: number;
   deaths: number;
+  infantryKills: number;
   killsStreak: number;
   teamkills: number;
   deathsByTk: number;
