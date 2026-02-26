@@ -6,7 +6,7 @@ Este documento describe cómo configurar un **listener** que recibe webhooks de 
 
 - **Listener**: `deploy-listener/` (Bun) expone `POST /deploy`.
 - **Script**: `scripts/deploy.sh` hace `git pull` y luego `docker compose build/up` de los servicios indicados.
-- **Compose**: `docker-compose.yml` incluye el servicio `deploy-listener`.
+- **Compose**: `docker-compose.yml` incluye el servicio `deploy-listener` y fija el nombre de proyecto con `name: legion-condor` para que todos los `docker compose` (manuales o del listener) operen sobre el mismo stack de contenedores.
 
 ## Variables de entorno
 
