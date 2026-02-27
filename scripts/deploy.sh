@@ -22,7 +22,7 @@ for svc in "$@"; do
   case "$svc" in
     bot|api|web|deploy-listener|all) ;;
     *)
-      echo "Servicio inválido: $svc (esperado: bot|api|web|all)" >&2
+      echo "Servicio inválido: $svc (esperado: bot|api|web|deploy-listener|all)" >&2
       exit 2
       ;;
   esac
