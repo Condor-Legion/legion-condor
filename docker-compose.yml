@@ -16,6 +16,7 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
+    restart: unless-stopped
 
   api:
     build:
@@ -45,7 +46,8 @@ services:
       postgres:
         condition: service_healthy
     ports:
-      - "3004:3004"
+      - "3004:3001"
+    restart: unless-stopped
 
   web:
     build:
@@ -58,7 +60,7 @@ services:
       - api
     ports:
       - "3003:3000"
-
+    restart: unless-stopped
   bot:
     build:
       context: .
@@ -81,7 +83,7 @@ services:
       CLEAR_GLOBAL_COMMANDS: ${CLEAR_GLOBAL_COMMANDS:-}
     depends_on:
       - api
-
+    restart: unless-stopped
   deploy-listener:
     build:
       context: .
@@ -95,6 +97,6 @@ services:
       - "${REPO_PATH:-.}:/repo"
     ports:
       - "9000:9000"
-
+    restart: unless-stopped
 volumes:
   postgres_data:
