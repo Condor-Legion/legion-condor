@@ -43,6 +43,12 @@ enum EventType {
   PRACTICE
 }
 
+enum RosterStatus {
+  DRAFT
+  PUBLISHED
+  CLOSED
+}
+
 enum RecruitmentTicketStatus {
   OPEN
   CLOSED
@@ -106,12 +112,43 @@ model Event {
   side             String?
   rosterTemplateId String
   type             EventType              @default(T36X36)
+  status           RosterStatus           @default(DRAFT)
   version          Int                    @default(1)
   createdAt        DateTime               @default(now())
   updatedAt        DateTime               @updatedAt
   rosterTemplate   RosterTemplate         @relation(fields: [rosterTemplateId], references: [id])
+  units            EventUnit[]
   rosterSlots      RosterSlotAssignment[]
   imports          ImportCrcon[]
+}
+
+model EventUnit {
+  id        String     @id @default(cuid())
+  eventId   String
+  name      String
+  color     String     @default("#334155")
+  order     Int
+  version   Int        @default(1)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  event     Event      @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  slots     EventSlot[]
+
+  @@index([eventId, order])
+}
+
+model EventSlot {
+  id          String                 @id @default(cuid())
+  eventUnitId String
+  label       String
+  order       Int
+  version     Int                    @default(1)
+  createdAt   DateTime               @default(now())
+  updatedAt   DateTime               @updatedAt
+  eventUnit   EventUnit              @relation(fields: [eventUnitId], references: [id], onDelete: Cascade)
+  assignments RosterSlotAssignment[]
+
+  @@index([eventUnitId, order])
 }
 
 model RosterTemplate {
@@ -128,6 +165,7 @@ model RosterTemplateUnit {
   id               String              @id @default(cuid())
   rosterTemplateId String
   name             String
+  color            String              @default("#334155")
   order            Int
   slotCount        Int
   rosterTemplate   RosterTemplate      @relation(fields: [rosterTemplateId], references: [id], onDelete: Cascade)
@@ -140,23 +178,44 @@ model RosterTemplateSlot {
   label               String
   order               Int
   rosterTemplateUnit  RosterTemplateUnit   @relation(fields: [rosterTemplateUnitId], references: [id], onDelete: Cascade)
-  assignments         RosterSlotAssignment[]
 }
 
 model RosterSlotAssignment {
   id                 String            @id @default(cuid())
   eventId            String
-  rosterTemplateSlotId String
+  eventSlotId        String
   memberId           String?
   attendance         AttendanceStatus?
   version            Int               @default(1)
   updatedAt          DateTime          @updatedAt
   event              Event             @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  rosterTemplateSlot RosterTemplateSlot @relation(fields: [rosterTemplateSlotId], references: [id], onDelete: Cascade)
+  eventSlot          EventSlot         @relation(fields: [eventSlotId], references: [id], onDelete: Cascade)
   member             Member?           @relation(fields: [memberId], references: [id], onDelete: SetNull)
 
-  @@unique([eventId, rosterTemplateSlotId])
+  @@unique([eventId, eventSlotId])
   @@index([memberId])
+}
+
+model MapCatalog {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  isActive  Boolean  @default(true)
+  order     Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([order])
+}
+
+model SideCatalog {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  isActive  Boolean  @default(true)
+  order     Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([order])
 }
 
 model ImportCrcon {

@@ -4,6 +4,8 @@ export type TemplateMode = (typeof TEMPLATE_MODES)[number];
 export const SOCKET_EVENTS = {
   ROSTER_SLOT_UPDATED: "roster:slot:updated",
   ROSTER_EVENT_UPDATED: "roster:event:updated",
+  ROSTER_STRUCTURE_UPDATED: "roster:structure:updated",
+  ROSTER_ASSIGNMENT_UPDATED: "roster:assignment:updated",
 } as const;
 
 export const AUDIT_ACTIONS = {

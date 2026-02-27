@@ -9,8 +9,8 @@
     "types": ["node"],
     "typeRoots": ["node_modules/@types", "../../node_modules/@types"],
     "paths": {
-      "@legion/shared": ["../../packages/shared"],
-      "@legion/shared/*": ["../../packages/shared/*"]
+      "@legion/shared": ["../../packages/shared/src"],
+      "@legion/shared/*": ["../../packages/shared/src/*"]
     }
   },
   "include": ["src"]

@@ -8,6 +8,7 @@ type EventRow = {
   id: string;
   title: string;
   scheduledAt: string;
+  status: "DRAFT" | "PUBLISHED" | "CLOSED";
 };
 
 const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
@@ -28,9 +29,20 @@ export default function AdminHome() {
       <div className="mx-auto flex max-w-4xl flex-col gap-6">
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-semibold">Admin</h1>
-          <Button asChild variant="outline">
-            <Link href="/admin/login">Login</Link>
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button asChild variant="outline">
+              <Link href="/admin/events/new">Nuevo roster</Link>
+            </Button>
+            <Button asChild variant="outline">
+              <Link href="/admin/templates">Plantillas</Link>
+            </Button>
+            <Button asChild variant="outline">
+              <Link href="/admin/catalogs">Catálogos</Link>
+            </Button>
+            <Button asChild variant="outline">
+              <Link href="/admin/login">Login</Link>
+            </Button>
+          </div>
         </div>
         {error && <p className="text-red-400">{error}</p>}
         <div className="flex flex-col gap-3">
@@ -38,6 +50,7 @@ export default function AdminHome() {
             <Link key={event.id} href={`/admin/events/${event.id}`} className="rounded border border-neutral-800 p-3 hover:bg-neutral-900">
               <div className="text-lg">{event.title}</div>
               <div className="text-sm text-neutral-400">{new Date(event.scheduledAt).toLocaleString()}</div>
+              <div className="text-xs text-neutral-500">{event.status}</div>
             </Link>
           ))}
           {!events.length && !error && <p className="text-neutral-400">No hay eventos.</p>}
