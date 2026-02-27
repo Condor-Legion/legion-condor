@@ -32,6 +32,7 @@ done
 
 if echo "$dedup_services" | grep -qx "all" 2>/dev/null; then
   docker compose up -d --build
+  echo "deploy.sh: despliegue completado para: all"
   exit 0
 fi
 
@@ -40,4 +41,7 @@ echo "$dedup_services" | while IFS= read -r svc; do
   docker compose build "$svc"
   docker compose up -d "$svc"
 done
+
+echo "deploy.sh: despliegue completado para servicios:"
+echo "$dedup_services"
 
