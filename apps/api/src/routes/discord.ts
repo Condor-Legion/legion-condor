@@ -170,20 +170,44 @@ discordRouter.post("/account-requests", requireBotOrAdmin, async (req, res) => {
     username: discordMember.username,
   });
 
+  const existing = await prisma.gameAccount.findUnique({
+    where: {
+      provider_providerId: {
+        provider: parsed.data.provider,
+        providerId: parsed.data.providerId,
+      },
+    },
+    include: {
+      member: {
+        select: { discordId: true },
+      },
+    },
+  });
+  if (existing && existing.member.discordId !== parsed.data.discordId) {
+    return res.status(409).json({ error: "Account already exists" });
+  }
+
   const member = await prisma.member.upsert({
     where: { discordId: parsed.data.discordId },
     update: { displayName, isActive: true },
     create: { discordId: parsed.data.discordId, displayName, isActive: true },
   });
 
-  const existing = await prisma.gameAccount.findFirst({
-    where: {
-      provider: parsed.data.provider,
-      providerId: parsed.data.providerId,
-    },
-  });
   if (existing) {
-    return res.status(409).json({ error: "Account already exists" });
+    const account = await prisma.gameAccount.update({
+      where: { id: existing.id },
+      data: { approved: true },
+    });
+
+    await prisma.playerMatchStats.updateMany({
+      where: {
+        providerId: account.providerId,
+        gameAccountId: null,
+      },
+      data: { gameAccountId: account.id },
+    });
+
+    return res.status(200).json({ account, alreadyExisted: true });
   }
 
   const created = await prisma.gameAccount.create({
