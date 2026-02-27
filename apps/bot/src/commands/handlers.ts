@@ -112,6 +112,26 @@ type GulagApiResponse = {
   }>;
 };
 
+type LeaderboardApiResponse = {
+  leaderboard: Array<{
+    memberId: string;
+    discordId: string;
+    displayName: string;
+    matches: number;
+    kills: number;
+    deaths: number;
+    score: number;
+    combat: number;
+    offense: number;
+    defense: number;
+    support: number;
+    kdr: number;
+    value: number;
+  }>;
+  metric: string;
+  periodStart: string | null;
+};
+
 type MembersReportApiResponse = {
   generatedAt: string;
   totalMembers: number;
@@ -1501,6 +1521,206 @@ export async function handleLastEvents(
     await interaction.editReply("Error consultando tus últimos eventos.");
   }
 }
+const LEADERBOARD_METRIC_LABELS: Record<string, string> = {
+  ascenso: "Ascenso (Combate + Ataque)",
+  kills: "Kills",
+  score: "Score Total",
+  kdr: "K/D Ratio",
+  combat: "Combate",
+  offense: "Ataque",
+  defense: "Defensa",
+  support: "Soporte",
+};
+
+const LEADERBOARD_MEDALS = ["🥇", "🥈", "🥉"];
+
+type RankCondorApiResponse = {
+  member: { id: string; discordId: string; displayName: string };
+  week: {
+    weekNumber: number;
+    year: number;
+    start: string;
+    end: string;
+    qualifiedMatches: number;
+    ascensoScore: number;
+    kills: number;
+    deaths: number;
+    avgKdr: number;
+  };
+  lastQualifiedMatches: Array<{
+    importId: string;
+    importedAt: string;
+    mapName: string | null;
+    kills: number;
+    deaths: number;
+    kdr: number;
+    combat: number;
+    offense: number;
+    defense: number;
+    support: number;
+    ascensoScore: number;
+  }>;
+};
+
+export async function handleTopCondor(
+  interaction: ChatInputCommandInteraction
+): Promise<void> {
+  const metric = interaction.options.getString("metrica") ?? "ascenso";
+  const days = interaction.options.getInteger("dias");
+  const limit = interaction.options.getInteger("cantidad") ?? 10;
+
+  const query = new URLSearchParams({ metric, limit: String(limit) });
+  if (days !== null) {
+    query.set("days", String(days));
+  } else {
+    query.set("period", "week");
+  }
+
+  await interaction.deferReply();
+
+  try {
+    const response = await fetch(
+      `${config.apiUrl}/api/stats/leaderboard?${query.toString()}`,
+      { headers: { "x-bot-api-key": config.botApiKey } }
+    );
+
+    if (!response.ok) {
+      const text = await response.text();
+      await interaction.editReply(
+        `No se pudo obtener el leaderboard (${response.status}). ${text}`
+      );
+      return;
+    }
+
+    const data = (await response.json()) as LeaderboardApiResponse;
+
+    if (data.leaderboard.length === 0) {
+      const windowLabel =
+        days !== null ? `los últimos ${days} días` : "la semana actual";
+      await interaction.editReply(
+        `No hay datos para mostrar en ${windowLabel}.`
+      );
+      return;
+    }
+
+    const windowLabel =
+      days !== null ? `Últimos ${days} días` : "Semana actual (GMT-3)";
+    const metricLabel = LEADERBOARD_METRIC_LABELS[metric] ?? metric;
+    const isFloat = metric === "kdr";
+
+    const lines = data.leaderboard.map((entry, index) => {
+      const medal = LEADERBOARD_MEDALS[index] ?? `**${index + 1}.**`;
+      const valueStr = isFloat
+        ? formatFloat(entry.value)
+        : formatInt(entry.value);
+      return `${medal} **${entry.displayName}** — ${valueStr} (${formatInt(entry.matches)} ev.)`;
+    });
+
+    const embed = new EmbedBuilder()
+      .setColor(0xf4d03f)
+      .setTitle(`🏔️ Top ${data.leaderboard.length} — ${metricLabel}`)
+      .setDescription(`**Ventana:** ${windowLabel}\n\n${lines.join("\n")}`)
+      .setTimestamp(new Date());
+
+    await interaction.editReply({ embeds: [embed] });
+  } catch (error) {
+    console.error("Top Condor error:", error);
+    await interaction.editReply("Error consultando el leaderboard.");
+  }
+}
+
+export async function handleRankCondor(
+  interaction: ChatInputCommandInteraction
+): Promise<void> {
+  await interaction.deferReply();
+
+  try {
+    const response = await fetch(
+      `${config.apiUrl}/api/stats/rank-condor/${interaction.user.id}`,
+      { headers: { "x-bot-api-key": config.botApiKey } }
+    );
+
+    if (response.status === 404) {
+      await interaction.editReply(
+        "No encontramos tu cuenta en el roster."
+      );
+      return;
+    }
+
+    if (!response.ok) {
+      const text = await response.text();
+      await interaction.editReply(
+        `No se pudo obtener tu rank Cóndor (${response.status}). ${text}`
+      );
+      return;
+    }
+
+    const data = (await response.json()) as RankCondorApiResponse;
+    const { member, week, lastQualifiedMatches } = data;
+
+    const startTs = Math.floor(new Date(week.start).getTime() / 1000);
+    const endTs = Math.floor(new Date(week.end).getTime() / 1000);
+
+    let description: string;
+    if (week.qualifiedMatches === 0) {
+      description = [
+        `<t:${startTs}:D> → <t:${endTs}:D>`,
+        "",
+        "Sin partidas clasificadas esta semana.",
+        `Requisitos: **≥ 40 kills de infantería** y **KDR ≥ 1.0**`,
+      ].join("\n");
+    } else {
+      description = [
+        `<t:${startTs}:D> → <t:${endTs}:D>`,
+        "",
+        `Partidas clasificadas: **${week.qualifiedMatches}**`,
+        `Puntuación Ascenso: **${formatInt(week.ascensoScore)} pts**`,
+        `Kills: **${formatInt(week.kills)}** | Deaths: **${formatInt(week.deaths)}** | K/D avg: **${formatFloat(week.avgKdr)}**`,
+      ].join("\n");
+    }
+
+    const embed = new EmbedBuilder()
+      .setColor(0xf4d03f)
+      .setTitle("🏔️ Ascenso del Cóndor")
+      .setDescription(description)
+      .addFields({
+        name: "📛 Jugador",
+        value: member.displayName,
+        inline: false,
+      });
+
+    if (lastQualifiedMatches.length === 0) {
+      embed.addFields({
+        name: "Últimas partidas clasificadas",
+        value: "No hay historial clasificado.",
+        inline: false,
+      });
+    } else {
+      for (const [index, match] of lastQualifiedMatches.entries()) {
+        const ts = Math.floor(new Date(match.importedAt).getTime() / 1000);
+        const mapDisplay = match.mapName ?? "Mapa no disponible";
+        const matchValue = [
+          `Mapa: ${mapDisplay}  |  <t:${ts}:f>`,
+          `Kills: ${formatInt(match.kills)} | Deaths: ${formatInt(match.deaths)} | K/D: ${formatFloat(match.kdr)}`,
+          `Combate: ${formatInt(match.combat)} | Ataque: ${formatInt(match.offense)} | Def: ${formatInt(match.defense)} | Sop: ${formatInt(match.support)}`,
+          `Ascenso: **${formatInt(match.ascensoScore)} pts**`,
+        ].join("\n");
+        embed.addFields({
+          name: `🔸 Partida ${index + 1}`,
+          value: matchValue.slice(0, 1024),
+          inline: false,
+        });
+      }
+    }
+
+    embed.setTimestamp(new Date());
+    await interaction.editReply({ embeds: [embed] });
+  } catch (error) {
+    console.error("Rank Condor error:", error);
+    await interaction.editReply("Error consultando tu Ascenso del Cóndor.");
+  }
+}
+
 export async function handleAnunciar(
   interaction: ChatInputCommandInteraction,
   _client: Client

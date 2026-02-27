@@ -166,6 +166,7 @@ model ImportCrcon {
   title        String?
   payloadHash  String
   status       ImportStatus
+  mapName      String?
   errorMessage String?
   discordMessageId String?
   importedAt   DateTime      @default(now())
@@ -198,6 +199,7 @@ model PlayerMatchStats {
   providerId    String?
   kills         Int
   deaths        Int
+  infantryKills Int         @default(0)
   killsStreak   Int         @default(0)
   teamkills     Int         @default(0)
   deathsByTk    Int         @default(0)

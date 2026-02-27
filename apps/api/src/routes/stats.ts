@@ -134,6 +134,59 @@ async function resolveRecentImportIdsForMember(
   return orderedIds;
 }
 
+function getISOWeekBounds(offset = 0): {
+  start: Date;
+  end: Date;
+  weekNumber: number;
+  year: number;
+} {
+  const GMT3_OFFSET_MS = -3 * 60 * 60 * 1000;
+  const offsetMs = offset * 7 * 24 * 60 * 60 * 1000;
+  const nowGmt3Ms = Date.now() + GMT3_OFFSET_MS - offsetMs;
+  const localDate = new Date(nowGmt3Ms);
+  const jsWeekday = localDate.getUTCDay(); // 0=Dom … 6=Sáb
+  const isoWeekday = (jsWeekday + 6) % 7; // 0=Lun … 6=Dom
+  const lYear = localDate.getUTCFullYear();
+  const lMonth = localDate.getUTCMonth();
+  const lDay = localDate.getUTCDate();
+
+  // Lunes 00:00 GMT-3 → convertir a UTC real
+  const mondayLocalMs = Date.UTC(lYear, lMonth, lDay - isoWeekday, 0, 0, 0, 0);
+  const start = new Date(mondayLocalMs - GMT3_OFFSET_MS);
+
+  // Domingo 23:59:59.999 GMT-3 → convertir a UTC real
+  const sundayLocalMs = Date.UTC(
+    lYear,
+    lMonth,
+    lDay - isoWeekday + 6,
+    23,
+    59,
+    59,
+    999
+  );
+  const end = new Date(sundayLocalMs - GMT3_OFFSET_MS);
+
+  // Número ISO de semana (basado en el jueves de la semana)
+  const thursdayLocalMs = mondayLocalMs + 3 * 86400000;
+  const thursday = new Date(thursdayLocalMs);
+  const thursdayYear = thursday.getUTCFullYear();
+  const jan1 = Date.UTC(thursdayYear, 0, 1);
+  const dayOfYear = Math.floor((thursdayLocalMs - jan1) / 86400000) + 1;
+  const weekNumber = Math.ceil(dayOfYear / 7);
+
+  return { start, end, weekNumber, year: thursdayYear };
+}
+
+function buildQualificationWhere(): Prisma.PlayerMatchStatsWhereInput {
+  return {
+    infantryKills: { gte: 40 },
+    OR: [
+      { deaths: { equals: 0 } },
+      { killDeathRatio: { gte: 1.0 } },
+    ],
+  };
+}
+
 async function requireBotOrAdmin(
   req: import("express").Request,
   res: import("express").Response,
@@ -146,6 +199,226 @@ async function requireBotOrAdmin(
   if (!admin) return res.status(401).json({ error: "Unauthorized" });
   return next();
 }
+
+const leaderboardQuerySchema = z
+  .object({
+    metric: z
+      .enum([
+        "kills",
+        "score",
+        "kdr",
+        "combat",
+        "offense",
+        "defense",
+        "support",
+        "ascenso",
+      ])
+      .default("kills"),
+    period: z.enum(["7d", "30d", "all", "week"]).optional(),
+    days: z.coerce.number().int().min(1).max(365).optional(),
+    limit: z.coerce.number().int().min(1).max(50).default(10),
+    weekOffset: z.coerce.number().int().min(0).max(52).default(0),
+  })
+  .superRefine((val, ctx) => {
+    if (val.period !== undefined && val.days !== undefined) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Use only one window filter: period or days.",
+      });
+    }
+  });
+
+type LeaderboardMetric = z.infer<typeof leaderboardQuerySchema>["metric"];
+
+statsRouter.get("/leaderboard", requireBotOrAdmin, async (req, res) => {
+  const parsed = leaderboardQuerySchema.safeParse(req.query);
+  if (!parsed.success) return res.status(400).json({ error: "Invalid query" });
+
+  const { metric, limit, weekOffset } = parsed.data;
+
+  let weekBounds: ReturnType<typeof getISOWeekBounds> | null = null;
+  let periodStart: Date | null = null;
+
+  if (parsed.data.period === "week") {
+    weekBounds = getISOWeekBounds(weekOffset);
+    periodStart = weekBounds.start;
+  } else if (typeof parsed.data.days === "number") {
+    periodStart = resolveDaysStart(parsed.data.days);
+  } else if (parsed.data.period) {
+    periodStart = resolvePeriodStart(parsed.data.period);
+  }
+
+  const importWhere: Prisma.ImportCrconWhereInput = weekBounds
+    ? {
+        ...buildImportWhere(weekBounds.start, true),
+        importedAt: { gte: weekBounds.start, lte: weekBounds.end },
+      }
+    : buildImportWhere(periodStart, true);
+
+  const members = await prisma.member.findMany({
+    where: { isActive: true },
+    select: {
+      id: true,
+      discordId: true,
+      displayName: true,
+      gameAccounts: { select: { id: true, providerId: true } },
+    },
+  });
+
+  if (members.length === 0) {
+    return res.json({
+      leaderboard: [],
+      metric,
+      periodStart: periodStart?.toISOString() ?? null,
+    });
+  }
+
+  const accountIdToMemberId = new Map<string, string>();
+  const providerIdToMemberId = new Map<string, string>();
+  const allAccountIds: string[] = [];
+  const allProviderIds = new Set<string>();
+
+  for (const member of members) {
+    for (const account of member.gameAccounts) {
+      accountIdToMemberId.set(account.id, member.id);
+      if (!providerIdToMemberId.has(account.providerId)) {
+        providerIdToMemberId.set(account.providerId, member.id);
+      }
+      allAccountIds.push(account.id);
+      allProviderIds.add(account.providerId);
+    }
+  }
+
+  const identityWhere: Prisma.PlayerMatchStatsWhereInput[] = [];
+  if (allAccountIds.length > 0) {
+    identityWhere.push({ gameAccountId: { in: allAccountIds } });
+  }
+  const providerIds = Array.from(allProviderIds);
+  if (providerIds.length > 0) {
+    identityWhere.push({ gameAccountId: null, providerId: { in: providerIds } });
+  }
+
+  const statsRows =
+    identityWhere.length > 0
+      ? await prisma.playerMatchStats.findMany({
+          where: {
+            AND: [
+              { OR: identityWhere },
+              buildQualificationWhere(),
+              { importCrcon: importWhere },
+            ],
+          },
+          select: {
+            gameAccountId: true,
+            providerId: true,
+            kills: true,
+            deaths: true,
+            score: true,
+            combat: true,
+            offense: true,
+            defense: true,
+            support: true,
+            killDeathRatio: true,
+            importCrconId: true,
+          },
+        })
+      : [];
+
+  type LeaderboardAccumulator = {
+    kills: number;
+    deaths: number;
+    score: number;
+    combat: number;
+    offense: number;
+    defense: number;
+    support: number;
+    killDeathRatioSum: number;
+    matches: Set<string>;
+  };
+
+  const memberById = new Map(members.map((m) => [m.id, m]));
+  const statsByMemberId = new Map<string, LeaderboardAccumulator>();
+
+  for (const row of statsRows) {
+    const memberId =
+      (row.gameAccountId
+        ? accountIdToMemberId.get(row.gameAccountId)
+        : undefined) ??
+      (row.providerId ? providerIdToMemberId.get(row.providerId) : undefined);
+    if (!memberId) continue;
+
+    const current = statsByMemberId.get(memberId) ?? {
+      kills: 0,
+      deaths: 0,
+      score: 0,
+      combat: 0,
+      offense: 0,
+      defense: 0,
+      support: 0,
+      killDeathRatioSum: 0,
+      matches: new Set<string>(),
+    };
+
+    current.kills += row.kills;
+    current.deaths += row.deaths;
+    current.score += row.score;
+    current.combat += row.combat;
+    current.offense += row.offense;
+    current.defense += row.defense;
+    current.support += row.support;
+    current.killDeathRatioSum += row.killDeathRatio;
+    current.matches.add(row.importCrconId);
+
+    statsByMemberId.set(memberId, current);
+  }
+
+  const entries = [];
+  for (const [memberId, stats] of statsByMemberId) {
+    const member = memberById.get(memberId);
+    if (!member) continue;
+
+    const matchCount = stats.matches.size;
+    const kdr = matchCount > 0 ? stats.killDeathRatioSum / matchCount : 0;
+
+    const metricValues: Record<LeaderboardMetric, number> = {
+      kills: stats.kills,
+      score: stats.score,
+      kdr,
+      combat: stats.combat,
+      offense: stats.offense,
+      defense: stats.defense,
+      support: stats.support,
+      ascenso: stats.combat + stats.offense,
+    };
+
+    entries.push({
+      memberId,
+      discordId: member.discordId,
+      displayName: member.displayName,
+      matches: matchCount,
+      kills: stats.kills,
+      deaths: stats.deaths,
+      score: stats.score,
+      combat: stats.combat,
+      offense: stats.offense,
+      defense: stats.defense,
+      support: stats.support,
+      kdr,
+      value: metricValues[metric],
+    });
+  }
+
+  entries.sort((a, b) => b.value - a.value);
+
+  return res.json({
+    leaderboard: entries.slice(0, limit),
+    metric,
+    periodStart: periodStart?.toISOString() ?? null,
+    ...(weekBounds
+      ? { weekNumber: weekBounds.weekNumber, year: weekBounds.year }
+      : {}),
+  });
+});
 
 statsRouter.get("/myrank/:discordId", requireBotOrAdmin, async (req, res) => {
   const parsed = myRankQuerySchema.safeParse(req.query);
@@ -807,3 +1080,154 @@ statsRouter.get(
   }
 );
 
+const rankCondorQuerySchema = z.object({
+  weekOffset: z.coerce.number().int().min(0).max(52).default(0),
+});
+
+statsRouter.get("/rank-condor/:discordId", requireBotOrAdmin, async (req, res) => {
+  const parsedQuery = rankCondorQuerySchema.safeParse(req.query);
+  if (!parsedQuery.success) return res.status(400).json({ error: "Invalid query" });
+  const { weekOffset } = parsedQuery.data;
+
+  const member = await prisma.member.findUnique({
+    where: { discordId: req.params.discordId },
+    include: {
+      gameAccounts: {
+        select: { id: true, providerId: true },
+      },
+    },
+  });
+  if (!member) return res.status(404).json({ error: "Not found" });
+
+  const accountIds = member.gameAccounts.map((a) => a.id);
+  const providerIds = member.gameAccounts.map((a) => a.providerId);
+  const identityWhere = buildMemberIdentityWhere(accountIds, providerIds);
+  const bounds = getISOWeekBounds(weekOffset);
+
+  const emptyWeek = {
+    weekNumber: bounds.weekNumber,
+    year: bounds.year,
+    start: bounds.start.toISOString(),
+    end: bounds.end.toISOString(),
+    qualifiedMatches: 0,
+    ascensoScore: 0,
+    kills: 0,
+    deaths: 0,
+    avgKdr: 0,
+  };
+
+  if (identityWhere.length === 0) {
+    return res.json({
+      member: {
+        id: member.id,
+        discordId: member.discordId,
+        displayName: member.displayName,
+      },
+      week: emptyWeek,
+      lastQualifiedMatches: [],
+    });
+  }
+
+  const qualFilter = buildQualificationWhere();
+
+  // Filtro de la semana actual: spread de buildImportWhere para obtener el OR
+  // de práctica, luego sobreescribir importedAt con gte + lte
+  const weekImportWhere: Prisma.ImportCrconWhereInput = {
+    ...buildImportWhere(bounds.start, true),
+    importedAt: { gte: bounds.start, lte: bounds.end },
+  };
+
+  // Query A: partidas calificadas de esta semana
+  const weekRows = await prisma.playerMatchStats.findMany({
+    where: {
+      AND: [
+        { OR: identityWhere },
+        qualFilter,
+        { importCrcon: weekImportWhere },
+      ],
+    },
+    select: {
+      importCrconId: true,
+      kills: true,
+      deaths: true,
+      killDeathRatio: true,
+      combat: true,
+      offense: true,
+    },
+  });
+
+  // Agregar por importCrconId (guard contra duplicados)
+  const seenImports = new Set<string>();
+  let totalKills = 0;
+  let totalDeaths = 0;
+  let kdrSum = 0;
+  let ascensoScore = 0;
+  let qualifiedMatches = 0;
+
+  for (const row of weekRows) {
+    if (seenImports.has(row.importCrconId)) continue;
+    seenImports.add(row.importCrconId);
+    totalKills += row.kills;
+    totalDeaths += row.deaths;
+    kdrSum += row.killDeathRatio;
+    ascensoScore += row.combat + row.offense;
+    qualifiedMatches += 1;
+  }
+
+  // Query B: últimas 5 partidas calificadas de la semana seleccionada
+  const lastQualified = await prisma.playerMatchStats.findMany({
+    where: {
+      AND: [{ OR: identityWhere }, qualFilter, { importCrcon: weekImportWhere }],
+    },
+    orderBy: { importCrcon: { importedAt: "desc" } },
+    take: 5,
+    select: {
+      kills: true,
+      deaths: true,
+      killDeathRatio: true,
+      combat: true,
+      offense: true,
+      defense: true,
+      support: true,
+      importCrcon: {
+        select: {
+          id: true,
+          importedAt: true,
+          mapName: true,
+        },
+      },
+    },
+  });
+
+  return res.json({
+    member: {
+      id: member.id,
+      discordId: member.discordId,
+      displayName: member.displayName,
+    },
+    week: {
+      weekNumber: bounds.weekNumber,
+      year: bounds.year,
+      start: bounds.start.toISOString(),
+      end: bounds.end.toISOString(),
+      qualifiedMatches,
+      ascensoScore,
+      kills: totalKills,
+      deaths: totalDeaths,
+      avgKdr: qualifiedMatches > 0 ? kdrSum / qualifiedMatches : 0,
+    },
+    lastQualifiedMatches: lastQualified.map((row) => ({
+      importId: row.importCrcon.id,
+      importedAt: row.importCrcon.importedAt.toISOString(),
+      mapName: row.importCrcon.mapName,
+      kills: row.kills,
+      deaths: row.deaths,
+      kdr: row.killDeathRatio,
+      combat: row.combat,
+      offense: row.offense,
+      defense: row.defense,
+      support: row.support,
+      ascensoScore: row.combat + row.offense,
+    })),
+  });
+});

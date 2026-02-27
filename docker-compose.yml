@@ -41,11 +41,16 @@ services:
       ADMIN_USERNAME: ${ADMIN_USERNAME:-}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
       BOT_API_KEY: ${BOT_API_KEY:-}
+      CRCON_MAPS_API_URL: ${CRCON_MAPS_API_URL:-http://185.207.251.58:7010}
+      CRCON_GAME_API_URL: ${CRCON_GAME_API_URL:-http://185.207.251.58:7012}
+      WEBHOOK_SECRET: ${WEBHOOK_SECRET:-}
+      WEBHOOK_ALLOWED_IPS: ${WEBHOOK_ALLOWED_IPS:-}
+      CLAN_TAG_FILTERS: ${CLAN_TAG_FILTERS:-${CLAN_TAG_FILTER:-}}
     depends_on:
       postgres:
         condition: service_healthy
     ports:
-      - "3004:3004"
+      - "3004:3001"
 
   web:
     build:

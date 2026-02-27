@@ -5,6 +5,7 @@ export type CrconPlayerRow = {
   providerId?: string;
   kills: number;
   deaths: number;
+  infantryKills: number;
   killsStreak: number;
   teamkills: number;
   deathsByTk: number;
@@ -54,12 +55,55 @@ export function buildCrconScoreboardUrl(baseUrl: string, mapId: string): string 
   )}`;
 }
 
+/**
+ * Extracts the map name from a CRCON scoreboard payload.
+ * Supports CRCON v11 (result.map_name, result.map.pretty_name, result.map.name)
+ * and legacy formats.
+ */
+export function extractMapName(payload: unknown): string | null {
+  if (!payload || typeof payload !== "object") return null;
+  const root = payload as Record<string, unknown>;
+  const resultObj = root.result as Record<string, unknown> | undefined;
+
+  if (resultObj) {
+    if (typeof resultObj.map_name === "string" && resultObj.map_name) {
+      return resultObj.map_name;
+    }
+    const mapObj = resultObj.map as Record<string, unknown> | undefined;
+    if (mapObj) {
+      if (typeof mapObj.pretty_name === "string" && mapObj.pretty_name) {
+        return mapObj.pretty_name;
+      }
+      if (typeof mapObj.name === "string" && mapObj.name) {
+        return mapObj.name;
+      }
+    }
+  }
+
+  // Legacy fallback
+  if (typeof root.map_name === "string" && root.map_name) {
+    return root.map_name;
+  }
+
+  return null;
+}
+
+/**
+ * Extracts player stats from a CRCON v11 get_map_scoreboard response.
+ * Supports both `result.player_stats[]` (v11) and legacy `players[]` formats.
+ */
 export function extractPlayerStats(payload: unknown): CrconPlayerRow[] {
   if (!payload || typeof payload !== "object") return [];
   const root = payload as Record<string, unknown>;
+
+  const resultObj = root.result as Record<string, unknown> | undefined;
+
+  // CRCON v11: result.player_stats[]
+  // Legacy: players[] or result.players[] or data.players[]
   const players =
+    (resultObj?.player_stats as unknown[]) ??
     (root.players as unknown[]) ??
-    (root.result as Record<string, unknown> | undefined)?.players ??
+    (resultObj?.players as unknown[]) ??
     (root.result as Record<string, unknown> | undefined)?.player_stats ??
     (root.data as Record<string, unknown> | undefined)?.players ??
     [];
@@ -75,19 +119,27 @@ export function extractPlayerStats(payload: unknown): CrconPlayerRow[] {
         ? (row.team as Record<string, unknown>)
         : undefined;
 
+
     const playerName = readString(
-      row.name,
+      row.player ?? row.name,
       row.player_name,
       row.playerName,
       row.player
     );
     if (!playerName) continue;
 
+    const killsByType = (row.kills_by_type as Record<string, number> | undefined) ?? {};
+    const armorKills = typeof killsByType.armor === 'number' ? killsByType.armor : 0;
+    const artilleryKills = typeof killsByType.artillery === 'number' ? killsByType.artillery : 0;
+    const totalKills = readNumber(row.kills);
+    const infantryKills = Math.max(0, totalKills - armorKills - artilleryKills);
+
     const parsedRow: CrconPlayerRow = {
       playerName,
       providerId: readString(row.player_id, row.playerId, row.playerID, row.id),
-      kills: readNumber(row.kills),
+      kills: totalKills,
       deaths: readNumber(row.deaths),
+      infantryKills,
       killsStreak: readNumber(
         row.kills_streak,
         row.kill_streak,
@@ -141,4 +193,32 @@ export async function fetchCrconPayload(baseUrl: string, mapId: string) {
     throw new Error(`CRCON request failed (${response.status})`);
   }
   return { url, payload: await response.json() };
+}
+
+/**
+ * Determines whether a player qualifies for stat tracking.
+ * Requirements:
+ *   1. kills >= 40
+ *   2. KDR (kills / deaths) >= 1.0 (0 deaths = qualifies)
+ */
+export function isQualifiedPlayer(row: CrconPlayerRow): boolean {
+  if (row.infantryKills < 40) return false;
+  if (row.deaths === 0) return true;
+  return row.kills / row.deaths >= 1.0;
+}
+
+/**
+ * Parses clan tags from env vars. CLAN_TAG_FILTERS (comma-separated) takes
+ * precedence over legacy CLAN_TAG_FILTER (singular).
+ */
+export function parseClanTags(): string[] {
+  const raw = process.env.CLAN_TAG_FILTERS || process.env.CLAN_TAG_FILTER || "ζ";
+  return raw.split(",").map((t) => t.trim()).filter(Boolean);
+}
+
+/**
+ * Returns true if the player name contains any of the configured clan tags.
+ */
+export function matchesClanTag(playerName: string, tags: string[]): boolean {
+  return tags.some((tag) => playerName.includes(tag));
 }

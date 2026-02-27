@@ -1,6 +1,5 @@
 import {
   ChannelType,
-  PermissionFlagsBits,
   REST,
   Routes,
   SlashCommandBuilder,
@@ -35,12 +34,12 @@ const commands = [
   new SlashCommandBuilder()
     .setName("gulag")
     .setDescription("Muestra los jugadores en estado Gulag")
-    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
+    .setDefaultMemberPermissions(0n)
     .setDMPermission(false),
   new SlashCommandBuilder()
     .setName("imprimir-miembros")
     .setDescription("Genera un HTML con tabla de miembros y stats")
-    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
+    .setDefaultMemberPermissions(0n)
     .setDMPermission(false),
   new SlashCommandBuilder()
     .setName("ultimos-eventos")
@@ -74,7 +73,7 @@ const commands = [
   new SlashCommandBuilder()
     .setName("crear-cuenta")
     .setDescription("Solicita crear una cuenta de juego")
-    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
+    .setDefaultMemberPermissions(0n)
     .setDMPermission(false)
     .addStringOption((option) =>
       option
@@ -100,16 +99,60 @@ const commands = [
         .setRequired(true)
     ),
   new SlashCommandBuilder()
+    .setName("top-condor")
+    .setDescription(
+      "Leaderboard del Ascenso del Cóndor (semana actual por defecto)"
+    )
+    .setDefaultMemberPermissions(0n)
+    .setDMPermission(false)
+    .addStringOption((option) =>
+      option
+        .setName("metrica")
+        .setDescription("Métrica para ordenar (default: ascenso)")
+        .setRequired(false)
+        .addChoices(
+          { name: "Ascenso (Combate + Ataque)", value: "ascenso" },
+          { name: "Kills", value: "kills" },
+          { name: "Score Total", value: "score" },
+          { name: "K/D Ratio", value: "kdr" },
+          { name: "Combate", value: "combat" },
+          { name: "Ataque", value: "offense" },
+          { name: "Defensa", value: "defense" },
+          { name: "Soporte", value: "support" }
+        )
+    )
+    .addIntegerOption((option) =>
+      option
+        .setName("dias")
+        .setDescription("Filtrar por últimos N días (1-365)")
+        .setMinValue(1)
+        .setMaxValue(365)
+    )
+    .addIntegerOption((option) =>
+      option
+        .setName("cantidad")
+        .setDescription("Cantidad de jugadores a mostrar (1-25, default 10)")
+        .setMinValue(1)
+        .setMaxValue(25)
+    ),
+  new SlashCommandBuilder()
+    .setName("rank-condor")
+    .setDescription(
+      "Muestra tus stats del Ascenso del Cóndor: score semanal + últimas 5 partidas clasificadas"
+    )
+    .setDefaultMemberPermissions(0n)
+    .setDMPermission(false),
+  new SlashCommandBuilder()
     .setName("config-tickets")
     .setDescription("Envía el botón para crear tickets en este canal")
-    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
+    .setDefaultMemberPermissions(0n)
     .setDMPermission(false),
   new SlashCommandBuilder()
     .setName("anunciar")
     .setDescription(
       "Publica un anuncio copiando un mensaje (ahora o programado). Solo administradores."
     )
-    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
+    .setDefaultMemberPermissions(0n)
     .setDMPermission(false)
     .addStringOption((o) =>
       o

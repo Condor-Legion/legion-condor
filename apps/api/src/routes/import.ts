@@ -3,14 +3,20 @@ import { AUDIT_ACTIONS } from "@legion/shared";
 import { prisma } from "../prisma";
 import { getAdminFromRequest, getBotApiKey } from "../auth";
 import {
+  extractMapName,
+  getPayloadHash,
+  parseClanTags,
+  matchesClanTag,
+  isQualifiedPlayer,
   buildCrconScoreboardUrl,
   extractPlayerStats,
   fetchCrconPayload,
-  getPayloadHash,
 } from "../utils/crcon";
 import { logAudit } from "../utils/audit";
 
 export const importRouter = Router();
+
+const CLAN_TAGS = parseClanTags();
 
 async function requireBotOrAdmin(
   req: import("express").Request,
@@ -117,13 +123,18 @@ importRouter.post("/crcon-fetch", requireBotOrAdmin, async (req, res) => {
       await prisma.importCrcon.deleteMany({ where: { payloadHash } });
     }
 
+    const allRows = extractPlayerStats(payload);
+    const clanRows = allRows.filter((row) => matchesClanTag(row.playerName, CLAN_TAGS));
+    const qualifiedCount = clanRows.filter(isQualifiedPlayer).length;
+
     const importRecord = await prisma.importCrcon.create({
       data: {
         gameId: mapId,
         sourceUrl: url,
         title: title && title.length > 0 ? title : null,
         payloadHash,
-        status: "SUCCESS",
+        status: qualifiedCount > 0 ? "SUCCESS" : "PARTIAL",
+        mapName: extractMapName(payload),
         discordMessageId: discordMessageId ?? null,
         importedById: (req as Request & { adminId?: string }).adminId
       }
@@ -141,7 +152,7 @@ importRouter.post("/crcon-fetch", requireBotOrAdmin, async (req, res) => {
       accounts.map((account) => [account.providerId, account.id])
     );
 
-    for (const row of rows) {
+    for (const row of clanRows) {
       const gameAccountId = row.providerId
         ? accountByProviderId.get(row.providerId) ?? null
         : null;
@@ -153,6 +164,7 @@ importRouter.post("/crcon-fetch", requireBotOrAdmin, async (req, res) => {
           providerId: row.providerId ?? null,
           kills: row.kills,
           deaths: row.deaths,
+          infantryKills: row.infantryKills,
           killsStreak: row.killsStreak,
           teamkills: row.teamkills,
           deathsByTk: row.deathsByTk,
@@ -181,7 +193,7 @@ importRouter.post("/crcon-fetch", requireBotOrAdmin, async (req, res) => {
     return res.json({
       status: "SUCCESS",
       importId: importRecord.id,
-      statsCount: rows.length,
+      statsCount: clanRows.length,
       discordMessageId: importRecord.discordMessageId ?? null
     });
   } catch (error) {
