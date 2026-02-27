@@ -16,12 +16,21 @@ const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 export default function AdminHome() {
   const [events, setEvents] = useState<EventRow[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   useEffect(() => {
-    fetch(`${apiUrl}/api/roster/events`, { credentials: "include" })
-      .then((res) => res.ok ? res.json() : Promise.reject())
+    fetch(`${apiUrl}/api/auth/me`, { credentials: "include" })
+      .then((res) => {
+        if (!res.ok) throw new Error("unauthorized");
+        setIsAuthenticated(true);
+        return fetch(`${apiUrl}/api/roster/events`, { credentials: "include" });
+      })
+      .then((res) => (res.ok ? res.json() : Promise.reject()))
       .then((data) => setEvents(data.events ?? []))
-      .catch(() => setError("Debes iniciar sesiÃ³n para ver eventos."));
+      .catch(() => {
+        setIsAuthenticated(false);
+        setError("Debes iniciar sesión para ver eventos.");
+      });
   }, []);
 
   return (
@@ -30,15 +39,21 @@ export default function AdminHome() {
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-semibold">Admin</h1>
           <div className="flex items-center gap-2">
-            <Button asChild variant="outline">
-              <Link href="/admin/events/new">Nuevo roster</Link>
-            </Button>
-            <Button asChild variant="outline">
-              <Link href="/admin/templates">Plantillas</Link>
-            </Button>
-            <Button asChild variant="outline">
-              <Link href="/admin/catalogs">CatÃ¡logos</Link>
-            </Button>
+            {isAuthenticated && (
+              <Button asChild variant="outline">
+                <Link href="/admin/events/new">Nuevo roster</Link>
+              </Button>
+            )}
+            {isAuthenticated && (
+              <Button asChild variant="outline">
+                <Link href="/admin/templates">Plantillas</Link>
+              </Button>
+            )}
+            {isAuthenticated && (
+              <Button asChild variant="outline">
+                <Link href="/admin/catalogs">Catálogos</Link>
+              </Button>
+            )}
             <Button asChild variant="outline">
               <Link href="/admin/login">Login</Link>
             </Button>
