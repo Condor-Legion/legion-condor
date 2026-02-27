@@ -30,17 +30,24 @@ for svc in "$@"; do
 }${svc}"
 done
 
+echo "deploy.sh: servicios a desplegar:"
+echo "$dedup_services"
+
 if echo "$dedup_services" | grep -qx "all" 2>/dev/null; then
   docker compose up -d --build
   echo "deploy.sh: despliegue completado para: all"
   exit 0
 fi
 
-echo "$dedup_services" | while IFS= read -r svc; do
+services_args=""
+while IFS= read -r svc; do
   [ -n "$svc" ] || continue
-  docker compose build "$svc"
-  docker compose up -d "$svc"
-done
+  services_args="${services_args}${services_args:+ }${svc}"
+done <<EOF
+$dedup_services
+EOF
+
+docker compose up -d --build $services_args
 
 echo "deploy.sh: despliegue completado para servicios:"
 echo "$dedup_services"
