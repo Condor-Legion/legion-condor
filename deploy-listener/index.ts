@@ -7,6 +7,7 @@ type PushCommit = {
 };
 
 type PushPayload = {
+  ref?: string;
   commits?: PushCommit[];
 };
 
@@ -119,6 +120,11 @@ Bun.serve({
       payload = JSON.parse(bodyUtf8) as PushPayload;
     } catch {
       return new Response("Invalid JSON", { status: 400 });
+    }
+
+    // Solo desplegar en pushes a main
+    if (payload.ref && payload.ref !== "refs/heads/main") {
+      return Response.json({ ok: true, action: "ignored", reason: "branch", ref: payload.ref });
     }
 
     const commits = payload.commits ?? [];
