@@ -11,6 +11,8 @@ type PushPayload = {
   commits?: PushCommit[];
 };
 
+type Service = "bot" | "api" | "web" | "deploy-listener";
+
 function getSignature256(req: Request): string | null {
   const sig = req.headers.get("x-hub-signature-256");
   return sig && sig.startsWith("sha256=") ? sig.slice("sha256=".length) : null;
@@ -37,8 +39,8 @@ function uniqueStrings(items: string[]): string[] {
   return [...new Set(items)];
 }
 
-function detectServicesFromPaths(paths: string[]): Array<"bot" | "api" | "web"> {
-  const services = new Set<"bot" | "api" | "web">();
+function detectServicesFromPaths(paths: string[]): Service[] {
+  const services = new Set<Service>();
 
   const rootAffectsAll = new Set([
     "docker-compose.yml",
@@ -55,6 +57,7 @@ function detectServicesFromPaths(paths: string[]): Array<"bot" | "api" | "web"> 
     if (p.startsWith("apps/bot/")) services.add("bot");
     else if (p.startsWith("apps/api/")) services.add("api");
     else if (p.startsWith("apps/web/")) services.add("web");
+    else if (p.startsWith("deploy-listener/")) services.add("deploy-listener");
     else if (p.startsWith("packages/shared/")) {
       services.add("bot");
       services.add("api");
@@ -69,7 +72,7 @@ function detectServicesFromPaths(paths: string[]): Array<"bot" | "api" | "web"> 
   return [...services];
 }
 
-async function spawnDeploy(services: Array<"bot" | "api" | "web">): Promise<void> {
+async function spawnDeploy(services: Service[]): Promise<void> {
   const repoDir = process.env.REPO_DIR ?? "/repo";
   const scriptPath = `${repoDir}/scripts/deploy.sh`;
   const cmd = ["sh", scriptPath, ...services];

@@ -20,7 +20,7 @@ fi
 dedup_services=""
 for svc in "$@"; do
   case "$svc" in
-    bot|api|web|all) ;;
+    bot|api|web|deploy-listener|all) ;;
     *)
       echo "Servicio inválido: $svc (esperado: bot|api|web|all)" >&2
       exit 2
