@@ -1,4 +1,4 @@
-"use client";
+ï»¿"use client";
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
@@ -29,7 +29,7 @@ export default function AdminHome() {
       .then((data) => setEvents(data.events ?? []))
       .catch(() => {
         setIsAuthenticated(false);
-        setError("Debes iniciar sesión para ver eventos.");
+        setError("Debes iniciar sesion para ver eventos.");
       });
   }, []);
 
@@ -51,7 +51,7 @@ export default function AdminHome() {
             )}
             {isAuthenticated && (
               <Button asChild variant="outline">
-                <Link href="/admin/catalogs">Catálogos</Link>
+                <Link href="/admin/catalogs">Catalogos</Link>
               </Button>
             )}
             <Button asChild variant="outline">

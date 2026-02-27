@@ -76,6 +76,9 @@ async function spawnDeploy(services: Service[]): Promise<void> {
   const repoDir = process.env.REPO_DIR ?? "/repo";
   const scriptPath = `${repoDir}/scripts/deploy.sh`;
   const cmd = ["sh", scriptPath, ...services];
+  const servicesLabel = services.length > 0 ? services.join(", ") : "(sin servicios, pull-only)";
+
+  console.log(`[deploy-listener] iniciando deploy para: ${servicesLabel}`);
 
   const child = Bun.spawn({
     cmd,
@@ -88,8 +91,15 @@ async function spawnDeploy(services: Service[]): Promise<void> {
   });
 
   // No esperar al deploy para responder al webhook.
-  // Si el proceso muere rápido, queda logueado por stderr/stdout.
-  void child.exited;
+  // Pero registrar cuando termina y con que codigo.
+  void child.exited.then((code) => {
+    if (code === 0) {
+      console.log(`[deploy-listener] deploy finalizado OK para: ${servicesLabel}`);
+      return;
+    }
+
+    console.error(`[deploy-listener] deploy finalizado con error (exit=${code}) para: ${servicesLabel}`);
+  });
 }
 
 const port = Number(process.env.PORT ?? "9000");
@@ -142,7 +152,7 @@ Bun.serve({
     const services = detectServicesFromPaths(touched);
 
     // Siempre ejecutamos el script de deploy: si no hay servicios afectados,
-    // deploy.sh solo hará git pull y terminará.
+    // deploy.sh solo hara git pull y terminara.
     await spawnDeploy(services);
     return Response.json({
       ok: true,
@@ -153,4 +163,3 @@ Bun.serve({
 });
 
 console.log(`[deploy-listener] listening on :${port}`);
-
