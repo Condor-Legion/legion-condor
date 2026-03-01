@@ -90,8 +90,9 @@ model GameAccount {
   approved   Boolean         @default(false)
   createdAt  DateTime        @default(now())
   updatedAt  DateTime        @updatedAt
-  member     Member          @relation(fields: [memberId], references: [id], onDelete: Cascade)
-  stats      PlayerMatchStats[]
+  member       Member             @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  stats        PlayerMatchStats[]
+  condorStats  CondorMatchStats[]
 
   @@unique([memberId, provider, providerId])
   @@unique([provider, providerId])
@@ -172,10 +173,11 @@ model ImportCrcon {
   importedAt   DateTime      @default(now())
   importedById String?
   eventId      String?
-  importedBy   AdminUser?    @relation(fields: [importedById], references: [id], onDelete: SetNull)
-  event        Event?        @relation(fields: [eventId], references: [id], onDelete: SetNull)
+  importedBy   AdminUser?         @relation(fields: [importedById], references: [id], onDelete: SetNull)
+  event        Event?             @relation(fields: [eventId], references: [id], onDelete: SetNull)
   rawPayload   RawPayload?
   stats        PlayerMatchStats[]
+  condorStats  CondorMatchStats[]
 
   @@index([gameId])
   @@index([importedAt])
@@ -192,29 +194,58 @@ model RawPayload {
 }
 
 model PlayerMatchStats {
-  id            String      @id @default(cuid())
+  id            String       @id @default(cuid())
   importCrconId String
   gameAccountId String?
   playerName    String
   providerId    String?
   kills         Int
   deaths        Int
-  infantryKills Int         @default(0)
-  killsStreak   Int         @default(0)
-  teamkills     Int         @default(0)
-  deathsByTk    Int         @default(0)
-  killsPerMinute Float      @default(0)
-  deathsPerMinute Float     @default(0)
-  killDeathRatio Float      @default(0)
+  infantryKills Int          @default(0)
+  killsStreak   Int          @default(0)
+  teamkills     Int          @default(0)
+  deathsByTk    Int          @default(0)
+  killsPerMinute Float       @default(0)
+  deathsPerMinute Float      @default(0)
+  killDeathRatio Float       @default(0)
   score         Int
-  combat        Int         @default(0)
-  offense       Int         @default(0)
-  defense       Int         @default(0)
-  support       Int         @default(0)
+  combat        Int          @default(0)
+  offense       Int          @default(0)
+  defense       Int          @default(0)
+  support       Int          @default(0)
   teamSide      String?
-  teamRatio     Float       @default(0)
-  importCrcon   ImportCrcon @relation(fields: [importCrconId], references: [id], onDelete: Cascade)
+  teamRatio     Float        @default(0)
+  importCrcon   ImportCrcon  @relation(fields: [importCrconId], references: [id], onDelete: Cascade)
   gameAccount   GameAccount? @relation(fields: [gameAccountId], references: [id], onDelete: SetNull)
+
+  @@index([importCrconId])
+  @@index([gameAccountId])
+}
+
+model CondorMatchStats {
+  id              String       @id @default(cuid())
+  importCrconId   String
+  gameAccountId   String?
+  playerName      String
+  providerId      String?
+  kills           Int
+  deaths          Int
+  infantryKills   Int          @default(0)
+  killsStreak     Int          @default(0)
+  teamkills       Int          @default(0)
+  deathsByTk      Int          @default(0)
+  killsPerMinute  Float        @default(0)
+  deathsPerMinute Float        @default(0)
+  killDeathRatio  Float        @default(0)
+  score           Int
+  combat          Int          @default(0)
+  offense         Int          @default(0)
+  defense         Int          @default(0)
+  support         Int          @default(0)
+  teamSide        String?
+  teamRatio       Float        @default(0)
+  importCrcon     ImportCrcon  @relation(fields: [importCrconId], references: [id], onDelete: Cascade)
+  gameAccount     GameAccount? @relation(fields: [gameAccountId], references: [id], onDelete: SetNull)
 
   @@index([importCrconId])
   @@index([gameAccountId])
