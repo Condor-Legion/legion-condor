@@ -177,7 +177,21 @@ function getISOWeekBounds(offset = 0): {
   return { start, end, weekNumber, year: thursdayYear };
 }
 
-function buildQualificationWhere(): Prisma.PlayerMatchStatsWhereInput {
+function buildCondorMemberIdentityWhere(
+  accountIds: string[],
+  providerIds: string[]
+): Prisma.CondorMatchStatsWhereInput[] {
+  const orWhere: Prisma.CondorMatchStatsWhereInput[] = [];
+  if (accountIds.length > 0) {
+    orWhere.push({ gameAccountId: { in: accountIds } });
+  }
+  if (providerIds.length > 0) {
+    orWhere.push({ gameAccountId: null, providerId: { in: providerIds } });
+  }
+  return orWhere;
+}
+
+function buildCondorQualificationWhere(): Prisma.CondorMatchStatsWhereInput {
   return {
     infantryKills: { gte: 40 },
     OR: [
@@ -289,22 +303,15 @@ statsRouter.get("/leaderboard", requireBotOrAdmin, async (req, res) => {
     }
   }
 
-  const identityWhere: Prisma.PlayerMatchStatsWhereInput[] = [];
-  if (allAccountIds.length > 0) {
-    identityWhere.push({ gameAccountId: { in: allAccountIds } });
-  }
-  const providerIds = Array.from(allProviderIds);
-  if (providerIds.length > 0) {
-    identityWhere.push({ gameAccountId: null, providerId: { in: providerIds } });
-  }
+  const identityWhere = buildCondorMemberIdentityWhere(allAccountIds, Array.from(allProviderIds));
 
   const statsRows =
     identityWhere.length > 0
-      ? await prisma.playerMatchStats.findMany({
+      ? await prisma.condorMatchStats.findMany({
           where: {
             AND: [
               { OR: identityWhere },
-              buildQualificationWhere(),
+              buildCondorQualificationWhere(),
               { importCrcon: importWhere },
             ],
           },
@@ -1101,7 +1108,7 @@ statsRouter.get("/rank-condor/:discordId", requireBotOrAdmin, async (req, res) =
 
   const accountIds = member.gameAccounts.map((a) => a.id);
   const providerIds = member.gameAccounts.map((a) => a.providerId);
-  const identityWhere = buildMemberIdentityWhere(accountIds, providerIds);
+  const identityWhere = buildCondorMemberIdentityWhere(accountIds, providerIds);
   const bounds = getISOWeekBounds(weekOffset);
 
   const emptyWeek = {
@@ -1128,7 +1135,7 @@ statsRouter.get("/rank-condor/:discordId", requireBotOrAdmin, async (req, res) =
     });
   }
 
-  const qualFilter = buildQualificationWhere();
+  const qualFilter = buildCondorQualificationWhere();
 
   // Filtro de la semana actual: spread de buildImportWhere para obtener el OR
   // de práctica, luego sobreescribir importedAt con gte + lte
@@ -1138,7 +1145,7 @@ statsRouter.get("/rank-condor/:discordId", requireBotOrAdmin, async (req, res) =
   };
 
   // Query A: partidas calificadas de esta semana
-  const weekRows = await prisma.playerMatchStats.findMany({
+  const weekRows = await prisma.condorMatchStats.findMany({
     where: {
       AND: [
         { OR: identityWhere },
@@ -1175,7 +1182,7 @@ statsRouter.get("/rank-condor/:discordId", requireBotOrAdmin, async (req, res) =
   }
 
   // Query B: últimas 5 partidas calificadas de la semana seleccionada
-  const lastQualified = await prisma.playerMatchStats.findMany({
+  const lastQualified = await prisma.condorMatchStats.findMany({
     where: {
       AND: [{ OR: identityWhere }, qualFilter, { importCrcon: weekImportWhere }],
     },

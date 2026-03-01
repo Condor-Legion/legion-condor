@@ -196,10 +196,10 @@ export async function fetchCrconPayload(baseUrl: string, mapId: string) {
 }
 
 /**
- * Determines whether a player qualifies for stat tracking.
+ * Determines whether a player qualifies for the Ascenso del Cóndor ranking.
  * Requirements:
- *   1. kills >= 40
- *   2. KDR (kills / deaths) >= 1.0 (0 deaths = qualifies)
+ *   1. infantryKills >= 40
+ *   2. KDR >= 1.0 (kills / deaths), OR deaths === 0 (infinite KDR — player never died)
  */
 export function isQualifiedPlayer(row: CrconPlayerRow): boolean {
   if (row.infantryKills < 40) return false;

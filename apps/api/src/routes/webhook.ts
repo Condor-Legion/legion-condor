@@ -136,7 +136,7 @@ webhookRouter.post(
         ? accountByProviderId.get(row.providerId) ?? null
         : null;
 
-      await prisma.playerMatchStats.create({
+      await prisma.condorMatchStats.create({
         data: {
           importCrconId: importRecord.id,
           gameAccountId,

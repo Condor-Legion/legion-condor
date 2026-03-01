@@ -156,7 +156,7 @@ importRouter.post("/crcon-fetch", requireBotOrAdmin, async (req, res) => {
       const gameAccountId = row.providerId
         ? accountByProviderId.get(row.providerId) ?? null
         : null;
-      await prisma.playerMatchStats.create({
+      await prisma.condorMatchStats.create({
         data: {
           importCrconId: importRecord.id,
           gameAccountId,
