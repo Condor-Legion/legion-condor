@@ -41,3 +41,12 @@ coverage
 
 .env.dev
 .env.prod
+
+# Scripts de prueba locales (Ascenso del Cóndor)
+test-scripts/
+
+# Claude Code — configuración y memoria del agente
+.claude/
+CLAUDE.md
+**/CLAUDE.md
+tmpclaude-*
