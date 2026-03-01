@@ -152,7 +152,7 @@ importRouter.post("/crcon-fetch", requireBotOrAdmin, async (req, res) => {
       accounts.map((account) => [account.providerId, account.id])
     );
 
-    for (const row of rows) {
+    for (const row of clanRows) {
       const gameAccountId = row.providerId
         ? accountByProviderId.get(row.providerId) ?? null
         : null;
@@ -193,7 +193,7 @@ importRouter.post("/crcon-fetch", requireBotOrAdmin, async (req, res) => {
     return res.json({
       status: "SUCCESS",
       importId: importRecord.id,
-      statsCount: rows.length,
+      statsCount: clanRows.length,
       discordMessageId: importRecord.discordMessageId ?? null
     });
   } catch (error) {
