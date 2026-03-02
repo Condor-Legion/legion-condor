@@ -84,9 +84,32 @@ async function sendBirthdayConfirmation(
   });
 }
 
+async function notifyBirthdayDmFailure(message: Message): Promise<void> {
+  try {
+    const warning = await message.reply({
+      content:
+        "No pude enviarte MD para confirmar el cumpleaños. Habilita los MD del servidor y volve a enviar la fecha.",
+      allowedMentions: { repliedUser: true },
+    });
+    setTimeout(() => {
+      warning.delete().catch(() => {});
+    }, 15000);
+  } catch {
+    // ignore fallback failure
+  }
+}
+
 export function setupBirthdayChannel(client: Client): void {
-  if (config.birthdayChannelIds.length === 0) return;
+  if (config.birthdayChannelIds.length === 0) {
+    console.warn(
+      "Birthday channel disabled: set DISCORD_BIRTHDAY_CHANNEL_ID with one or more channel IDs."
+    );
+    return;
+  }
   const channelIds = new Set(config.birthdayChannelIds);
+  console.log(
+    `Birthday channel listener active (${channelIds.size}): ${Array.from(channelIds).join(",")}`
+  );
 
   client.on(Events.MessageCreate, async (message) => {
     if (!channelIds.has(message.channelId)) return;
@@ -102,6 +125,7 @@ export function setupBirthdayChannel(client: Client): void {
         `Birthday channel could not send DM userId=${message.author.id}:`,
         error
       );
+      await notifyBirthdayDmFailure(message);
     }
   });
 
@@ -130,6 +154,7 @@ export function setupBirthdayChannel(client: Client): void {
         `Birthday channel could not send DM userId=${message.author.id}:`,
         error
       );
+      await notifyBirthdayDmFailure(message);
     }
   });
 }
