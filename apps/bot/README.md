@@ -4,7 +4,6 @@ Este bot de Discord sirve para:
 - Ejecutar comandos de estadisticas (`/mi-rank`, `/mi-cuenta`, `/ultimos-eventos` y `/gulag`).
 - Sincronizar miembros del servidor a la base de datos (`/sync-miembros`).
 - Sincronizar el roster desde roles de Discord (`/sync-roster`).
-- Sincronizar cumpleaños desde Google Sheets (`/sync-cumpleaños`).
 - Crear cuentas de juego desde administracion (`/crear-cuenta`).
 - Programar una sync automatica cada X horas.
 - Leer un canal de stats y disparar imports (links `/games/{id}`).
@@ -29,7 +28,7 @@ DISCORD_SYNC_INTERVAL_HOURS=3 # intervalo de sync automatico
 ROSTER_ROLE_IDS=...           # IDs de roles que habilitan roster
 CLEAR_GLOBAL_COMMANDS=true    # borra comandos globales al iniciar
 DISCORD_STATS_CHANNEL_ID=...  # canal donde el bot busca links /games/{id}
-DISCORD_BIRTHDAY_CHANNEL_ID=... # canal donde el bot detecta fechas de cumpleaños
+DISCORD_BIRTHDAY_CHANNEL_ID=... # canales donde el bot detecta fechas de cumpleaños (IDs separados por coma)
 # Canal y categorÃ­a: ejecutÃ¡ /config-tickets en el canal deseado; los nuevos tickets se crean en la misma categorÃ­a que ese canal.
 TICKETS_ADMIN_ROLE_IDS=...    # roles con acceso a todos los tickets (IDs separados por coma)
 ```
@@ -95,16 +94,6 @@ Solo se agregan/actualizan los miembros que tengan algun rol listado en `ROSTER_
 Si un miembro no tiene roles de roster, solo se desactiva (`isActive = false`) si pasaron 7 dias desde que fue creado en `Member`.
 Si estan configuradas las variables `STATS_LEGACY_SPREADSHEET_ID`, `STATS_LEGACY_ROSTER_SHEET_NAME`, `STATS_LEGACY_SERVICE_ACCOUNT_EMAIL` y `STATS_LEGACY_SERVICE_ACCOUNT_PRIVATE_KEY`, tambien actualiza la hoja de Google (tab `Miembros BD`) con columnas:
 `Actualizacion`, `ID`, `Usuario`, `Nick`, `Ingreso`, `Roles`.
-
-### `/sync-cumpleaños`
-Sincroniza `DiscordMember.birthday` desde Google Sheets:
-- Hoja por defecto: `Combinada`
-- Columna `A`: `discordId`
-- Columna `H`: fecha de nacimiento
-
-Variables opcionales (API):
-- `BIRTHDAY_SPREADSHEET_ID` (default `1xTDQ4oDyZX0C3D5HyA3EUAMhKEkQIna59EkdC4wxETs`)
-- `BIRTHDAY_SHEET_NAME` (default `Combinada`)
 
 ### `/crear-cuenta` (admin)
 Crea una cuenta de juego asociada a un usuario del roster (`Member`).

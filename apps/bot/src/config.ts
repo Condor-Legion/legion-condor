@@ -11,7 +11,10 @@ const syncIntervalHours = Number(
   process.env.DISCORD_SYNC_INTERVAL_HOURS ?? "3"
 );
 const statsChannelId = process.env.DISCORD_STATS_CHANNEL_ID ?? null;
-const birthdayChannelId = process.env.DISCORD_BIRTHDAY_CHANNEL_ID ?? null;
+const birthdayChannelIds = (process.env.DISCORD_BIRTHDAY_CHANNEL_ID ?? "")
+  .split(",")
+  .map((channelId) => channelId.trim())
+  .filter(Boolean);
 const clearGlobalCommands = process.env.CLEAR_GLOBAL_COMMANDS === "true";
 const rosterRoleIds = (process.env.ROSTER_ROLE_IDS ?? "")
   .split(",")
@@ -34,7 +37,7 @@ export const config = {
   botApiKey,
   syncIntervalHours,
   statsChannelId,
-  birthdayChannelId,
+  birthdayChannelIds,
   clearGlobalCommands,
   rosterRoleIds,
   ticketAdminRoleIds,

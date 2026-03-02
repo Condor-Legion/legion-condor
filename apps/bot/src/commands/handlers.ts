@@ -14,7 +14,7 @@ import {
 } from "discord.js";
 import { config } from "../config";
 import type { BirthdayButtonPayload } from "../lib/birthdayButtons";
-import { syncBirthdays, syncMembers, syncRoster } from "../lib/sync";
+import { syncMembers, syncRoster } from "../lib/sync";
 import { buildSetupActionRow } from "../tickets";
 
 const GMT3 = "-03:00";
@@ -403,39 +403,6 @@ export async function handleSyncRoster(
     console.error("Sync roster error:", error);
     const message =
       error instanceof Error ? error.message : "Error sincronizando roster.";
-    await interaction.editReply(message);
-  }
-}
-
-export async function handleSyncBirthdays(
-  interaction: ChatInputCommandInteraction
-): Promise<void> {
-  if (!interaction.inGuild() || !interaction.guildId) {
-    await interaction.reply({
-      content: "Este comando solo funciona dentro de un servidor.",
-      flags: MessageFlags.Ephemeral,
-    });
-    return;
-  }
-
-  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
-  try {
-    const result = await syncBirthdays();
-    await interaction.editReply(
-      [
-        `Cumpleanos sincronizados: **${result.updated}**.`,
-        `Filas leidas: ${result.totalRows}.`,
-        `Con fecha: ${result.rowsWithBirthday}.`,
-        `Sin fecha: ${result.skippedWithoutDate}.`,
-        `Sin DiscordMember: ${result.skippedNotFound}.`,
-      ].join("\n")
-    );
-  } catch (error) {
-    console.error("Sync birthdays error:", error);
-    const message =
-      error instanceof Error
-        ? error.message
-        : "Error sincronizando cumpleanos.";
     await interaction.editReply(message);
   }
 }

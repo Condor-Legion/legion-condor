@@ -11,7 +11,6 @@ import {
   handleMyRank,
   handlePrintMembers,
   handleSetupTickets,
-  handleSyncBirthdays,
   handleSyncMembers,
   handleSyncRoster,
 } from "../commands/handlers";
@@ -36,10 +35,6 @@ export function setupInteractionCreateEvent(client: Client): void {
       }
       if (interaction.commandName === "sync-roster") {
         await handleSyncRoster(interaction, client);
-        return;
-      }
-      if (interaction.commandName === "sync-cumpleaños") {
-        await handleSyncBirthdays(interaction);
         return;
       }
       if (interaction.commandName === "crear-cuenta") {

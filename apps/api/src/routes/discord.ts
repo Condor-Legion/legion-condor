@@ -3,7 +3,6 @@ import { z } from "zod";
 import { SYNC_CHUNK_SIZE } from "@legion/shared";
 import { getAdminFromRequest, getBotApiKey } from "../auth";
 import { prisma } from "../prisma";
-import { fetchBirthdaySheetRows } from "../utils/birthdaySheet";
 import { syncRosterSheet } from "../utils/googleSheets";
 
 export const discordRouter = Router();
@@ -337,71 +336,6 @@ discordRouter.post("/roster/sync", requireBotOrAdmin, async (req, res) => {
     ok: true,
     count: members.length,
     sheetUpdated: true,
-  });
-});
-
-discordRouter.post("/birthdays/sync", requireBotOrAdmin, async (_req, res) => {
-  const sheetRows = await fetchBirthdaySheetRows();
-  const rowsWithBirthday = sheetRows.filter(
-    (row) => row.birthday !== null
-  ) as Array<{ discordId: string; birthday: Date }>;
-
-  if (rowsWithBirthday.length === 0) {
-    return res.json({
-      ok: true,
-      totalRows: sheetRows.length,
-      rowsWithBirthday: 0,
-      updated: 0,
-      skippedWithoutDate: sheetRows.length,
-      skippedNotFound: 0,
-    });
-  }
-
-  const dedupedByDiscordId = new Map<string, Date>();
-  for (const row of rowsWithBirthday) {
-    dedupedByDiscordId.set(row.discordId, row.birthday);
-  }
-
-  const dedupedRows = Array.from(dedupedByDiscordId.entries()).map(
-    ([discordId, birthday]) => ({
-      discordId,
-      birthday,
-    })
-  );
-
-  const existingMembers = await prisma.discordMember.findMany({
-    where: {
-      discordId: { in: dedupedRows.map((row) => row.discordId) },
-    },
-    select: { discordId: true },
-  });
-  const existingDiscordIds = new Set(
-    existingMembers.map((member) => member.discordId)
-  );
-
-  const rowsToUpdate = dedupedRows.filter((row) =>
-    existingDiscordIds.has(row.discordId)
-  );
-
-  for (let i = 0; i < rowsToUpdate.length; i += SYNC_CHUNK_SIZE) {
-    const batch = rowsToUpdate.slice(i, i + SYNC_CHUNK_SIZE);
-    await prisma.$transaction(
-      batch.map((row) =>
-        prisma.discordMember.update({
-          where: { discordId: row.discordId },
-          data: { birthday: row.birthday },
-        })
-      )
-    );
-  }
-
-  return res.json({
-    ok: true,
-    totalRows: sheetRows.length,
-    rowsWithBirthday: rowsWithBirthday.length,
-    updated: rowsToUpdate.length,
-    skippedWithoutDate: sheetRows.length - rowsWithBirthday.length,
-    skippedNotFound: rowsWithBirthday.length - rowsToUpdate.length,
   });
 });
 

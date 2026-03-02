@@ -23,31 +23,29 @@ function buildUtcDate(year: number, month: number, day: number): string | null {
   return `${year.toString().padStart(4, "0")}-${month.toString().padStart(2, "0")}-${day.toString().padStart(2, "0")}`;
 }
 
-function parseYearFirstDate(raw: string): string | null {
-  const match = raw.match(/\b(\d{4})[\/.-](\d{1,2})[\/.-](\d{1,2})\b/);
-  if (!match) return null;
-
-  const year = Number.parseInt(match[1], 10);
-  const month = Number.parseInt(match[2], 10);
-  const day = Number.parseInt(match[3], 10);
-  return buildUtcDate(year, month, day);
-}
-
-function parseDayFirstDate(raw: string): string | null {
-  const match = raw.match(/\b(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{4})\b/);
-  if (!match) return null;
-
-  const day = Number.parseInt(match[1], 10);
-  const month = Number.parseInt(match[2], 10);
-  const year = Number.parseInt(match[3], 10);
-  return buildUtcDate(year, month, day);
-}
-
 function extractBirthdayFromText(raw: string): string | null {
   const text = raw.trim();
   if (!text) return null;
 
-  return parseYearFirstDate(text) ?? parseDayFirstDate(text);
+  const dayFirstMatches = text.matchAll(/\b(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{4})\b/g);
+  for (const match of dayFirstMatches) {
+    const day = Number.parseInt(match[1], 10);
+    const month = Number.parseInt(match[2], 10);
+    const year = Number.parseInt(match[3], 10);
+    const parsed = buildUtcDate(year, month, day);
+    if (parsed) return parsed;
+  }
+
+  const yearFirstMatches = text.matchAll(/\b(\d{4})[\/.-](\d{1,2})[\/.-](\d{1,2})\b/g);
+  for (const match of yearFirstMatches) {
+    const year = Number.parseInt(match[1], 10);
+    const month = Number.parseInt(match[2], 10);
+    const day = Number.parseInt(match[3], 10);
+    const parsed = buildUtcDate(year, month, day);
+    if (parsed) return parsed;
+  }
+
+  return null;
 }
 
 function formatBirthdayForDisplay(birthday: string): string {
@@ -87,12 +85,39 @@ async function sendBirthdayConfirmation(
 }
 
 export function setupBirthdayChannel(client: Client): void {
-  if (!config.birthdayChannelId) return;
-
-  const channelId = config.birthdayChannelId;
+  if (config.birthdayChannelIds.length === 0) return;
+  const channelIds = new Set(config.birthdayChannelIds);
 
   client.on(Events.MessageCreate, async (message) => {
-    if (message.channelId !== channelId) return;
+    if (!channelIds.has(message.channelId)) return;
+    if (message.author.bot) return;
+
+    const birthday = extractBirthdayFromText(message.content ?? "");
+    if (!birthday) return;
+
+    try {
+      await sendBirthdayConfirmation(message, birthday);
+    } catch (error) {
+      console.error(
+        `Birthday channel could not send DM userId=${message.author.id}:`,
+        error
+      );
+    }
+  });
+
+  client.on(Events.MessageUpdate, async (_oldMessage, newMessage) => {
+    if (!channelIds.has(newMessage.channelId)) return;
+    if (newMessage.author?.bot) return;
+
+    if (newMessage.partial) {
+      try {
+        await newMessage.fetch();
+      } catch {
+        return;
+      }
+    }
+
+    const message = newMessage as Message;
     if (message.author.bot) return;
 
     const birthday = extractBirthdayFromText(message.content ?? "");
