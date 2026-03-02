@@ -13,7 +13,8 @@ import {
   type TextBasedChannel,
 } from "discord.js";
 import { config } from "../config";
-import { syncMembers, syncRoster } from "../lib/sync";
+import type { BirthdayButtonPayload } from "../lib/birthdayButtons";
+import { syncBirthdays, syncMembers, syncRoster } from "../lib/sync";
 import { buildSetupActionRow } from "../tickets";
 
 const GMT3 = "-03:00";
@@ -138,6 +139,7 @@ type MembersReportApiResponse = {
 type MemberByDiscordApiResponse = {
   member: {
     displayName: string;
+    birthday: string | null;
     gameAccounts: Array<{
       provider: "STEAM" | "EPIC" | "XBOX_PASS";
       providerId: string;
@@ -229,6 +231,13 @@ function formatDateLocal(iso: string | null): string {
   return date.toLocaleDateString("es-AR", {
     timeZone: "America/Argentina/Buenos_Aires",
   });
+}
+
+function formatBirthdayValue(value: string | null): string {
+  if (!value) return "No registrado";
+  const match = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) return value;
+  return `${match[3]}/${match[2]}/${match[1]}`;
 }
 
 function formatDateTimeLocal(iso: string): string {
@@ -395,6 +404,109 @@ export async function handleSyncRoster(
     const message =
       error instanceof Error ? error.message : "Error sincronizando roster.";
     await interaction.editReply(message);
+  }
+}
+
+export async function handleSyncBirthdays(
+  interaction: ChatInputCommandInteraction
+): Promise<void> {
+  if (!interaction.inGuild() || !interaction.guildId) {
+    await interaction.reply({
+      content: "Este comando solo funciona dentro de un servidor.",
+      flags: MessageFlags.Ephemeral,
+    });
+    return;
+  }
+
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+  try {
+    const result = await syncBirthdays();
+    await interaction.editReply(
+      [
+        `Cumpleanos sincronizados: **${result.updated}**.`,
+        `Filas leidas: ${result.totalRows}.`,
+        `Con fecha: ${result.rowsWithBirthday}.`,
+        `Sin fecha: ${result.skippedWithoutDate}.`,
+        `Sin DiscordMember: ${result.skippedNotFound}.`,
+      ].join("\n")
+    );
+  } catch (error) {
+    console.error("Sync birthdays error:", error);
+    const message =
+      error instanceof Error
+        ? error.message
+        : "Error sincronizando cumpleanos.";
+    await interaction.editReply(message);
+  }
+}
+
+export async function handleBirthdayButton(
+  interaction: ButtonInteraction,
+  payload: BirthdayButtonPayload
+): Promise<void> {
+  if (interaction.user.id !== payload.discordId) {
+    if (interaction.inGuild()) {
+      await interaction.reply({
+        content: "Este boton no corresponde a tu usuario.",
+        flags: MessageFlags.Ephemeral,
+      });
+    } else {
+      await interaction.reply("Este boton no corresponde a tu usuario.");
+    }
+    return;
+  }
+
+  if (payload.action === "cancel") {
+    await interaction.update({
+      content: "Actualizacion de cumpleanos cancelada.",
+      components: [],
+    });
+    return;
+  }
+
+  await interaction.deferUpdate();
+  try {
+    const response = await fetch(
+      `${config.apiUrl}/api/discord/members/${interaction.user.id}/birthday`,
+      {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          "x-bot-api-key": config.botApiKey,
+        },
+        body: JSON.stringify({ birthday: payload.birthday }),
+      }
+    );
+
+    if (response.status === 404) {
+      await interaction.editReply({
+        content:
+          "No encontramos tu registro en DiscordMember. Ejecuta /sync-miembros y reintenta.",
+        components: [],
+      });
+      return;
+    }
+
+    if (!response.ok) {
+      const text = await response.text();
+      await interaction.editReply({
+        content: `No se pudo actualizar el cumpleanos (${response.status}). ${text}`,
+        components: [],
+      });
+      return;
+    }
+
+    const data = (await response.json()) as { birthday: string };
+    await interaction.editReply({
+      content: `Cumpleanos actualizado a **${formatBirthdayValue(data.birthday)}**.`,
+      components: [],
+    });
+  } catch (error) {
+    console.error("Birthday update button error:", error);
+    await interaction.editReply({
+      content: "Error actualizando tu cumpleanos.",
+      components: [],
+    });
   }
 }
 
@@ -699,6 +811,11 @@ export async function handleMyAccount(
         {
           name: "Discord",
           value: `<@${interaction.user.id}>`,
+          inline: true,
+        },
+        {
+          name: "Cumpleanos",
+          value: formatBirthdayValue(memberData.member.birthday),
           inline: true,
         },
         {

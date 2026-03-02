@@ -354,6 +354,7 @@ model DiscordMember {
   discordId String   @id
   username  String
   nickname  String?
+  birthday  DateTime? @db.Date
   joinedAt  DateTime?
   roles     Json
   isActive  Boolean  @default(true)

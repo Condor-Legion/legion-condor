@@ -3,6 +3,7 @@ import { z } from "zod";
 import { SYNC_CHUNK_SIZE } from "@legion/shared";
 import { getAdminFromRequest, getBotApiKey } from "../auth";
 import { prisma } from "../prisma";
+import { fetchBirthdaySheetRows } from "../utils/birthdaySheet";
 import { syncRosterSheet } from "../utils/googleSheets";
 
 export const discordRouter = Router();
@@ -47,6 +48,10 @@ const accountRequestSchema = z.object({
   roles: z.array(roleSchema).optional(),
 });
 
+const updateBirthdaySchema = z.object({
+  birthday: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+});
+
 const createAnnouncementSchema = z.object({
   guildId: z.string(),
   channelId: z.string(),
@@ -68,6 +73,29 @@ function resolveDisplayName(input: {
   const username = input.username?.trim();
   if (username) return username;
   return (input.fallback ?? "").trim();
+}
+
+function parseBirthdayDate(value: string): Date | null {
+  const match = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) return null;
+
+  const year = Number.parseInt(match[1], 10);
+  const month = Number.parseInt(match[2], 10);
+  const day = Number.parseInt(match[3], 10);
+  if (!Number.isInteger(year) || !Number.isInteger(month) || !Number.isInteger(day)) {
+    return null;
+  }
+
+  const parsed = new Date(Date.UTC(year, month - 1, day));
+  if (
+    parsed.getUTCFullYear() !== year ||
+    parsed.getUTCMonth() !== month - 1 ||
+    parsed.getUTCDate() !== day
+  ) {
+    return null;
+  }
+
+  return parsed;
 }
 
 async function requireBotOrAdmin(
@@ -311,6 +339,104 @@ discordRouter.post("/roster/sync", requireBotOrAdmin, async (req, res) => {
     sheetUpdated: true,
   });
 });
+
+discordRouter.post("/birthdays/sync", requireBotOrAdmin, async (_req, res) => {
+  const sheetRows = await fetchBirthdaySheetRows();
+  const rowsWithBirthday = sheetRows.filter(
+    (row) => row.birthday !== null
+  ) as Array<{ discordId: string; birthday: Date }>;
+
+  if (rowsWithBirthday.length === 0) {
+    return res.json({
+      ok: true,
+      totalRows: sheetRows.length,
+      rowsWithBirthday: 0,
+      updated: 0,
+      skippedWithoutDate: sheetRows.length,
+      skippedNotFound: 0,
+    });
+  }
+
+  const dedupedByDiscordId = new Map<string, Date>();
+  for (const row of rowsWithBirthday) {
+    dedupedByDiscordId.set(row.discordId, row.birthday);
+  }
+
+  const dedupedRows = Array.from(dedupedByDiscordId.entries()).map(
+    ([discordId, birthday]) => ({
+      discordId,
+      birthday,
+    })
+  );
+
+  const existingMembers = await prisma.discordMember.findMany({
+    where: {
+      discordId: { in: dedupedRows.map((row) => row.discordId) },
+    },
+    select: { discordId: true },
+  });
+  const existingDiscordIds = new Set(
+    existingMembers.map((member) => member.discordId)
+  );
+
+  const rowsToUpdate = dedupedRows.filter((row) =>
+    existingDiscordIds.has(row.discordId)
+  );
+
+  for (let i = 0; i < rowsToUpdate.length; i += SYNC_CHUNK_SIZE) {
+    const batch = rowsToUpdate.slice(i, i + SYNC_CHUNK_SIZE);
+    await prisma.$transaction(
+      batch.map((row) =>
+        prisma.discordMember.update({
+          where: { discordId: row.discordId },
+          data: { birthday: row.birthday },
+        })
+      )
+    );
+  }
+
+  return res.json({
+    ok: true,
+    totalRows: sheetRows.length,
+    rowsWithBirthday: rowsWithBirthday.length,
+    updated: rowsToUpdate.length,
+    skippedWithoutDate: sheetRows.length - rowsWithBirthday.length,
+    skippedNotFound: rowsWithBirthday.length - rowsToUpdate.length,
+  });
+});
+
+discordRouter.patch(
+  "/members/:discordId/birthday",
+  requireBotOrAdmin,
+  async (req, res) => {
+    const parsed = updateBirthdaySchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: "Invalid payload" });
+    }
+
+    const birthday = parseBirthdayDate(parsed.data.birthday);
+    if (!birthday) {
+      return res
+        .status(400)
+        .json({ error: "Invalid birthday format. Expected YYYY-MM-DD." });
+    }
+
+    const updated = await prisma.discordMember.updateMany({
+      where: { discordId: req.params.discordId },
+      data: { birthday },
+    });
+
+    if (updated.count === 0) {
+      return res.status(404).json({ error: "DiscordMember not found" });
+    }
+
+    return res.json({
+      ok: true,
+      discordId: req.params.discordId,
+      birthday: parsed.data.birthday,
+    });
+  }
+);
 
 // --- Anuncios programados (comando /anunciar del bot) ---
 

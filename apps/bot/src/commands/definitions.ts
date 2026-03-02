@@ -72,6 +72,11 @@ const commands = [
     .setDefaultMemberPermissions(0n)
     .setDMPermission(false),
   new SlashCommandBuilder()
+    .setName("sync-cumpleaños")
+    .setDescription("Sincroniza cumpleaños desde la planilla de Google")
+    .setDefaultMemberPermissions(0n)
+    .setDMPermission(false),
+  new SlashCommandBuilder()
     .setName("crear-cuenta")
     .setDescription("Solicita crear una cuenta de juego")
     .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)

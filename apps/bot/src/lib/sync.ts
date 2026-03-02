@@ -121,3 +121,27 @@ export async function syncRoster(
 
   return payload.length;
 }
+
+export interface SyncBirthdaysResponse {
+  ok: boolean;
+  totalRows: number;
+  rowsWithBirthday: number;
+  updated: number;
+  skippedWithoutDate: number;
+  skippedNotFound: number;
+}
+
+export async function syncBirthdays(): Promise<SyncBirthdaysResponse> {
+  const res = await fetch(`${config.apiUrl}/api/discord/birthdays/sync`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-bot-api-key": config.botApiKey,
+    },
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Birthday sync failed: ${res.status} ${text}`);
+  }
+  return (await res.json()) as SyncBirthdaysResponse;
+}
