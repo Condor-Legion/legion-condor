@@ -417,8 +417,11 @@ statsRouter.get("/leaderboard", requireBotOrAdmin, async (req, res) => {
 
   entries.sort((a, b) => b.value - a.value);
 
+  const result = entries.slice(0, limit);
+  req.log.info({ metric, resultCount: result.length }, "leaderboard query");
+
   return res.json({
-    leaderboard: entries.slice(0, limit),
+    leaderboard: result,
     metric,
     periodStart: periodStart?.toISOString() ?? null,
     ...(weekBounds
@@ -1214,6 +1217,11 @@ statsRouter.get("/rank-condor/:discordId", requireBotOrAdmin, async (req, res) =
       },
     },
   });
+
+  req.log.info(
+    { discordId: req.params.discordId, weekNumber: bounds.weekNumber, qualifiedMatches },
+    "rank-condor query"
+  );
 
   return res.json({
     member: {

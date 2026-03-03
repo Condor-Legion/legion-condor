@@ -9,8 +9,11 @@ RUN pnpm install --frozen-lockfile || pnpm install
 COPY . .
 RUN pnpm run --filter @legion/shared build
 RUN pnpm exec tsc -p apps/bot/tsconfig.build.json
-# Copia real de zod para el runner (Bun no sigue symlinks de pnpm)
-RUN mkdir -p /tmp/shared-deps/node_modules && cp -rL node_modules/zod /tmp/shared-deps/node_modules/
+# Copia real de deps de shared para el runner (Bun no sigue symlinks de pnpm)
+RUN mkdir -p /tmp/shared-deps/node_modules \
+  && cp -rL node_modules/zod /tmp/shared-deps/node_modules/ \
+  && cp -rL node_modules/pino /tmp/shared-deps/node_modules/ \
+  && cp -rL node_modules/pino-pretty /tmp/shared-deps/node_modules/
 
 FROM oven/bun:1-alpine AS runner
 WORKDIR /app

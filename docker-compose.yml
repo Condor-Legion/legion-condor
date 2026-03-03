@@ -16,6 +16,11 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     restart: unless-stopped
 
   api:
@@ -47,11 +52,17 @@ services:
       WEBHOOK_SECRET: ${WEBHOOK_SECRET:-}
       WEBHOOK_ALLOWED_IPS: ${WEBHOOK_ALLOWED_IPS:-}
       CLAN_TAG_FILTERS: ${CLAN_TAG_FILTERS:-${CLAN_TAG_FILTER:-}}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
     depends_on:
       postgres:
         condition: service_healthy
     ports:
       - "3004:3001"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
     restart: unless-stopped
 
   web:
@@ -65,6 +76,11 @@ services:
       - api
     ports:
       - "3003:3000"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     restart: unless-stopped
   bot:
     build:
@@ -93,8 +109,14 @@ services:
       DISCORD_SYNC_INTERVAL_HOURS: ${DISCORD_SYNC_INTERVAL_HOURS:-3}
       ROSTER_ROLE_IDS: ${ROSTER_ROLE_IDS:-}
       CLEAR_GLOBAL_COMMANDS: ${CLEAR_GLOBAL_COMMANDS:-}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
     depends_on:
       - api
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
     restart: unless-stopped
   deploy-listener:
     build:
@@ -109,6 +131,11 @@ services:
       - "${REPO_PATH:-.}:/repo"
     ports:
       - "9000:9000"
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "3"
     restart: unless-stopped
 volumes:
   postgres_data:

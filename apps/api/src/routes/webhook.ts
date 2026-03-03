@@ -49,7 +49,7 @@ function requireWebhookAuth(
 webhookRouter.post(
   "/match-ended",
   requireWebhookAuth,
-  async (_req, res) => {
+  async (req, res) => {
     try {
       // 1. Fetch latest game from CRCON scoreboard maps
       const mapsUrl = `${CRCON_MAPS_API_URL}/api/get_scoreboard_maps?page=1&limit=1`;
@@ -71,6 +71,7 @@ webhookRouter.post(
       }
 
       const gameId = String(latestMap.id);
+      req.log.info({ gameId }, "webhook match-ended received");
 
       // 2. Fetch full scoreboard for that game
       const scoreboardUrl = `${CRCON_GAME_API_URL}/api/get_map_scoreboard?map_id=${gameId}`;
@@ -89,6 +90,7 @@ webhookRouter.post(
         where: { payloadHash },
       });
       if (existing) {
+        req.log.info({ gameId, importId: existing.id }, "duplicate game skipped");
         return res
           .status(409)
           .json({ error: "Game already imported", importId: existing.id });
@@ -112,6 +114,10 @@ webhookRouter.post(
       );
 
       const qualifiedCount = clanRows.filter(isQualifiedPlayer).length;
+      req.log.info(
+        { gameId, totalPlayers: allRows.length, clanFiltered: clanRows.length, qualifiedCount },
+        "players extracted and filtered"
+      );
 
       const result = await prisma.$transaction(async (tx) => {
         const importRecord = await tx.importCrcon.create({
@@ -175,6 +181,11 @@ webhookRouter.post(
         },
       });
 
+      req.log.info(
+        { gameId, importId: result.importRecord.id, statsCount: result.statsCount },
+        "match import completed"
+      );
+
       return res.json({
         ok: true,
         importId: result.importRecord.id,
@@ -182,7 +193,7 @@ webhookRouter.post(
         statsCount: result.statsCount,
       });
     } catch (error) {
-      console.error("Webhook match-ended failed:", error);
+      req.log.error({ err: error }, "webhook match-ended failed");
       return res.status(500).json({ error: "Import failed" });
     }
   }

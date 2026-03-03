@@ -84,6 +84,7 @@ importRouter.post("/crcon-fetch", requireBotOrAdmin, async (req, res) => {
         linkedTitle = updated.title ?? null;
       }
 
+      req.log.info({ importId: existingLoaded.id, status: "SKIPPED_ALREADY_IMPORTED" }, "import skipped (already loaded)");
       return res.json({
         status: "SKIPPED_ALREADY_IMPORTED",
         importId: existingLoaded.id,
@@ -95,9 +96,7 @@ importRouter.post("/crcon-fetch", requireBotOrAdmin, async (req, res) => {
     const { url, payload } = await fetchCrconPayload(baseUrl, mapId);
     const payloadHash = getPayloadHash(payload);
     const allRows = extractPlayerStats(payload);
-    console.log(
-      `CRCON import request map_id=${mapId} discordMessageId=${discordMessageId ?? "null"} rows=${allRows.length}`
-    );
+    req.log.info({ mapId, discordMessageId: discordMessageId ?? null, rows: allRows.length }, "CRCON import request");
 
     const existing = await prisma.importCrcon.findFirst({
       where: { payloadHash }
@@ -117,6 +116,7 @@ importRouter.post("/crcon-fetch", requireBotOrAdmin, async (req, res) => {
           },
         });
       }
+      req.log.info({ importId: existing.id, status: "SKIPPED_DUPLICATE" }, "import skipped (duplicate hash)");
       return res.json({ status: "SKIPPED_DUPLICATE", importId: existing.id });
     }
     if (existing && allRows.length > 0) {
@@ -192,6 +192,11 @@ importRouter.post("/crcon-fetch", requireBotOrAdmin, async (req, res) => {
       metadata: { statsCount: statsData.length, gameId: mapId }
     });
 
+    req.log.info(
+      { importId: importRecord.id, mapId, statsCount: clanRows.length },
+      "CRCON import completed"
+    );
+
     return res.json({
       status: "SUCCESS",
       importId: importRecord.id,
@@ -199,8 +204,8 @@ importRouter.post("/crcon-fetch", requireBotOrAdmin, async (req, res) => {
       discordMessageId: importRecord.discordMessageId ?? null
     });
   } catch (error) {
+    req.log.error({ err: error, mapId }, "CRCON import failed");
     const message = error instanceof Error ? error.message : String(error);
-    console.error("CRCON import failed:", message);
     return res.status(500).json({ error: "Import failed", detail: message });
   }
 });

@@ -1,6 +1,7 @@
 import type { Client, Collection, Guild, GuildMember } from "discord.js";
 import { SYNC_CHUNK_SIZE } from "@legion/shared";
 import { config } from "../config";
+import { log } from "../logger";
 
 const MEMBER_FETCH_MAX_ATTEMPTS = 5;
 
@@ -37,8 +38,9 @@ async function fetchAllGuildMembers(
       if (!retryMs || attempt === MEMBER_FETCH_MAX_ATTEMPTS) {
         throw error;
       }
-      console.warn(
-        `Guild member fetch rate limited guildId=${guild.id} retryMs=${retryMs} attempt=${attempt}/${MEMBER_FETCH_MAX_ATTEMPTS}`
+      log.sync.warn(
+        { guildId: guild.id, retryMs, attempt, maxAttempts: MEMBER_FETCH_MAX_ATTEMPTS },
+        "guild member fetch rate limited, retrying"
       );
       await sleep(retryMs);
     }

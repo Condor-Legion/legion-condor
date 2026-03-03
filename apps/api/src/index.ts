@@ -14,6 +14,10 @@ import { ticketsRouter } from "./routes/tickets";
 import { webhookRouter } from "./routes/webhook";
 import { createSocketServer } from "./socket";
 import { defaultRateLimit } from "./middleware/rateLimit";
+import {
+  requestLoggerMiddleware,
+  apiLogger,
+} from "./middleware/requestLogger";
 
 const app = express();
 const server = http.createServer(app);
@@ -29,6 +33,7 @@ app.use(
 app.use(cookieParser());
 app.use(express.json({ limit: "2mb" }));
 app.use(defaultRateLimit);
+app.use(requestLoggerMiddleware);
 
 app.use("/api/auth", authRouter);
 app.use("/api/members", membersRouter);
@@ -48,11 +53,12 @@ app.get("/health", (_req, res) => {
 app.use(
   (
     err: Error,
-    _req: express.Request,
+    req: express.Request,
     res: express.Response,
     _next: express.NextFunction
   ) => {
-    console.error("API error:", err);
+    const log = req.log ?? apiLogger;
+    log.error({ err }, "unhandled API error");
     if (res.headersSent) return;
     res.status(500).json({ error: "Internal server error" });
   }
@@ -70,5 +76,5 @@ io.on("connection", (socket) => {
 
 const port = Number(process.env.API_PORT ?? 3001);
 server.listen(port, () => {
-  console.log(`API listening on port ${port}`);
+  apiLogger.info({ port }, "API listening");
 });

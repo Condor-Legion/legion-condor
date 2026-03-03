@@ -13,6 +13,7 @@ import {
   type TextBasedChannel,
 } from "discord.js";
 import { config } from "../config";
+import { log } from "../logger";
 import { renderBirthdayAnnouncementMessage } from "../lib/birthdayAnnouncementMessage";
 import type { BirthdayButtonPayload } from "../lib/birthdayButtons";
 import { syncMembers, syncRoster } from "../lib/sync";
@@ -1716,7 +1717,7 @@ export async function handleTopCondor(
 
     await interaction.editReply({ embeds: [embed] });
   } catch (error) {
-    console.error("Top Condor error:", error);
+    log.commands.error({ err: error, command: "top-condor", userId: interaction.user.id }, "command failed");
     await interaction.editReply("Error consultando el leaderboard.");
   }
 }
@@ -1808,7 +1809,7 @@ export async function handleRankCondor(
     embed.setTimestamp(new Date());
     await interaction.editReply({ embeds: [embed] });
   } catch (error) {
-    console.error("Rank Condor error:", error);
+    log.commands.error({ err: error, command: "rank-condor", userId: interaction.user.id }, "command failed");
     await interaction.editReply("Error consultando tu Ascenso del Cóndor.");
   }
 }
