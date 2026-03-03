@@ -13,6 +13,7 @@ import {
   type TextBasedChannel,
 } from "discord.js";
 import { config } from "../config";
+import { renderBirthdayAnnouncementMessage } from "../lib/birthdayAnnouncementMessage";
 import type { BirthdayButtonPayload } from "../lib/birthdayButtons";
 import { syncMembers, syncRoster } from "../lib/sync";
 import { buildSetupActionRow } from "../tickets";
@@ -122,6 +123,7 @@ type MembersReportApiResponse = {
     id: string | null;
     displayName: string;
     joinedAt: string | null;
+    birthday: string | null;
     tenureDays: number | null;
     eventsParticipated: number;
     kills: number;
@@ -425,7 +427,7 @@ export async function handleBirthdayButton(
 
   if (payload.action === "cancel") {
     await interaction.update({
-      content: "Actualizacion de cumpleanos cancelada.",
+      content: "Actualizacion de cumpleaños cancelada.",
       components: [],
     });
     return;
@@ -457,7 +459,7 @@ export async function handleBirthdayButton(
     if (!response.ok) {
       const text = await response.text();
       await interaction.editReply({
-        content: `No se pudo actualizar el cumpleanos (${response.status}). ${text}`,
+        content: `No se pudo actualizar el cumpleaños (${response.status}). ${text}`,
         components: [],
       });
       return;
@@ -465,13 +467,13 @@ export async function handleBirthdayButton(
 
     const data = (await response.json()) as { birthday: string };
     await interaction.editReply({
-      content: `Cumpleanos actualizado a **${formatBirthdayValue(data.birthday)}**.`,
+      content: `Cumpleaños actualizado a **${formatBirthdayValue(data.birthday)}**.`,
       components: [],
     });
   } catch (error) {
     console.error("Birthday update button error:", error);
     await interaction.editReply({
-      content: "Error actualizando tu cumpleanos.",
+      content: "Error actualizando tu cumpleaños.",
       components: [],
     });
   }
@@ -781,7 +783,7 @@ export async function handleMyAccount(
           inline: true,
         },
         {
-          name: "Cumpleanos",
+          name: "Cumpleaños",
           value: formatBirthdayValue(memberData.member.birthday),
           inline: true,
         },
@@ -1071,6 +1073,8 @@ export async function handlePrintMembers(
       .map((row, index) => {
         const joinedAtText = formatDateLocal(row.joinedAt);
         const joinedAtSortValue = row.joinedAt ?? "";
+        const birthdayText = formatBirthdayValue(row.birthday);
+        const birthdaySortValue = row.birthday ?? "";
         const tenureSortValue = row.tenureDays ?? -1;
         return `
           <tr>
@@ -1087,6 +1091,9 @@ export async function handlePrintMembers(
             <td data-sort="${tenureSortValue}">${
               row.tenureDays === null ? "N/D" : formatInt(row.tenureDays)
             }</td>
+            <td data-sort="${escapeHtml(birthdaySortValue)}">${escapeHtml(
+              birthdayText
+            )}</td>
             <td data-sort="${row.eventsParticipated}">${formatInt(
               row.eventsParticipated
             )}</td>
@@ -1334,15 +1341,16 @@ export async function handlePrintMembers(
             <th class="sortable" data-index="2" data-type="text">Nick</th>
             <th class="sortable" data-index="3" data-type="text">Ingreso</th>
             <th class="sortable" data-index="4" data-type="number">Antiguedad (Dias)</th>
-            <th class="sortable" data-index="5" data-type="number">Eventos Participados</th>
-            <th class="sortable" data-index="6" data-type="number">Mato</th>
-            <th class="sortable" data-index="7" data-type="number">Murio</th>
-            <th class="sortable" data-index="8" data-type="number">Avg. K/D</th>
-            <th class="sortable" data-index="9" data-type="number">Avg. Pts de combate</th>
-            <th class="sortable" data-index="10" data-type="number">Avg. Pts de ataque</th>
-            <th class="sortable" data-index="11" data-type="number">Avg. Pts de defensa</th>
-            <th class="sortable" data-index="12" data-type="number">Avg. Pts de soporte</th>
-            <th class="sortable" data-index="13" data-type="number">Avg. Muertes x Min</th>
+            <th class="sortable" data-index="5" data-type="text">Cumpleaños</th>
+            <th class="sortable" data-index="6" data-type="number">Eventos Participados</th>
+            <th class="sortable" data-index="7" data-type="number">Mato</th>
+            <th class="sortable" data-index="8" data-type="number">Murio</th>
+            <th class="sortable" data-index="9" data-type="number">Avg. K/D</th>
+            <th class="sortable" data-index="10" data-type="number">Avg. Pts de combate</th>
+            <th class="sortable" data-index="11" data-type="number">Avg. Pts de ataque</th>
+            <th class="sortable" data-index="12" data-type="number">Avg. Pts de defensa</th>
+            <th class="sortable" data-index="13" data-type="number">Avg. Pts de soporte</th>
+            <th class="sortable" data-index="14" data-type="number">Avg. Muertes x Min</th>
           </tr>
         </thead>
         <tbody>
@@ -1361,7 +1369,7 @@ export async function handlePrintMembers(
       const visibleLabel = document.getElementById("members-visible");
       const headers = Array.from(table.querySelectorAll("th.sortable"));
 
-      const state = { index: 6, dir: "desc" };
+      const state = { index: 7, dir: "desc" };
 
       function normalizeText(value) {
         return String(value || "").toLowerCase();
@@ -1436,7 +1444,7 @@ export async function handlePrintMembers(
             state.dir = state.dir === "asc" ? "desc" : "asc";
           } else {
             state.index = clickedIndex;
-            state.dir = clickedIndex === 6 ? "desc" : "asc";
+            state.dir = clickedIndex === 7 ? "desc" : "asc";
           }
           sortRows();
           updateHeaderState();
@@ -1585,6 +1593,53 @@ export async function handleLastEvents(
     await interaction.editReply("Error consultando tus últimos eventos.");
   }
 }
+
+export async function handleTestBirthday(
+  interaction: ChatInputCommandInteraction
+): Promise<void> {
+  if (!interaction.inGuild() || !interaction.guildId) {
+    await interaction.reply({
+      content: "Este comando solo funciona dentro de un servidor.",
+      flags: MessageFlags.Ephemeral,
+    });
+    return;
+  }
+
+  const channel = interaction.channel;
+  if (!channel?.isTextBased() || channel.isDMBased()) {
+    await interaction.reply({
+      content: "Este comando debe usarse en un canal de texto del servidor.",
+      flags: MessageFlags.Ephemeral,
+    });
+    return;
+  }
+
+  const roleId = config.birthdayAnnouncementRoleId;
+  if (!roleId) {
+    await interaction.reply({
+      content:
+        "Falta configurar DISCORD_BIRTHDAY_ANNOUNCE_ROLE_ID para probar el saludo.",
+      flags: MessageFlags.Ephemeral,
+    });
+    return;
+  }
+
+  const content = renderBirthdayAnnouncementMessage(
+    config.birthdayAnnouncementMessage,
+    interaction.user.id,
+    roleId
+  );
+
+  await interaction.reply({
+    content,
+    allowedMentions: {
+      parse: [],
+      users: [interaction.user.id],
+      roles: [roleId],
+    },
+  });
+}
+
 export async function handleAnunciar(
   interaction: ChatInputCommandInteraction,
   _client: Client

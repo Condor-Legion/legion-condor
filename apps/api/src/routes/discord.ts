@@ -51,6 +51,11 @@ const updateBirthdaySchema = z.object({
   birthday: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
 });
 
+const birthdaysByDateQuerySchema = z.object({
+  month: z.coerce.number().int().min(1).max(12),
+  day: z.coerce.number().int().min(1).max(31),
+});
+
 const createAnnouncementSchema = z.object({
   guildId: z.string(),
   channelId: z.string(),
@@ -371,6 +376,31 @@ discordRouter.patch(
     });
   }
 );
+
+discordRouter.get("/birthdays/by-date", requireBotOrAdmin, async (req, res) => {
+  const parsed = birthdaysByDateQuerySchema.safeParse(req.query);
+  if (!parsed.success) {
+    return res.status(400).json({ error: "Invalid query" });
+  }
+
+  const { month, day } = parsed.data;
+  const birthdays = await prisma.$queryRaw<Array<{ discordId: string }>>`
+    SELECT "discordId"
+    FROM "DiscordMember"
+    WHERE "isActive" = true
+      AND "birthday" IS NOT NULL
+      AND EXTRACT(MONTH FROM "birthday") = ${month}
+      AND EXTRACT(DAY FROM "birthday") = ${day}
+    ORDER BY "discordId" ASC
+  `;
+
+  return res.json({
+    ok: true,
+    month,
+    day,
+    birthdays,
+  });
+});
 
 // --- Anuncios programados (comando /anunciar del bot) ---
 

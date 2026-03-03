@@ -21,6 +21,36 @@ const birthdayChannelIds = (process.env.DISCORD_BIRTHDAY_CHANNEL_ID ?? "")
   .split(",")
   .map((channelId) => normalizeDiscordId(channelId))
   .filter((channelId): channelId is string => Boolean(channelId));
+const birthdayAnnouncementChannelId = normalizeDiscordId(
+  process.env.DISCORD_BIRTHDAY_ANNOUNCE_CHANNEL_ID ?? ""
+);
+const birthdayAnnouncementRoleId = normalizeDiscordId(
+  process.env.DISCORD_BIRTHDAY_ANNOUNCE_ROLE_ID ?? ""
+);
+const birthdayAnnouncementHourRaw = Number(
+  process.env.DISCORD_BIRTHDAY_ANNOUNCE_HOUR ?? "12"
+);
+const birthdayAnnouncementMinuteRaw = Number(
+  process.env.DISCORD_BIRTHDAY_ANNOUNCE_MINUTE ?? "0"
+);
+const birthdayAnnouncementHour = Number.isInteger(birthdayAnnouncementHourRaw)
+  ? Math.min(23, Math.max(0, birthdayAnnouncementHourRaw))
+  : 12;
+const birthdayAnnouncementMinute = Number.isInteger(
+  birthdayAnnouncementMinuteRaw
+)
+  ? Math.min(59, Math.max(0, birthdayAnnouncementMinuteRaw))
+  : 0;
+const birthdayAnnouncementUtcOffset =
+  process.env.DISCORD_BIRTHDAY_ANNOUNCE_UTC_OFFSET ?? "-03:00";
+const defaultBirthdayAnnouncementMessage =
+  "# 🥳 Feliz Cumple <@discordId>! Muchas felicidades te desea la Legion Condor! <@&roleId> 🎉 #";
+const birthdayAnnouncementMessageRaw =
+  process.env.DISCORD_BIRTHDAY_ANNOUNCE_MESSAGE?.trim() ?? "";
+const birthdayAnnouncementMessage =
+  birthdayAnnouncementMessageRaw.length > 0
+    ? birthdayAnnouncementMessageRaw
+    : defaultBirthdayAnnouncementMessage;
 const clearGlobalCommands = process.env.CLEAR_GLOBAL_COMMANDS === "true";
 const rosterRoleIds = (process.env.ROSTER_ROLE_IDS ?? "")
   .split(",")
@@ -44,6 +74,12 @@ export const config = {
   syncIntervalHours,
   statsChannelId,
   birthdayChannelIds,
+  birthdayAnnouncementChannelId,
+  birthdayAnnouncementRoleId,
+  birthdayAnnouncementHour,
+  birthdayAnnouncementMinute,
+  birthdayAnnouncementUtcOffset,
+  birthdayAnnouncementMessage,
   clearGlobalCommands,
   rosterRoleIds,
   ticketAdminRoleIds,

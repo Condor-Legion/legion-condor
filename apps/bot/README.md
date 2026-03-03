@@ -8,6 +8,7 @@ Este bot de Discord sirve para:
 - Programar una sync automatica cada X horas.
 - Leer un canal de stats y disparar imports (links `/games/{id}`).
 - Leer un canal de cumpleaños y enviar una confirmacion por DM para actualizar `DiscordMember.birthday`.
+- Publicar felicitaciones automaticas de cumpleaños en un canal, etiquetando a un rol.
 
 ## Requisitos
 
@@ -29,6 +30,12 @@ ROSTER_ROLE_IDS=...           # IDs de roles que habilitan roster
 CLEAR_GLOBAL_COMMANDS=true    # borra comandos globales al iniciar
 DISCORD_STATS_CHANNEL_ID=...  # canal donde el bot busca links /games/{id}
 DISCORD_BIRTHDAY_CHANNEL_ID=... # canales donde el bot detecta fechas de cumpleaños (IDs separados por coma)
+DISCORD_BIRTHDAY_ANNOUNCE_CHANNEL_ID=... # canal para felicitaciones automaticas
+DISCORD_BIRTHDAY_ANNOUNCE_ROLE_ID=...    # rol a etiquetar en la felicitacion
+DISCORD_BIRTHDAY_ANNOUNCE_HOUR=12        # hora (0-23) de envio
+DISCORD_BIRTHDAY_ANNOUNCE_MINUTE=0       # minuto (0-59) de envio
+DISCORD_BIRTHDAY_ANNOUNCE_UTC_OFFSET=-03:00 # offset horario (formato +/-HH:MM)
+DISCORD_BIRTHDAY_ANNOUNCE_MESSAGE="# ?? Feliz Cumple <@discordId>! Muchas felicidades te desea la Legion Condor! <@&roleId> ?? #" # plantilla del mensaje (tags: <@discordId>, <@&roleId>, {{discordId}}, {{roleId}}, {{discordMention}}, {{roleMention}})
 # Canal y categorÃ­a: ejecutÃ¡ /config-tickets en el canal deseado; los nuevos tickets se crean en la misma categorÃ­a que ese canal.
 TICKETS_ADMIN_ROLE_IDS=...    # roles con acceso a todos los tickets (IDs separados por coma)
 ```
@@ -108,6 +115,10 @@ Todos los parametros son obligatorios:
 Publica en el canal actual el botÃ³n para crear tickets de ingreso.  
 Ejecutarlo en el canal donde querÃ©s el botÃ³n de tickets (cualquier canal).
 
+### `/test-cumpleaños` (admin)
+Publica en el canal actual una vista previa del saludo de cumpleaños usando la misma plantilla de `DISCORD_BIRTHDAY_ANNOUNCE_MESSAGE`.
+Menciona al usuario que ejecuta el comando y al rol configurado en `DISCORD_BIRTHDAY_ANNOUNCE_ROLE_ID`.
+
 ## Tickets de ingreso
 
 - El botÃ³n crea un canal privado para el solicitante y los roles de `TICKETS_ADMIN_ROLE_IDS`.
@@ -116,7 +127,7 @@ Ejecutarlo en el canal donde querÃ©s el botÃ³n de tickets (cualquier canal).
 - El bot publica en el canal un resumen con las respuestas completas.
 
 **Visibilidad / permisos**  
-- `/crear-cuenta`, `/gulag` y `/config-tickets` requieren permisos de administrador.
+- `/crear-cuenta`, `/gulag`, `/config-tickets` y `/test-cumpleaños` requieren permisos de administrador.
 - `/mi-rank`, `/mi-cuenta`, `/ultimos-eventos`, `/sync-miembros` y `/sync-roster` usan `defaultMemberPermissions = 0`.
 - Debes habilitar manualmente los que correspondan en Discord:
 
@@ -197,4 +208,6 @@ Ver logs:
 ```
 docker compose logs -f bot
 ```
+
+
 

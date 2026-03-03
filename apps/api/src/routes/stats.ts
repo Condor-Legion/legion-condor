@@ -367,10 +367,13 @@ statsRouter.get("/gulag", requireBotOrAdmin, async (_req, res) => {
 
   const discordMembers = await prisma.discordMember.findMany({
     where: { discordId: { in: members.map((member) => member.discordId) } },
-    select: { discordId: true, joinedAt: true },
+    select: { discordId: true, joinedAt: true, birthday: true },
   });
   const joinedAtByDiscordId = new Map(
     discordMembers.map((member) => [member.discordId, member.joinedAt])
+  );
+  const birthdayByDiscordId = new Map(
+    discordMembers.map((member) => [member.discordId, member.birthday])
   );
 
   const gulagRows = await Promise.all(
@@ -472,10 +475,13 @@ statsRouter.get("/members-report", requireBotOrAdmin, async (_req, res) => {
 
   const discordMembers = await prisma.discordMember.findMany({
     where: { discordId: { in: members.map((member) => member.discordId) } },
-    select: { discordId: true, joinedAt: true },
+    select: { discordId: true, joinedAt: true, birthday: true },
   });
   const joinedAtByDiscordId = new Map(
     discordMembers.map((member) => [member.discordId, member.joinedAt])
+  );
+  const birthdayByDiscordId = new Map(
+    discordMembers.map((member) => [member.discordId, member.birthday])
   );
 
   const accountIdToMemberId = new Map<string, string>();
@@ -596,6 +602,7 @@ statsRouter.get("/members-report", requireBotOrAdmin, async (_req, res) => {
 
   const rows = members.map((member) => {
     const joinedAt = joinedAtByDiscordId.get(member.discordId) ?? null;
+    const birthday = birthdayByDiscordId.get(member.discordId) ?? null;
     const tenureDays =
       joinedAt !== null
         ? Math.floor((now.getTime() - joinedAt.getTime()) / dayMs)
@@ -612,6 +619,7 @@ statsRouter.get("/members-report", requireBotOrAdmin, async (_req, res) => {
       id: idValue,
       displayName: member.displayName,
       joinedAt: joinedAt?.toISOString() ?? null,
+      birthday: birthday?.toISOString().slice(0, 10) ?? null,
       tenureDays,
       eventsParticipated: matches,
       kills: stats?.kills ?? 0,

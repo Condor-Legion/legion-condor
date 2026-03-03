@@ -1,4 +1,4 @@
-import type { Client } from "discord.js";
+﻿import type { Client } from "discord.js";
 import { Events, MessageFlags } from "discord.js";
 import {
   handleAnunciar,
@@ -13,6 +13,7 @@ import {
   handleSetupTickets,
   handleSyncMembers,
   handleSyncRoster,
+  handleTestBirthday,
 } from "../commands/handlers";
 import { parseBirthdayButtonCustomId } from "../lib/birthdayButtons";
 import {
@@ -67,6 +68,10 @@ export function setupInteractionCreateEvent(client: Client): void {
       }
       if (interaction.commandName === "anunciar") {
         await handleAnunciar(interaction, client);
+        return;
+      }
+      if (interaction.commandName === "test-cumpleaños") {
+        await handleTestBirthday(interaction);
         return;
       }
     }
@@ -138,3 +143,4 @@ export function setupInteractionCreateEvent(client: Client): void {
     }
   });
 }
+

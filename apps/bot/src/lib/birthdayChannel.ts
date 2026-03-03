@@ -78,7 +78,7 @@ async function sendBirthdayConfirmation(
   await message.author.send({
     content: [
       `Detecte la fecha **${formatBirthdayForDisplay(birthday)}** en tu mensaje de <#${message.channelId}>.`,
-      "Queres actualizar tu cumpleanos con esa fecha?",
+      "Queres actualizar tu cumpleaños con esa fecha?",
     ].join("\n"),
     components,
   });
