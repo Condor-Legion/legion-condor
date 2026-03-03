@@ -1,27 +1,30 @@
-import type { Client } from "discord.js";
+﻿import type { Client } from "discord.js";
 import { Events, MessageFlags } from "discord.js";
 import {
-  handleSyncMembers,
-  handleSyncRoster,
+  handleAnunciar,
+  handleBirthdayButton,
   handleCreateAccount,
-  handleSetupTickets,
-  handleMyRank,
-  handleMyAccount,
   handleGulag,
-  handlePrintMembers,
   handleGulagPageButton,
   handleLastEvents,
-  handleAnunciar,
+  handleMyAccount,
+  handleMyRank,
+  handlePrintMembers,
+  handleSetupTickets,
+  handleSyncMembers,
+  handleSyncRoster,
+  handleTestBirthday,
 } from "../commands/handlers";
+import { parseBirthdayButtonCustomId } from "../lib/birthdayButtons";
 import {
-  handleTicketCreate,
-  handleSurveyStart,
   handleSurveyContinue,
-  handleTicketClose,
-  handleTicketGrantRole,
-  handleTicketCompleteEntry,
+  handleSurveyStart,
   handleSurveyStep1,
   handleSurveyStep2,
+  handleTicketClose,
+  handleTicketCompleteEntry,
+  handleTicketCreate,
+  handleTicketGrantRole,
 } from "../tickets";
 
 export function setupInteractionCreateEvent(client: Client): void {
@@ -67,12 +70,25 @@ export function setupInteractionCreateEvent(client: Client): void {
         await handleAnunciar(interaction, client);
         return;
       }
+      if (
+        interaction.commandName === "test-cumpleanos" ||
+        interaction.commandName === "test-cumpleaños"
+      ) {
+        await handleTestBirthday(interaction);
+        return;
+      }
     }
 
     if (interaction.isButton()) {
+      const birthdayPayload = parseBirthdayButtonCustomId(interaction.customId);
+      if (birthdayPayload) {
+        await handleBirthdayButton(interaction, birthdayPayload);
+        return;
+      }
+
       if (!interaction.inGuild() || !interaction.guildId) {
         await interaction.reply({
-          content: "Esta acción solo funciona dentro de un servidor.",
+          content: "Esta accion solo funciona dentro de un servidor.",
           flags: MessageFlags.Ephemeral,
         });
         return;
@@ -90,7 +106,7 @@ export function setupInteractionCreateEvent(client: Client): void {
         return;
       }
       if (action === "ticket_survey_start") {
-        console.log("[tickets] Botón Responder encuesta", {
+        console.log("[tickets] Boton Responder encuesta", {
           customId: interaction.customId,
           ticketId: ticketId ?? "",
         });
@@ -130,3 +146,4 @@ export function setupInteractionCreateEvent(client: Client): void {
     }
   });
 }
+

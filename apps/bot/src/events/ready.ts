@@ -3,6 +3,8 @@ import { Events } from "discord.js";
 import { config } from "../config";
 import { registerCommands } from "../commands/definitions";
 import { setupAnnouncementsScheduler } from "../lib/announcementsScheduler";
+import { setupBirthdayAnnouncementScheduler } from "../lib/birthdayAnnouncementScheduler";
+import { setupBirthdayChannel } from "../lib/birthdayChannel";
 import { setupStatsChannel } from "../lib/statsChannel";
 import { syncMembers, syncRoster } from "../lib/sync";
 
@@ -13,6 +15,8 @@ export function setupReadyEvent(client: Client): void {
     console.log("Bot ready");
 
     setupStatsChannel(client);
+    setupBirthdayChannel(client);
+    setupBirthdayAnnouncementScheduler(client);
     setupAnnouncementsScheduler(client);
 
     if (
