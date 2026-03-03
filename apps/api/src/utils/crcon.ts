@@ -217,8 +217,9 @@ export function parseClanTags(): string[] {
 }
 
 /**
- * Returns true if the player name contains any of the configured clan tags.
+ * Returns true if the player name starts with any of the configured clan tags.
+ * The tag must appear at the beginning of the name (e.g. "ζ | Player").
  */
 export function matchesClanTag(playerName: string, tags: string[]): boolean {
-  return tags.some((tag) => playerName.includes(tag));
+  return tags.some((tag) => playerName.startsWith(tag));
 }
