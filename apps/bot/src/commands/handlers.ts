@@ -1614,7 +1614,7 @@ export async function handleLastEvents(
   }
 }
 const LEADERBOARD_METRIC_LABELS: Record<string, string> = {
-  ascenso: "Ascenso (Combate + Ataque)",
+  ascenso: "Ascenso (Combate)",
   kills: "Kills",
   score: "Score Total",
   kdr: "K/D Ratio",

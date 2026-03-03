@@ -395,7 +395,7 @@ statsRouter.get("/leaderboard", requireBotOrAdmin, async (req, res) => {
       offense: stats.offense,
       defense: stats.defense,
       support: stats.support,
-      ascenso: stats.combat + stats.offense,
+      ascenso: stats.combat,
     };
 
     entries.push({
@@ -1185,7 +1185,7 @@ statsRouter.get("/rank-condor/:discordId", requireBotOrAdmin, async (req, res) =
     totalKills += row.kills;
     totalDeaths += row.deaths;
     kdrSum += row.killDeathRatio;
-    ascensoScore += row.combat + row.offense;
+    ascensoScore += row.combat;
     qualifiedMatches += 1;
   }
 
@@ -1242,7 +1242,7 @@ statsRouter.get("/rank-condor/:discordId", requireBotOrAdmin, async (req, res) =
       offense: row.offense,
       defense: row.defense,
       support: row.support,
-      ascensoScore: row.combat + row.offense,
+      ascensoScore: row.combat,
     })),
   });
 });
