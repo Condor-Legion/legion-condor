@@ -2,6 +2,7 @@ import type { Client } from "discord.js";
 import type { APIEmbed } from "discord-api-types/v10";
 import { AttachmentBuilder } from "discord.js";
 import { config } from "../config";
+import { log } from "../logger";
 
 async function fetchAttachmentFiles(
   attachmentUrlsJson: string | null
@@ -83,7 +84,7 @@ export function setupAnnouncementsScheduler(client: Client): void {
         try {
           const channel = await client.channels.fetch(ann.channelId).catch(() => null);
           if (!channel?.isTextBased() || channel.isDMBased()) {
-            console.warn(`[announcements] Canal no encontrado o no válido: ${ann.channelId}`);
+            log.announcements.warn({ channelId: ann.channelId, announcementId: ann.id }, "announcement channel invalid or not found");
             continue;
           }
           const files = await fetchAttachmentFiles(ann.attachmentUrlsJson ?? null);
@@ -121,11 +122,11 @@ export function setupAnnouncementsScheduler(client: Client): void {
             });
           }
         } catch (err) {
-          console.error("[announcements] Error procesando anuncio:", ann.id, err);
+          log.announcements.error({ err, announcementId: ann.id }, "announcement processing error");
         }
       }
     } catch (err) {
-      console.error("[announcements] Error al obtener anuncios pendientes:", err);
+      log.announcements.error({ err }, "failed to fetch due announcements");
     }
   }, intervalMs);
 }

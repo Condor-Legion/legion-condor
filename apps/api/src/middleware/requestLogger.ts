@@ -18,8 +18,10 @@ export function requestLoggerMiddleware(
   res: Response,
   next: NextFunction
 ): void {
+  const incomingRequestId = req.headers["x-request-id"];
   const requestId =
-    (req.headers["x-request-id"] as string) ?? crypto.randomUUID();
+    (Array.isArray(incomingRequestId) ? incomingRequestId[0] : incomingRequestId)?.trim() ||
+    crypto.randomUUID();
   const startTime = Date.now();
 
   req.requestId = requestId;

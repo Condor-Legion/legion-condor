@@ -25,6 +25,9 @@ const io = createSocketServer(server);
 app.set("io", io);
 
 app.use(
+  requestLoggerMiddleware
+);
+app.use(
   cors({
     origin: process.env.CORS_ORIGIN ?? "http://localhost:3000",
     credentials: true,
@@ -33,7 +36,6 @@ app.use(
 app.use(cookieParser());
 app.use(express.json({ limit: "2mb" }));
 app.use(defaultRateLimit);
-app.use(requestLoggerMiddleware);
 
 app.use("/api/auth", authRouter);
 app.use("/api/members", membersRouter);

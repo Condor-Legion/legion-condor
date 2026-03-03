@@ -1,6 +1,7 @@
 /**
  * Configuración del bot desde variables de entorno.
  */
+import { botLogger } from "./logger";
 const token = process.env.DISCORD_TOKEN;
 const clientId = process.env.DISCORD_CLIENT_ID;
 const guildId = process.env.DISCORD_GUILD_ID;
@@ -90,7 +91,7 @@ export const config = {
 
 export function ensureBotConfig(): void {
   if (!config.token || !config.clientId) {
-    console.warn(
+    botLogger.warn(
       "Bot skipped: set DISCORD_TOKEN and DISCORD_CLIENT_ID in .env to run the Discord bot."
     );
     process.exit(0);

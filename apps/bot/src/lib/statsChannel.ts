@@ -1,6 +1,7 @@
 import type { Client, Message } from "discord.js";
 import { Events } from "discord.js";
 import { config } from "../config";
+import { log } from "../logger";
 
 function extractGameLinks(text: string): { baseUrl: string; mapId: string }[] {
   const result: { baseUrl: string; mapId: string }[] = [];
@@ -111,8 +112,9 @@ async function processMessageForLinks(msg: Message): Promise<void> {
   const links = extractGameLinks(text);
   const importTitle = extractImportTitle(msg);
   for (const link of links) {
-    console.log(
-      `Stats link found messageId=${msg.id} baseUrl=${link.baseUrl} mapId=${link.mapId}`
+    log.stats.info(
+      { messageId: msg.id, baseUrl: link.baseUrl, mapId: link.mapId },
+      "stats link found"
     );
     try {
       const result = await triggerImport(
@@ -121,13 +123,20 @@ async function processMessageForLinks(msg: Message): Promise<void> {
         msg.id,
         importTitle
       );
-      console.log(
-        `Stats import result messageId=${msg.id} baseUrl=${link.baseUrl} mapId=${link.mapId} status=${result.status} importId=${result.importId ?? "null"}`
+      log.stats.info(
+        {
+          messageId: msg.id,
+          baseUrl: link.baseUrl,
+          mapId: link.mapId,
+          status: result.status,
+          importId: result.importId ?? null,
+        },
+        "stats import result"
       );
     } catch (error) {
-      console.error(
-        `Stats import error messageId=${msg.id} baseUrl=${link.baseUrl} mapId=${link.mapId}:`,
-        error
+      log.stats.error(
+        { err: error, messageId: msg.id, baseUrl: link.baseUrl, mapId: link.mapId },
+        "stats import error"
       );
     }
   }
@@ -177,7 +186,7 @@ export function setupStatsChannel(client: Client): void {
     try {
       await processMessageForLinks(message);
     } catch (error) {
-      console.error("Stats channel message create error:", error);
+      log.stats.error({ err: error, messageId: message.id }, "stats channel message create error");
     }
   });
 
@@ -187,18 +196,18 @@ export function setupStatsChannel(client: Client): void {
       try {
         await newMessage.fetch();
       } catch (error) {
-        console.error("Stats channel message fetch error:", error);
+        log.stats.error({ err: error, messageId: newMessage.id }, "stats channel message fetch error");
         return;
       }
     }
     try {
       await processMessageForLinks(newMessage as Message);
     } catch (error) {
-      console.error("Stats channel message update error:", error);
+      log.stats.error({ err: error, messageId: newMessage.id }, "stats channel message update error");
     }
   });
 
   scanStatsChannel(client).catch((error) =>
-    console.error("Stats channel catch-up scan error:", error)
+    log.stats.error({ err: error }, "stats channel catch-up scan error")
   );
 }
