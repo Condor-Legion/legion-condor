@@ -148,6 +148,11 @@ const commands = [
     .setDefaultMemberPermissions(0n)
     .setDMPermission(false),
   new SlashCommandBuilder()
+    .setName("test-cumpleanos")
+    .setDescription("Prueba el mensaje de cumpleaños en este canal")
+    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
+    .setDMPermission(false),
+  new SlashCommandBuilder()
     .setName("anunciar")
     .setDescription(
       "Publica un anuncio copiando un mensaje (ahora o programado). Solo administradores."
@@ -220,3 +225,4 @@ export async function registerCommands(
     await rest.put(Routes.applicationCommands(appId), { body: commands });
   }
 }
+

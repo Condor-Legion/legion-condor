@@ -54,12 +54,23 @@ membersRouter.get("/by-discord/:discordId", async (req, res) => {
     const admin = await getAdminFromRequest(req);
     if (!admin) return res.status(401).json({ error: "Unauthorized" });
   }
-  const member = await prisma.member.findUnique({
-    where: { discordId: req.params.discordId },
-    include: { gameAccounts: true }
-  });
+  const [member, discordMember] = await Promise.all([
+    prisma.member.findUnique({
+      where: { discordId: req.params.discordId },
+      include: { gameAccounts: true }
+    }),
+    prisma.discordMember.findUnique({
+      where: { discordId: req.params.discordId },
+      select: { birthday: true }
+    })
+  ]);
   if (!member) return res.status(404).json({ error: "Not found" });
-  return res.json({ member });
+  return res.json({
+    member: {
+      ...member,
+      birthday: discordMember?.birthday?.toISOString().slice(0, 10) ?? null
+    }
+  });
 });
 
 membersRouter.get("/:id", requireBotOrAdmin, async (req, res) => {
