@@ -115,7 +115,7 @@ Todos los parametros son obligatorios:
 Publica en el canal actual el botÃ³n para crear tickets de ingreso.  
 Ejecutarlo en el canal donde querÃ©s el botÃ³n de tickets (cualquier canal).
 
-### `/test-cumpleaños` (admin)
+### `/test-cumpleanos` (admin)
 Publica en el canal actual una vista previa del saludo de cumpleaños usando la misma plantilla de `DISCORD_BIRTHDAY_ANNOUNCE_MESSAGE`.
 Menciona al usuario que ejecuta el comando y al rol configurado en `DISCORD_BIRTHDAY_ANNOUNCE_ROLE_ID`.
 
@@ -127,7 +127,7 @@ Menciona al usuario que ejecuta el comando y al rol configurado en `DISCORD_BIRT
 - El bot publica en el canal un resumen con las respuestas completas.
 
 **Visibilidad / permisos**  
-- `/crear-cuenta`, `/gulag`, `/config-tickets` y `/test-cumpleaños` requieren permisos de administrador.
+- `/crear-cuenta`, `/gulag`, `/config-tickets` y `/test-cumpleanos` requieren permisos de administrador.
 - `/mi-rank`, `/mi-cuenta`, `/ultimos-eventos`, `/sync-miembros` y `/sync-roster` usan `defaultMemberPermissions = 0`.
 - Debes habilitar manualmente los que correspondan en Discord:
 

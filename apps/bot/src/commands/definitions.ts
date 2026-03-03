@@ -105,8 +105,8 @@ const commands = [
     .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
     .setDMPermission(false),
   new SlashCommandBuilder()
-    .setName("test-cumpleaños")
-    .setDescription("Prueba el mensaje de cumpleaños en este canal")
+    .setName("test-cumpleanos")
+    .setDescription("Prueba el mensaje de cumpleaÃ±os en este canal")
     .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
     .setDMPermission(false),
   new SlashCommandBuilder()

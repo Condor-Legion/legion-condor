@@ -70,7 +70,10 @@ export function setupInteractionCreateEvent(client: Client): void {
         await handleAnunciar(interaction, client);
         return;
       }
-      if (interaction.commandName === "test-cumpleaños") {
+      if (
+        interaction.commandName === "test-cumpleanos" ||
+        interaction.commandName === "test-cumpleaños"
+      ) {
         await handleTestBirthday(interaction);
         return;
       }
