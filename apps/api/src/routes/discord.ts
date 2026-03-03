@@ -1,8 +1,9 @@
 import { Router } from "express";
 import { z } from "zod";
 import { SYNC_CHUNK_SIZE } from "@legion/shared";
-import { prisma } from "../prisma";
 import { getAdminFromRequest, getBotApiKey } from "../auth";
+import { prisma } from "../prisma";
+import { syncRosterSheet } from "../utils/googleSheets";
 
 export const discordRouter = Router();
 
@@ -28,10 +29,12 @@ const rosterMemberSchema = z.object({
   displayName: z.string().min(1),
   username: z.string().optional(),
   nickname: z.string().nullable().optional(),
+  joinedAt: z.string().datetime().nullable().optional(),
+  roles: z.array(roleSchema).optional(),
 });
 
 const rosterSyncBodySchema = z.object({
-  members: z.array(rosterMemberSchema).min(1),
+  members: z.array(rosterMemberSchema),
 });
 
 const accountRequestSchema = z.object({
@@ -167,20 +170,44 @@ discordRouter.post("/account-requests", requireBotOrAdmin, async (req, res) => {
     username: discordMember.username,
   });
 
+  const existing = await prisma.gameAccount.findUnique({
+    where: {
+      provider_providerId: {
+        provider: parsed.data.provider,
+        providerId: parsed.data.providerId,
+      },
+    },
+    include: {
+      member: {
+        select: { discordId: true },
+      },
+    },
+  });
+  if (existing && existing.member.discordId !== parsed.data.discordId) {
+    return res.status(409).json({ error: "Account already exists" });
+  }
+
   const member = await prisma.member.upsert({
     where: { discordId: parsed.data.discordId },
     update: { displayName, isActive: true },
     create: { discordId: parsed.data.discordId, displayName, isActive: true },
   });
 
-  const existing = await prisma.gameAccount.findFirst({
-    where: {
-      provider: parsed.data.provider,
-      providerId: parsed.data.providerId,
-    },
-  });
   if (existing) {
-    return res.status(409).json({ error: "Account already exists" });
+    const account = await prisma.gameAccount.update({
+      where: { id: existing.id },
+      data: { approved: true },
+    });
+
+    await prisma.playerMatchStats.updateMany({
+      where: {
+        providerId: account.providerId,
+        gameAccountId: null,
+      },
+      data: { gameAccountId: account.id },
+    });
+
+    return res.status(200).json({ account, alreadyExisted: true });
   }
 
   const created = await prisma.gameAccount.create({
@@ -238,13 +265,16 @@ discordRouter.post("/roster/sync", requireBotOrAdmin, async (req, res) => {
             update: {
               username: member.username ?? member.displayName,
               nickname: member.nickname ?? null,
+              joinedAt: member.joinedAt ? new Date(member.joinedAt) : null,
+              roles: member.roles ?? [],
               isActive: true,
             },
             create: {
               discordId: member.discordId,
               username: member.username ?? member.displayName,
               nickname: member.nickname ?? null,
-              roles: [],
+              joinedAt: member.joinedAt ? new Date(member.joinedAt) : null,
+              roles: member.roles ?? [],
               isActive: true,
             },
           }),
@@ -262,7 +292,24 @@ discordRouter.post("/roster/sync", requireBotOrAdmin, async (req, res) => {
     data: { isActive: false },
   });
 
-  return res.json({ ok: true, count: members.length });
+  const sheetRows = members.map((member) => ({
+    discordId: member.discordId,
+    username: member.username ?? member.displayName,
+    displayName: resolveDisplayName({
+      nickname: member.nickname,
+      username: member.username,
+      fallback: member.displayName,
+    }),
+    joinedAt: member.joinedAt ?? null,
+    roleIds: (member.roles ?? []).map((role) => role.id),
+  }));
+  await syncRosterSheet(sheetRows);
+
+  return res.json({
+    ok: true,
+    count: members.length,
+    sheetUpdated: true,
+  });
 });
 
 // --- Anuncios programados (comando /anunciar del bot) ---

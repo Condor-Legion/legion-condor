@@ -90,6 +90,8 @@ Sincroniza todos los miembros del servidor a la DB.
 Sincroniza el roster en la tabla `Member` usando roles de Discord.
 Solo se agregan/actualizan los miembros que tengan algun rol listado en `ROSTER_ROLE_IDS`.
 Si un miembro no tiene roles de roster, solo se desactiva (`isActive = false`) si pasaron 7 dias desde que fue creado en `Member`.
+Si estan configuradas las variables `STATS_LEGACY_SPREADSHEET_ID`, `STATS_LEGACY_ROSTER_SHEET_NAME`, `STATS_LEGACY_SERVICE_ACCOUNT_EMAIL` y `STATS_LEGACY_SERVICE_ACCOUNT_PRIVATE_KEY`, tambien actualiza la hoja de Google (tab `Miembros BD`) con columnas:
+`Actualizacion`, `ID`, `Usuario`, `Nick`, `Ingreso`, `Roles`.
 
 ### `/crear-cuenta` (admin)
 Crea una cuenta de juego asociada a un usuario del roster (`Member`).

@@ -42,6 +42,7 @@ coverage
 .env.dev
 .env.prod
 
+
 # Scripts de prueba locales (Ascenso del Cóndor)
 test-scripts/
 
@@ -50,3 +51,4 @@ test-scripts/
 CLAUDE.md
 **/CLAUDE.md
 tmpclaude-*
+GITHUB_MULTICUENTA.md

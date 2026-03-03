@@ -17,9 +17,10 @@ authRouter.post("/login", loginRateLimit, async (req, res) => {
   if (!parsed.success) {
     return res.status(400).json({ error: "Invalid payload" });
   }
+  const username = parsed.data.username.trim();
 
   const admin = await prisma.adminUser.findUnique({
-    where: { username: parsed.data.username },
+    where: { username },
   });
   if (!admin) {
     return res.status(401).json({ error: "Invalid credentials" });

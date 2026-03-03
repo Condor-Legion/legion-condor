@@ -480,7 +480,14 @@ export async function handleTicketCompleteEntry(
         })
       }
     );
-    if (!accountRes.ok && accountRes.status !== 409) {
+    if (accountRes.status === 409) {
+      const text = await accountRes.text();
+      await interaction.editReply(
+        `No se pudo crear la cuenta del miembro: ${accountRes.status} ${text}`
+      );
+      return;
+    }
+    if (!accountRes.ok) {
       const text = await accountRes.text();
       await interaction.editReply(
         `Error creando la cuenta del miembro: ${accountRes.status} ${text}`

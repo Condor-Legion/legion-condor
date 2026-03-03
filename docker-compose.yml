@@ -1,3 +1,5 @@
+name: legion-condor
+
 services:
   postgres:
     image: postgres:16-alpine
@@ -14,6 +16,7 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
+    restart: unless-stopped
 
   api:
     build:
@@ -27,6 +30,9 @@ services:
       GULAG_INACTIVITY_DAYS: ${GULAG_INACTIVITY_DAYS:-30}
       STATS_LEGACY_MIGRATION_ENABLED: ${STATS_LEGACY_MIGRATION_ENABLED:-false}
       STATS_LEGACY_SPREADSHEET_ID: ${STATS_LEGACY_SPREADSHEET_ID:-}
+      STATS_LEGACY_ROSTER_SHEET_NAME: ${STATS_LEGACY_ROSTER_SHEET_NAME:-Miembros BD}
+      STATS_LEGACY_SERVICE_ACCOUNT_EMAIL: ${STATS_LEGACY_SERVICE_ACCOUNT_EMAIL:-}
+      STATS_LEGACY_SERVICE_ACCOUNT_PRIVATE_KEY: ${STATS_LEGACY_SERVICE_ACCOUNT_PRIVATE_KEY:-}
       STATS_LEGACY_EVENTS_SHEET: ${STATS_LEGACY_EVENTS_SHEET:-}
       STATS_LEGACY_PLAYER_STATS_SHEET: ${STATS_LEGACY_PLAYER_STATS_SHEET:-}
       STATS_LEGACY_MEMBER_ACCOUNTS_SHEET: ${STATS_LEGACY_MEMBER_ACCOUNTS_SHEET:-}
@@ -46,6 +52,7 @@ services:
         condition: service_healthy
     ports:
       - "3004:3001"
+    restart: unless-stopped
 
   web:
     build:
@@ -58,7 +65,7 @@ services:
       - api
     ports:
       - "3003:3000"
-
+    restart: unless-stopped
   bot:
     build:
       context: .
@@ -81,6 +88,20 @@ services:
       CLEAR_GLOBAL_COMMANDS: ${CLEAR_GLOBAL_COMMANDS:-}
     depends_on:
       - api
-
+    restart: unless-stopped
+  deploy-listener:
+    build:
+      context: .
+      dockerfile: deploy-listener/Dockerfile
+    environment:
+      GITHUB_WEBHOOK_SECRET: ${GITHUB_WEBHOOK_SECRET:-}
+      REPO_DIR: /repo
+      PORT: 9000
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - "${REPO_PATH:-.}:/repo"
+    ports:
+      - "9000:9000"
+    restart: unless-stopped
 volumes:
   postgres_data:

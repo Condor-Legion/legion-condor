@@ -98,22 +98,25 @@ export async function syncRoster(
     .map((member) => ({
       discordId: member.user.id,
       displayName: member.displayName,
+      username: member.user.username,
+      nickname: member.nickname ?? null,
+      joinedAt: member.joinedAt ? member.joinedAt.toISOString() : null,
+      roles: member.roles.cache
+        .filter((role) => role.id !== guild.id)
+        .map((role) => ({ id: role.id, name: role.name })),
     }));
 
-  for (let i = 0; i < payload.length; i += SYNC_CHUNK_SIZE) {
-    const chunk = payload.slice(i, i + SYNC_CHUNK_SIZE);
-    const res = await fetch(`${config.apiUrl}/api/discord/roster/sync`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-bot-api-key": config.botApiKey,
-      },
-      body: JSON.stringify({ members: chunk }),
-    });
-    if (!res.ok) {
-      const text = await res.text();
-      throw new Error(`Roster sync failed: ${res.status} ${text}`);
-    }
+  const res = await fetch(`${config.apiUrl}/api/discord/roster/sync`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-bot-api-key": config.botApiKey,
+    },
+    body: JSON.stringify({ members: payload }),
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Roster sync failed: ${res.status} ${text}`);
   }
 
   return payload.length;
