@@ -63,12 +63,44 @@ function nextRecurrence(previous: Date, recurrenceDays: string): Date {
 
 export function setupAnnouncementsScheduler(client: Client): void {
   const intervalMs = 60 * 1000;
+  let isTickRunning = false;
+
+  async function deferAnnouncement(announcementId: string, minutesFromNow: number): Promise<void> {
+    const nextAt = new Date(Date.now() + minutesFromNow * 60 * 1000);
+    const patchRes = await fetch(`${config.apiUrl}/api/discord/announcements/${announcementId}`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        "x-bot-api-key": config.botApiKey,
+      },
+      body: JSON.stringify({ scheduledAt: nextAt.toISOString() }),
+    });
+    if (!patchRes.ok) {
+      const body = await patchRes.text().catch(() => "");
+      log.announcements.error(
+        { announcementId, status: patchRes.status, body },
+        "failed to defer announcement after processing issue"
+      );
+    }
+  }
+
   setInterval(async () => {
+    if (isTickRunning) {
+      log.announcements.warn("announcements scheduler tick skipped: previous tick still running");
+      return;
+    }
+    isTickRunning = true;
     try {
       const res = await fetch(`${config.apiUrl}/api/discord/announcements/due`, {
         headers: { "x-bot-api-key": config.botApiKey },
       });
-      if (!res.ok) return;
+      if (!res.ok) {
+        log.announcements.error(
+          { status: res.status },
+          "failed to fetch due announcements"
+        );
+        return;
+      }
       const list = (await res.json()) as Array<{
         id: string;
         guildId: string;
@@ -84,7 +116,11 @@ export function setupAnnouncementsScheduler(client: Client): void {
         try {
           const channel = await client.channels.fetch(ann.channelId).catch(() => null);
           if (!channel?.isTextBased() || channel.isDMBased()) {
-            log.announcements.warn({ channelId: ann.channelId, announcementId: ann.id }, "announcement channel invalid or not found");
+            log.announcements.warn(
+              { channelId: ann.channelId, announcementId: ann.id },
+              "announcement channel invalid or not found"
+            );
+            await deferAnnouncement(ann.id, 15);
             continue;
           }
           const files = await fetchAttachmentFiles(ann.attachmentUrlsJson ?? null);
@@ -107,7 +143,7 @@ export function setupAnnouncementsScheduler(client: Client): void {
           if (ann.recurrenceDays) {
             const previous = new Date(ann.scheduledAt);
             const nextAt = nextRecurrence(previous, ann.recurrenceDays);
-            await fetch(`${config.apiUrl}/api/discord/announcements/${ann.id}`, {
+            const patchRes = await fetch(`${config.apiUrl}/api/discord/announcements/${ann.id}`, {
               method: "PATCH",
               headers: {
                 "Content-Type": "application/json",
@@ -115,18 +151,37 @@ export function setupAnnouncementsScheduler(client: Client): void {
               },
               body: JSON.stringify({ scheduledAt: nextAt.toISOString() }),
             });
+            if (!patchRes.ok) {
+              const body = await patchRes.text().catch(() => "");
+              log.announcements.error(
+                { announcementId: ann.id, status: patchRes.status, body },
+                "announcement sent but failed to reschedule recurrence"
+              );
+              await deferAnnouncement(ann.id, 15);
+            }
           } else {
-            await fetch(`${config.apiUrl}/api/discord/announcements/${ann.id}`, {
+            const deleteRes = await fetch(`${config.apiUrl}/api/discord/announcements/${ann.id}`, {
               method: "DELETE",
               headers: { "x-bot-api-key": config.botApiKey },
             });
+            if (!deleteRes.ok) {
+              const body = await deleteRes.text().catch(() => "");
+              log.announcements.error(
+                { announcementId: ann.id, status: deleteRes.status, body },
+                "announcement sent but failed to delete one-time schedule"
+              );
+              await deferAnnouncement(ann.id, 15);
+            }
           }
         } catch (err) {
           log.announcements.error({ err, announcementId: ann.id }, "announcement processing error");
+          await deferAnnouncement(ann.id, 15);
         }
       }
     } catch (err) {
       log.announcements.error({ err }, "failed to fetch due announcements");
+    } finally {
+      isTickRunning = false;
     }
   }, intervalMs);
 }
