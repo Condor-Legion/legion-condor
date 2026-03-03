@@ -1,5 +1,6 @@
 import {
   ChannelType,
+  PermissionFlagsBits,
   REST,
   Routes,
   SlashCommandBuilder,

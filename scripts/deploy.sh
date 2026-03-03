@@ -6,9 +6,24 @@ REPO_DIR="${REPO_DIR:-/repo}"
 cd "$REPO_DIR"
 
 if command -v git >/dev/null 2>&1; then
-  git pull --ff-only
+  current_branch="$(git rev-parse --abbrev-ref HEAD)"
+  if [ -z "$current_branch" ] || [ "$current_branch" = "HEAD" ]; then
+    echo "No se pudo determinar la rama actual para deploy." >&2
+    exit 1
+  fi
+
+  if ! git pull --ff-only; then
+    echo "deploy.sh: git pull fallo; intentando recuperacion de refs remotas..." >&2
+
+    git remote prune origin || true
+    git fetch origin --prune || true
+    git update-ref -d "refs/remotes/origin/$current_branch" || true
+
+    git fetch origin "$current_branch"
+    git merge --ff-only "origin/$current_branch"
+  fi
 else
-  echo "git no está disponible en el entorno" >&2
+  echo "git no esta disponible en el entorno" >&2
   exit 1
 fi
 
@@ -22,7 +37,7 @@ for svc in "$@"; do
   case "$svc" in
     bot|api|web|deploy-listener|all) ;;
     *)
-      echo "Servicio inválido: $svc (esperado: bot|api|web|deploy-listener|all)" >&2
+      echo "Servicio invalido: $svc (esperado: bot|api|web|deploy-listener|all)" >&2
       exit 2
       ;;
   esac
@@ -51,4 +66,3 @@ docker compose up -d --build $services_args
 
 echo "deploy.sh: despliegue completado para servicios:"
 echo "$dedup_services"
-
