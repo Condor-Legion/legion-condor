@@ -7,7 +7,6 @@ import {
   handleGulag,
   handleGulagPageButton,
   handleLastEvents,
-  handleAnunciar,
   handleTopCondor,
   handleRankCondor,
   handleMyAccount,
@@ -16,7 +15,7 @@ import {
   handleSetupTickets,
   handleSyncMembers,
   handleSyncRoster,
-  handleTestBirthday,
+  handleTestBirthday
 } from "../commands/handlers";
 import { parseBirthdayButtonCustomId } from "../lib/birthdayButtons";
 import {
@@ -27,7 +26,7 @@ import {
   handleTicketClose,
   handleTicketCompleteEntry,
   handleTicketCreate,
-  handleTicketGrantRole,
+  handleTicketGrantRole
 } from "../tickets";
 
 export function setupInteractionCreateEvent(client: Client): void {
@@ -100,7 +99,7 @@ export function setupInteractionCreateEvent(client: Client): void {
       if (!interaction.inGuild() || !interaction.guildId) {
         await interaction.reply({
           content: "Esta accion solo funciona dentro de un servidor.",
-          flags: MessageFlags.Ephemeral,
+          flags: MessageFlags.Ephemeral
         });
         return;
       }
@@ -119,7 +118,7 @@ export function setupInteractionCreateEvent(client: Client): void {
       if (action === "ticket_survey_start") {
         console.log("[tickets] Boton Responder encuesta", {
           customId: interaction.customId,
-          ticketId: ticketId ?? "",
+          ticketId: ticketId ?? ""
         });
         await handleSurveyStart(interaction, ticketId ?? "");
         return;
@@ -157,4 +156,3 @@ export function setupInteractionCreateEvent(client: Client): void {
     }
   });
 }
-
