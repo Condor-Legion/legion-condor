@@ -9,6 +9,7 @@ import {
   TextInputBuilder,
   TextInputStyle,
 } from "discord.js";
+import { log } from "../logger";
 
 /** Mensaje corto al crear el ticket. La encuesta está solo en el modal. */
 export function buildSurveyMessage(userId: string): string {
@@ -110,7 +111,7 @@ export function buildSurveyContinueRow(
 
 /** Modal paso 1: incluye select de plataforma dentro del modal (LabelBuilder + addLabelComponents). */
 export function buildSurveyModalStep1(ticketId: string): ModalBuilder {
-  console.log("[tickets] buildSurveyModalStep1", { ticketId });
+  log.tickets.info({ ticketId }, "build survey modal step1");
   try {
     const platformSelect = new StringSelectMenuBuilder()
       .setCustomId("platform")
@@ -183,10 +184,10 @@ export function buildSurveyModalStep1(ticketId: string): ModalBuilder {
       availabilityLabel,
       discoveryLabel,
     );
-    console.log("[tickets] buildSurveyModalStep1: modal construido ok");
+    log.tickets.info({ ticketId }, "build survey modal step1 completed");
     return modal;
   } catch (err) {
-    console.error("[tickets] buildSurveyModalStep1 error", err);
+    log.tickets.error({ err, ticketId }, "build survey modal step1 error");
     throw err;
   }
 }

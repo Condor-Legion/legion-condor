@@ -10,6 +10,7 @@ import {
   type ModalSubmitInteraction
 } from "discord.js";
 import { config } from "../config";
+import { log } from "../logger";
 import {
   buildSurveyMessage,
   buildSurveySummary,
@@ -139,7 +140,7 @@ export async function handleTicketCreate(
 
     await interaction.editReply(`Ticket creado: <#${channel.id}>`);
   } catch (error) {
-    console.error("Create ticket error:", error);
+    log.tickets.error({ err: error, userId: interaction.user.id }, "create ticket error");
     const isMissingPerms =
       typeof error === "object" &&
       error !== null &&
@@ -162,27 +163,27 @@ export async function handleSurveyStart(
   interaction: ButtonInteraction,
   ticketId: string
 ): Promise<void> {
-  console.log("[tickets] handleSurveyStart", { ticketId });
+  log.tickets.info({ ticketId, userId: interaction.user.id }, "handle survey start");
   if (!ticketId) {
-    console.warn("[tickets] handleSurveyStart: falta ticketId");
+    log.tickets.warn({ userId: interaction.user.id }, "handle survey start missing ticketId");
     await interaction
       .reply({
         content: "Falta el identificador del ticket.",
         flags: MessageFlags.Ephemeral
       })
       .catch((err) =>
-        console.error("[tickets] Error replying missing ticketId", err)
+        log.tickets.error({ err, userId: interaction.user.id }, "error replying missing ticketId")
       );
     return;
   }
   try {
-    console.log("[tickets] Construyendo modal paso 1...");
+    log.tickets.info({ ticketId }, "building survey modal step1");
     const modal = buildSurveyModalStep1(ticketId);
-    console.log("[tickets] Mostrando modal...");
+    log.tickets.info({ ticketId }, "showing survey modal");
     await interaction.showModal(modal);
-    console.log("[tickets] Modal mostrado correctamente");
+    log.tickets.info({ ticketId }, "survey modal shown");
   } catch (err) {
-    console.error("[tickets] Error en handleSurveyStart (showModal)", err);
+    log.tickets.error({ err, ticketId, userId: interaction.user.id }, "handle survey start showModal error");
     await interaction
       .reply({
         content:
@@ -190,7 +191,7 @@ export async function handleSurveyStart(
         flags: MessageFlags.Ephemeral
       })
       .catch((replyErr) =>
-        console.error("[tickets] Error al enviar mensaje de fallo", replyErr)
+        log.tickets.error({ err: replyErr, ticketId, userId: interaction.user.id }, "error sending survey start failure message")
       );
   }
 }
@@ -260,7 +261,7 @@ export async function handleTicketClose(
       await interaction.channel.delete("Ticket cerrado").catch(() => {});
     }
   } catch (error) {
-    console.error("Close ticket error:", error);
+    log.tickets.error({ err: error, ticketId, userId: interaction.user.id }, "close ticket error");
     await interaction.editReply("Error cerrando el ticket.").catch(() => {});
   }
 }
@@ -323,7 +324,7 @@ export async function handleTicketGrantRole(
     await member.roles.add(config.ticketPendingRoleId!);
     await interaction.editReply("Rol de Pre-Aspirante asignado correctamente.");
   } catch (error) {
-    console.error("Grant ticket role error:", error);
+    log.tickets.error({ err: error, ticketId, userId: interaction.user.id }, "grant ticket role error");
     await interaction.editReply("Error al asignar el rol.").catch(() => {});
   }
 }
@@ -560,7 +561,7 @@ export async function handleTicketCompleteEntry(
     );
     await channel.delete("Ticket completado").catch(() => {});
   } catch (error) {
-    console.error("Complete entry error:", error);
+    log.tickets.error({ err: error, ticketId, userId: interaction.user.id }, "complete entry error");
     await interaction
       .editReply("Error al completar el ingreso.")
       .catch(() => {});
@@ -626,7 +627,7 @@ export async function handleSurveyStep1(
       }
     }
   } catch (err) {
-    console.error("Validate playerId error:", err);
+    log.tickets.error({ err, ticketId, userId: interaction.user.id }, "validate playerId error");
     await interaction.editReply(
       "No se pudo validar el ID de jugador. Intentá de nuevo."
     );
@@ -730,7 +731,7 @@ export async function handleSurveyStep2(
           await welcomeMsg
             .edit({ components: [buildTicketActionRowAfterSurvey(ticketId)] })
             .catch((err) =>
-              console.error("[tickets] Error actualizando botones:", err)
+              log.tickets.error({ err, ticketId }, "error updating ticket buttons")
             );
         }
       }
@@ -738,7 +739,7 @@ export async function handleSurveyStep2(
 
     await interaction.editReply("Encuesta completada. ¡Gracias!");
   } catch (error) {
-    console.error("Survey submit error:", error);
+    log.tickets.error({ err: error, ticketId, userId: interaction.user.id }, "survey submit error");
     await interaction.editReply("Error guardando la encuesta.").catch(() => {});
   }
 }

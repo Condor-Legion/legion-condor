@@ -13,6 +13,7 @@ import {
   type TextBasedChannel,
 } from "discord.js";
 import { config } from "../config";
+import { log } from "../logger";
 import { renderBirthdayAnnouncementMessage } from "../lib/birthdayAnnouncementMessage";
 import type { BirthdayButtonPayload } from "../lib/birthdayButtons";
 import { syncMembers, syncRoster } from "../lib/sync";
@@ -401,7 +402,7 @@ export async function handleSyncMembers(
     const count = await syncMembers(_client, interaction.guildId);
     await interaction.editReply(`Sincronizados ${count} miembros.`);
   } catch (error) {
-    console.error("Sync members error:", error);
+    log.commands.error({ err: error, command: "sync-miembros", userId: interaction.user.id }, "command failed");
     await interaction.editReply("Error sincronizando miembros.");
   }
 }
@@ -422,7 +423,7 @@ export async function handleSyncRoster(
     const count = await syncRoster(client, interaction.guildId);
     await interaction.editReply(`Roster sincronizado: ${count} miembros.`);
   } catch (error) {
-    console.error("Sync roster error:", error);
+    log.commands.error({ err: error, command: "sync-roster", userId: interaction.user.id }, "command failed");
     const message =
       error instanceof Error ? error.message : "Error sincronizando roster.";
     await interaction.editReply(message);
@@ -491,7 +492,7 @@ export async function handleBirthdayButton(
       components: [],
     });
   } catch (error) {
-    console.error("Birthday update button error:", error);
+    log.commands.error({ err: error, command: "birthday-button", userId: interaction.user.id }, "command failed");
     await interaction.editReply({
       content: "Error actualizando tu cumpleaños.",
       components: [],
@@ -575,7 +576,7 @@ export async function handleCreateAccount(
       `Cuenta creada correctamente para <@${targetUser.id}>.`
     );
   } catch (error) {
-    console.error("Create account error:", error);
+    log.commands.error({ err: error, command: "crear-cuenta", userId: interaction.user.id }, "command failed");
     await interaction.editReply("Error creando cuenta.");
   }
 }
@@ -715,7 +716,7 @@ export async function handleMyRank(
 
     await interaction.editReply({ embeds: [embed] });
   } catch (error) {
-    console.error("My rank error:", error);
+    log.commands.error({ err: error, command: "mi-rank", userId: interaction.user.id }, "command failed");
     await interaction.editReply("Error consultando tus stats.");
   }
 }
@@ -837,7 +838,7 @@ export async function handleMyAccount(
 
     await interaction.editReply({ embeds: [embed] });
   } catch (error) {
-    console.error("My account error:", error);
+    log.commands.error({ err: error, command: "mi-cuenta", userId: interaction.user.id }, "command failed");
     await interaction.editReply("Error consultando tu cuenta.");
   }
 }
@@ -1012,7 +1013,7 @@ export async function handleGulag(
       components,
     });
   } catch (error) {
-    console.error("Gulag error:", error);
+    log.commands.error({ err: error, command: "gulag", userId: interaction.user.id }, "command failed");
     await interaction.editReply({
       content: "Error consultando Gulag.",
       components: [],
@@ -1062,7 +1063,7 @@ export async function handleGulagPageButton(
       components,
     });
   } catch (error) {
-    console.error("Gulag pagination error:", error);
+    log.commands.error({ err: error, command: "gulag-pagination", userId: interaction.user.id }, "command failed");
     await interaction.editReply({
       content: "Error consultando Gulag.",
       components: [],
@@ -1496,7 +1497,7 @@ export async function handlePrintMembers(
       files: [attachment],
     });
   } catch (error) {
-    console.error("Print members error:", error);
+    log.commands.error({ err: error, command: "imprimir-miembros", userId: interaction.user.id }, "command failed");
     await interaction.editReply("Error generando el reporte de miembros.");
   }
 }
@@ -1609,7 +1610,7 @@ export async function handleLastEvents(
 
     await interaction.editReply({ embeds: [embed] });
   } catch (error) {
-    console.error("Last events error:", error);
+    log.commands.error({ err: error, command: "ultimos-eventos", userId: interaction.user.id }, "command failed");
     await interaction.editReply("Error consultando tus últimos eventos.");
   }
 }
@@ -1716,7 +1717,7 @@ export async function handleTopCondor(
 
     await interaction.editReply({ embeds: [embed] });
   } catch (error) {
-    console.error("Top Condor error:", error);
+    log.commands.error({ err: error, command: "top-condor", userId: interaction.user.id }, "command failed");
     await interaction.editReply("Error consultando el leaderboard.");
   }
 }
@@ -1808,7 +1809,7 @@ export async function handleRankCondor(
     embed.setTimestamp(new Date());
     await interaction.editReply({ embeds: [embed] });
   } catch (error) {
-    console.error("Rank Condor error:", error);
+    log.commands.error({ err: error, command: "rank-condor", userId: interaction.user.id }, "command failed");
     await interaction.editReply("Error consultando tu Ascenso del Cóndor.");
   }
 }
@@ -1940,7 +1941,7 @@ export async function handleAnunciar(
         `Anuncio publicado en <#${targetChannelId}>.`
       );
     } catch (err) {
-      console.error("Anunciar send error:", err);
+      log.commands.error({ err, command: "anunciar", userId: interaction.user.id }, "anunciar send error");
       await interaction.editReply(
         "No se pudo enviar el mensaje en ese canal (permisos o canal no válido)."
       );
@@ -2023,7 +2024,7 @@ export async function handleAnunciar(
         : `Anuncio programado para ${nextAt} (GMT-3).`
     );
   } catch (err) {
-    console.error("Anunciar schedule error:", err);
+    log.commands.error({ err, command: "anunciar", userId: interaction.user.id }, "anunciar schedule error");
     await interaction.editReply(
       "Error de conexión con la API al programar el anuncio."
     );

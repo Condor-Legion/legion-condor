@@ -12,6 +12,35 @@ type PushPayload = {
 };
 
 type Service = "bot" | "api" | "web" | "deploy-listener";
+type LogLevel = "info" | "warn" | "error";
+
+function writeLog(level: LogLevel, message: string, data?: Record<string, unknown>): void {
+  const entry = {
+    level,
+    service: "deploy-listener",
+    time: new Date().toISOString(),
+    msg: message,
+    ...(data ?? {}),
+  };
+  process.stdout.write(`${JSON.stringify(entry)}\n`);
+}
+
+const logger = {
+  info(data: Record<string, unknown> | string, message?: string): void {
+    if (typeof data === "string") {
+      writeLog("info", data);
+      return;
+    }
+    writeLog("info", message ?? "info", data);
+  },
+  error(data: Record<string, unknown> | string, message?: string): void {
+    if (typeof data === "string") {
+      writeLog("error", data);
+      return;
+    }
+    writeLog("error", message ?? "error", data);
+  },
+};
 
 function getSignature256(req: Request): string | null {
   const sig = req.headers.get("x-hub-signature-256");
@@ -76,9 +105,8 @@ async function spawnDeploy(services: Service[]): Promise<void> {
   const repoDir = process.env.REPO_DIR ?? "/repo";
   const scriptPath = `${repoDir}/scripts/deploy.sh`;
   const cmd = ["sh", scriptPath, ...services];
-  const servicesLabel = services.length > 0 ? services.join(", ") : "(sin servicios, pull-only)";
 
-  console.log(`[deploy-listener] iniciando deploy para: ${servicesLabel}`);
+  logger.info({ services }, "deploy started");
 
   const child = Bun.spawn({
     cmd,
@@ -94,18 +122,18 @@ async function spawnDeploy(services: Service[]): Promise<void> {
   // Pero registrar cuando termina y con que codigo.
   void child.exited.then((code) => {
     if (code === 0) {
-      console.log(`[deploy-listener] deploy finalizado OK para: ${servicesLabel}`);
+      logger.info({ services }, "deploy finished OK");
       return;
     }
 
-    console.error(`[deploy-listener] deploy finalizado con error (exit=${code}) para: ${servicesLabel}`);
+    logger.error({ services, exitCode: code }, "deploy finished with error");
   });
 }
 
 const port = Number(process.env.PORT ?? "9000");
 const secret = process.env.GITHUB_WEBHOOK_SECRET;
 if (!secret) {
-  console.error("Falta GITHUB_WEBHOOK_SECRET");
+  logger.error("missing GITHUB_WEBHOOK_SECRET");
   process.exit(1);
 }
 
@@ -162,4 +190,4 @@ Bun.serve({
   },
 });
 
-console.log(`[deploy-listener] listening on :${port}`);
+logger.info({ port }, "deploy-listener listening");

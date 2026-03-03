@@ -16,6 +16,11 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     restart: unless-stopped
 
   api:
@@ -47,11 +52,19 @@ services:
       WEBHOOK_SECRET: ${WEBHOOK_SECRET:-}
       WEBHOOK_ALLOWED_IPS: ${WEBHOOK_ALLOWED_IPS:-}
       CLAN_TAG_FILTERS: ${CLAN_TAG_FILTERS:-${CLAN_TAG_FILTER:-}}
+      NODE_ENV: production
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      LOG_PRETTY: ${LOG_PRETTY:-false}
     depends_on:
       postgres:
         condition: service_healthy
     ports:
       - "3004:3001"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
     restart: unless-stopped
 
   web:
@@ -65,6 +78,11 @@ services:
       - api
     ports:
       - "3003:3000"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     restart: unless-stopped
   bot:
     build:
@@ -93,8 +111,16 @@ services:
       DISCORD_SYNC_INTERVAL_HOURS: ${DISCORD_SYNC_INTERVAL_HOURS:-3}
       ROSTER_ROLE_IDS: ${ROSTER_ROLE_IDS:-}
       CLEAR_GLOBAL_COMMANDS: ${CLEAR_GLOBAL_COMMANDS:-}
+      NODE_ENV: production
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      LOG_PRETTY: ${LOG_PRETTY:-false}
     depends_on:
       - api
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
     restart: unless-stopped
   deploy-listener:
     build:
@@ -104,11 +130,19 @@ services:
       GITHUB_WEBHOOK_SECRET: ${GITHUB_WEBHOOK_SECRET:-}
       REPO_DIR: /repo
       PORT: 9000
+      NODE_ENV: production
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      LOG_PRETTY: ${LOG_PRETTY:-false}
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - "${REPO_PATH:-.}:/repo"
     ports:
       - "9000:9000"
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "3"
     restart: unless-stopped
 volumes:
   postgres_data:

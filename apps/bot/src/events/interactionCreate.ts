@@ -28,6 +28,7 @@ import {
   handleTicketCreate,
   handleTicketGrantRole
 } from "../tickets";
+import { log } from "../logger";
 
 export function setupInteractionCreateEvent(client: Client): void {
   client.on(Events.InteractionCreate, async (interaction) => {
@@ -116,10 +117,11 @@ export function setupInteractionCreateEvent(client: Client): void {
         return;
       }
       if (action === "ticket_survey_start") {
-        console.log("[tickets] Boton Responder encuesta", {
+        log.tickets.info({
           customId: interaction.customId,
-          ticketId: ticketId ?? ""
-        });
+          ticketId: ticketId ?? "",
+          userId: interaction.user.id
+        }, "ticket survey start button");
         await handleSurveyStart(interaction, ticketId ?? "");
         return;
       }

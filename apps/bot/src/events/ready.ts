@@ -7,12 +7,13 @@ import { setupBirthdayAnnouncementScheduler } from "../lib/birthdayAnnouncementS
 import { setupBirthdayChannel } from "../lib/birthdayChannel";
 import { setupStatsChannel } from "../lib/statsChannel";
 import { syncMembers, syncRoster } from "../lib/sync";
+import { log } from "../logger";
 
 export function setupReadyEvent(client: Client): void {
   client.once(Events.ClientReady, async () => {
     if (!config.clientId) return;
     await registerCommands(config.clientId, config.guildId ?? undefined);
-    console.log("Bot ready");
+    log.events.info("bot ready");
 
     setupStatsChannel(client);
     setupBirthdayChannel(client);
@@ -28,15 +29,15 @@ export function setupReadyEvent(client: Client): void {
       setInterval(async () => {
         try {
           const count = await syncMembers(client, config.syncGuildId!);
-          console.log(`Auto sync members ok (${count} miembros).`);
+          log.sync.info({ count }, "auto sync members completed");
           if (config.rosterRoleIds.length > 0) {
             const rosterCount = await syncRoster(client, config.syncGuildId!);
-            console.log(`Auto sync roster ok (${rosterCount} miembros).`);
+            log.sync.info({ count: rosterCount }, "auto sync roster completed");
           } else {
-            console.warn("Auto sync roster skipped: missing ROSTER_ROLE_IDS.");
+            log.sync.warn("auto sync roster skipped: missing ROSTER_ROLE_IDS");
           }
         } catch (error) {
-          console.error("Auto sync error:", error);
+          log.sync.error({ err: error }, "auto sync error");
         }
       }, intervalMs);
     }

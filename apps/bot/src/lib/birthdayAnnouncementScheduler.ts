@@ -1,5 +1,6 @@
 import type { Client } from "discord.js";
 import { config } from "../config";
+import { log } from "../logger";
 import { renderBirthdayAnnouncementMessage } from "./birthdayAnnouncementMessage";
 
 type BirthdaysByDateApiResponse = {
@@ -70,13 +71,13 @@ async function fetchBirthdaysByDate(
 
 export function setupBirthdayAnnouncementScheduler(client: Client): void {
   if (!config.birthdayAnnouncementChannelId) {
-    console.warn(
+    log.birthdays.warn(
       "Birthday announcement disabled: missing DISCORD_BIRTHDAY_ANNOUNCE_CHANNEL_ID."
     );
     return;
   }
   if (!config.birthdayAnnouncementRoleId) {
-    console.warn(
+    log.birthdays.warn(
       "Birthday announcement disabled: missing DISCORD_BIRTHDAY_ANNOUNCE_ROLE_ID."
     );
     return;
@@ -86,7 +87,7 @@ export function setupBirthdayAnnouncementScheduler(client: Client): void {
     config.birthdayAnnouncementUtcOffset
   );
   if (offsetMinutes === null) {
-    console.warn(
+    log.birthdays.warn(
       `Birthday announcement disabled: invalid DISCORD_BIRTHDAY_ANNOUNCE_UTC_OFFSET (${config.birthdayAnnouncementUtcOffset}). Expected ±HH:MM.`
     );
     return;
@@ -100,12 +101,15 @@ export function setupBirthdayAnnouncementScheduler(client: Client): void {
 
   let lastProcessedDayKey: string | null = null;
 
-  console.log(
-    `Birthday announcement scheduler active channel=${channelId} role=${roleId} at ${config.birthdayAnnouncementHour
-      .toString()
-      .padStart(2, "0")}:${config.birthdayAnnouncementMinute
-      .toString()
-      .padStart(2, "0")} offset=${config.birthdayAnnouncementUtcOffset}`
+  log.birthdays.info(
+    {
+      channelId,
+      roleId,
+      hour: config.birthdayAnnouncementHour,
+      minute: config.birthdayAnnouncementMinute,
+      utcOffset: config.birthdayAnnouncementUtcOffset,
+    },
+    "birthday announcement scheduler active"
   );
 
   async function tick(): Promise<void> {
@@ -118,9 +122,7 @@ export function setupBirthdayAnnouncementScheduler(client: Client): void {
     try {
       const channel = await client.channels.fetch(channelId).catch(() => null);
       if (!channel || !channel.isTextBased() || channel.isDMBased()) {
-        console.error(
-          `Birthday announcement channel invalid or not found: ${channelId}`
-        );
+        log.birthdays.error({ channelId }, "birthday announcement channel invalid or not found");
         lastProcessedDayKey = nowParts.dayKey;
         return;
       }
@@ -141,21 +143,22 @@ export function setupBirthdayAnnouncementScheduler(client: Client): void {
           },
         });
       }
-      console.log(
-        `Birthday announcements sent date=${nowParts.dayKey} count=${birthdays.birthdays.length}`
+      log.birthdays.info(
+        { dayKey: nowParts.dayKey, count: birthdays.birthdays.length },
+        "birthday announcements sent"
       );
       lastProcessedDayKey = nowParts.dayKey;
     } catch (error) {
-      console.error("Birthday announcement scheduler error:", error);
+      log.birthdays.error({ err: error }, "birthday announcement scheduler error");
     }
   }
 
   tick().catch((error) =>
-    console.error("Birthday announcement initial tick error:", error)
+    log.birthdays.error({ err: error }, "birthday announcement initial tick error")
   );
   setInterval(() => {
     tick().catch((error) =>
-      console.error("Birthday announcement tick error:", error)
+      log.birthdays.error({ err: error }, "birthday announcement tick error")
     );
   }, 60_000);
 }

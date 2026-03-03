@@ -6,6 +6,7 @@ import {
   Events,
 } from "discord.js";
 import { config } from "../config";
+import { log } from "../logger";
 import { buildBirthdayButtonCustomId } from "./birthdayButtons";
 
 function buildUtcDate(year: number, month: number, day: number): string | null {
@@ -101,14 +102,15 @@ async function notifyBirthdayDmFailure(message: Message): Promise<void> {
 
 export function setupBirthdayChannel(client: Client): void {
   if (config.birthdayChannelIds.length === 0) {
-    console.warn(
+    log.birthdays.warn(
       "Birthday channel disabled: set DISCORD_BIRTHDAY_CHANNEL_ID with one or more channel IDs."
     );
     return;
   }
   const channelIds = new Set(config.birthdayChannelIds);
-  console.log(
-    `Birthday channel listener active (${channelIds.size}): ${Array.from(channelIds).join(",")}`
+  log.birthdays.info(
+    { channelIds: Array.from(channelIds), count: channelIds.size },
+    "birthday channel listener active"
   );
 
   client.on(Events.MessageCreate, async (message) => {
@@ -121,10 +123,7 @@ export function setupBirthdayChannel(client: Client): void {
     try {
       await sendBirthdayConfirmation(message, birthday);
     } catch (error) {
-      console.error(
-        `Birthday channel could not send DM userId=${message.author.id}:`,
-        error
-      );
+      log.birthdays.error({ err: error, userId: message.author.id }, "birthday channel could not send DM");
       await notifyBirthdayDmFailure(message);
     }
   });
@@ -150,10 +149,7 @@ export function setupBirthdayChannel(client: Client): void {
     try {
       await sendBirthdayConfirmation(message, birthday);
     } catch (error) {
-      console.error(
-        `Birthday channel could not send DM userId=${message.author.id}:`,
-        error
-      );
+      log.birthdays.error({ err: error, userId: message.author.id }, "birthday channel could not send DM");
       await notifyBirthdayDmFailure(message);
     }
   });
