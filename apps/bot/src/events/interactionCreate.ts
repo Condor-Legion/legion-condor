@@ -7,6 +7,9 @@ import {
   handleGulag,
   handleGulagPageButton,
   handleLastEvents,
+  handleAnunciar,
+  handleTopCondor,
+  handleRankCondor,
   handleMyAccount,
   handleMyRank,
   handlePrintMembers,
@@ -64,6 +67,14 @@ export function setupInteractionCreateEvent(client: Client): void {
       }
       if (interaction.commandName === "ultimos-eventos") {
         await handleLastEvents(interaction);
+        return;
+      }
+      if (interaction.commandName === "top-condor") {
+        await handleTopCondor(interaction);
+        return;
+      }
+      if (interaction.commandName === "rank-condor") {
+        await handleRankCondor(interaction);
         return;
       }
       if (interaction.commandName === "anunciar") {

@@ -11,6 +11,7 @@ import { statsRouter } from "./routes/stats";
 import { auditRouter } from "./routes/audit";
 import { discordRouter } from "./routes/discord";
 import { ticketsRouter } from "./routes/tickets";
+import { webhookRouter } from "./routes/webhook";
 import { createSocketServer } from "./socket";
 import { defaultRateLimit } from "./middleware/rateLimit";
 
@@ -37,6 +38,7 @@ app.use("/api/stats", statsRouter);
 app.use("/api/audit", auditRouter);
 app.use("/api/discord", discordRouter);
 app.use("/api/tickets", ticketsRouter);
+app.use("/api/webhook", webhookRouter);
 
 app.get("/health", (_req, res) => {
   res.json({ ok: true });
