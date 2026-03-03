@@ -50,96 +50,92 @@ webhookRouter.post(
   "/match-ended",
   requireWebhookAuth,
   async (_req, res) => {
-    // 1. Fetch latest game from CRCON scoreboard maps
-    const mapsUrl = `${CRCON_MAPS_API_URL}/api/get_scoreboard_maps?page=1&limit=1`;
-    const mapsResponse = await fetch(mapsUrl);
-    if (!mapsResponse.ok) {
-      return res
-        .status(502)
-        .json({ error: "Failed to fetch scoreboard maps from CRCON" });
-    }
+    try {
+      // 1. Fetch latest game from CRCON scoreboard maps
+      const mapsUrl = `${CRCON_MAPS_API_URL}/api/get_scoreboard_maps?page=1&limit=1`;
+      const mapsResponse = await fetch(mapsUrl);
+      if (!mapsResponse.ok) {
+        return res
+          .status(502)
+          .json({ error: "Failed to fetch scoreboard maps from CRCON" });
+      }
 
-    const mapsPayload = (await mapsResponse.json()) as {
-      result?: { maps?: { id: number }[] };
-    };
-    const latestMap = mapsPayload.result?.maps?.[0];
-    if (!latestMap) {
-      return res
-        .status(404)
-        .json({ error: "No games found in CRCON scoreboard" });
-    }
+      const mapsPayload = (await mapsResponse.json()) as {
+        result?: { maps?: { id: number }[] };
+      };
+      const latestMap = mapsPayload.result?.maps?.[0];
+      if (!latestMap) {
+        return res
+          .status(404)
+          .json({ error: "No games found in CRCON scoreboard" });
+      }
 
-    const gameId = String(latestMap.id);
+      const gameId = String(latestMap.id);
 
-    // 2. Fetch full scoreboard for that game
-    const scoreboardUrl = `${CRCON_GAME_API_URL}/api/get_map_scoreboard?map_id=${gameId}`;
-    const scoreboardResponse = await fetch(scoreboardUrl);
-    if (!scoreboardResponse.ok) {
-      return res
-        .status(502)
-        .json({ error: "Failed to fetch game scoreboard from CRCON" });
-    }
+      // 2. Fetch full scoreboard for that game
+      const scoreboardUrl = `${CRCON_GAME_API_URL}/api/get_map_scoreboard?map_id=${gameId}`;
+      const scoreboardResponse = await fetch(scoreboardUrl);
+      if (!scoreboardResponse.ok) {
+        return res
+          .status(502)
+          .json({ error: "Failed to fetch game scoreboard from CRCON" });
+      }
 
-    const scoreboardPayload = await scoreboardResponse.json();
+      const scoreboardPayload = await scoreboardResponse.json();
 
-    // 3. Check for duplicate import
-    const payloadHash = getPayloadHash(scoreboardPayload);
-    const existing = await prisma.importCrcon.findFirst({
-      where: { payloadHash },
-    });
-    if (existing) {
-      return res
-        .status(409)
-        .json({ error: "Game already imported", importId: existing.id });
-    }
+      // 3. Check for duplicate import
+      const payloadHash = getPayloadHash(scoreboardPayload);
+      const existing = await prisma.importCrcon.findFirst({
+        where: { payloadHash },
+      });
+      if (existing) {
+        return res
+          .status(409)
+          .json({ error: "Game already imported", importId: existing.id });
+      }
 
-    // 4. Extract and filter player stats
-    const allRows = extractPlayerStats(scoreboardPayload);
-    const clanRows = allRows.filter((row) => matchesClanTag(row.playerName, CLAN_TAGS));
+      // 4. Extract and filter player stats
+      const allRows = extractPlayerStats(scoreboardPayload);
+      const clanRows = allRows.filter((row) => matchesClanTag(row.playerName, CLAN_TAGS));
 
-    // 5. Create ImportCrcon record
-    const qualifiedCount = clanRows.filter(isQualifiedPlayer).length;
-    const importRecord = await prisma.importCrcon.create({
-      data: {
-        gameId,
-        sourceUrl: scoreboardUrl,
-        payloadHash,
-        status: qualifiedCount > 0 ? "SUCCESS" : "PARTIAL",
-        mapName: extractMapName(scoreboardPayload),
-      },
-    });
+      // 5-7. Atomic write: ImportCrcon + RawPayload + CondorMatchStats
+      const providerIds = clanRows
+        .map((r) => r.providerId)
+        .filter(Boolean) as string[];
+      const gameAccounts = providerIds.length
+        ? await prisma.gameAccount.findMany({
+            where: { providerId: { in: providerIds } },
+          })
+        : [];
+      const accountByProviderId = new Map(
+        gameAccounts.map((a) => [a.providerId, a.id])
+      );
 
-    // 6. Store raw payload
-    await prisma.rawPayload.create({
-      data: {
-        importCrconId: importRecord.id,
-        payload: scoreboardPayload,
-      },
-    });
+      const qualifiedCount = clanRows.filter(isQualifiedPlayer).length;
 
-    // 7. Create PlayerMatchStats for ALL clan players
-    const providerIds = clanRows
-      .map((r) => r.providerId)
-      .filter(Boolean) as string[];
-    const gameAccounts = providerIds.length
-      ? await prisma.gameAccount.findMany({
-          where: { providerId: { in: providerIds } },
-        })
-      : [];
-    const accountByProviderId = new Map(
-      gameAccounts.map((a) => [a.providerId, a.id])
-    );
+      const result = await prisma.$transaction(async (tx) => {
+        const importRecord = await tx.importCrcon.create({
+          data: {
+            gameId,
+            sourceUrl: scoreboardUrl,
+            payloadHash,
+            status: qualifiedCount > 0 ? "SUCCESS" : "PARTIAL",
+            mapName: extractMapName(scoreboardPayload),
+          },
+        });
 
-    let statsCount = 0;
-    for (const row of clanRows) {
-      const gameAccountId = row.providerId
-        ? accountByProviderId.get(row.providerId) ?? null
-        : null;
+        await tx.rawPayload.create({
+          data: {
+            importCrconId: importRecord.id,
+            payload: scoreboardPayload,
+          },
+        });
 
-      await prisma.condorMatchStats.create({
-        data: {
+        const statsData = clanRows.map((row) => ({
           importCrconId: importRecord.id,
-          gameAccountId,
+          gameAccountId: row.providerId
+            ? accountByProviderId.get(row.providerId) ?? null
+            : null,
           providerId: row.providerId ?? null,
           playerName: row.playerName,
           kills: row.kills,
@@ -158,30 +154,36 @@ webhookRouter.post(
           support: row.support,
           teamSide: row.teamSide ?? null,
           teamRatio: row.teamRatio,
+        }));
+
+        await tx.condorMatchStats.createMany({ data: statsData });
+
+        return { importRecord, statsCount: statsData.length };
+      });
+
+      // 8. Audit log (non-critical, outside transaction)
+      await logAudit({
+        action: AUDIT_ACTIONS.CRCON_IMPORT,
+        entityType: "ImportCrcon",
+        entityId: result.importRecord.id,
+        metadata: {
+          source: "webhook",
+          gameId,
+          totalPlayers: allRows.length,
+          clanFiltered: clanRows.length,
+          qualifiedPlayers: qualifiedCount,
         },
       });
-      statsCount++;
-    }
 
-    // 8. Audit log
-    await logAudit({
-      action: AUDIT_ACTIONS.CRCON_IMPORT,
-      entityType: "ImportCrcon",
-      entityId: importRecord.id,
-      metadata: {
-        source: "webhook",
+      return res.json({
+        ok: true,
+        importId: result.importRecord.id,
         gameId,
-        totalPlayers: allRows.length,
-        clanFiltered: clanRows.length,
-        qualifiedPlayers: qualifiedCount,
-      },
-    });
-
-    return res.json({
-      ok: true,
-      importId: importRecord.id,
-      gameId,
-      statsCount,
-    });
+        statsCount: result.statsCount,
+      });
+    } catch (error) {
+      console.error("Webhook match-ended failed:", error);
+      return res.status(500).json({ error: "Import failed" });
+    }
   }
 );

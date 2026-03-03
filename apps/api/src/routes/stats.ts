@@ -1195,6 +1195,7 @@ statsRouter.get("/rank-condor/:discordId", requireBotOrAdmin, async (req, res) =
       AND: [{ OR: identityWhere }, qualFilter, { importCrcon: weekImportWhere }],
     },
     orderBy: { importCrcon: { importedAt: "desc" } },
+    distinct: ["importCrconId"],
     take: 5,
     select: {
       kills: true,

@@ -111,7 +111,7 @@ const commands = [
         .setDescription("Métrica para ordenar (default: ascenso)")
         .setRequired(false)
         .addChoices(
-          { name: "Ascenso (Combate + Ataque)", value: "ascenso" },
+          { name: "Ascenso (Combate)", value: "ascenso" },
           { name: "Kills", value: "kills" },
           { name: "Score Total", value: "score" },
           { name: "K/D Ratio", value: "kdr" },

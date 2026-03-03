@@ -204,7 +204,7 @@ export async function fetchCrconPayload(baseUrl: string, mapId: string) {
 export function isQualifiedPlayer(row: CrconPlayerRow): boolean {
   if (row.infantryKills < 40) return false;
   if (row.deaths === 0) return true;
-  return row.kills / row.deaths >= 1.0;
+  return row.killDeathRatio >= 1.0;
 }
 
 /**

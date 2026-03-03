@@ -308,6 +308,7 @@ model CondorMatchStats {
 
   @@index([importCrconId])
   @@index([gameAccountId])
+  @@index([providerId])
 }
 
 model AuditLog {
