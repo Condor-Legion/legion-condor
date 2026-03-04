@@ -54,7 +54,7 @@ services:
       CLAN_TAG_FILTERS: ${CLAN_TAG_FILTERS:-${CLAN_TAG_FILTER:-}}
       NODE_ENV: production
       LOG_LEVEL: ${LOG_LEVEL:-info}
-      LOG_PRETTY: ${LOG_PRETTY:-false}
+      LOG_PRETTY: ${LOG_PRETTY:-true}
     depends_on:
       postgres:
         condition: service_healthy
@@ -113,7 +113,7 @@ services:
       CLEAR_GLOBAL_COMMANDS: ${CLEAR_GLOBAL_COMMANDS:-}
       NODE_ENV: production
       LOG_LEVEL: ${LOG_LEVEL:-info}
-      LOG_PRETTY: ${LOG_PRETTY:-false}
+      LOG_PRETTY: ${LOG_PRETTY:-true}
     depends_on:
       - api
     logging:
@@ -132,7 +132,7 @@ services:
       PORT: 9000
       NODE_ENV: production
       LOG_LEVEL: ${LOG_LEVEL:-info}
-      LOG_PRETTY: ${LOG_PRETTY:-false}
+      LOG_PRETTY: ${LOG_PRETTY:-true}
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - "${REPO_PATH:-.}:/repo"
