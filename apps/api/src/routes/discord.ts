@@ -239,6 +239,14 @@ discordRouter.post("/account-requests", requireBotOrAdmin, async (req, res) => {
       data: { gameAccountId: account.id },
     });
 
+    await prisma.condorMatchStats.updateMany({
+      where: {
+        providerId: account.providerId,
+        gameAccountId: null,
+      },
+      data: { gameAccountId: account.id },
+    });
+
     return res.status(200).json({ account, alreadyExisted: true });
   }
 
@@ -252,6 +260,14 @@ discordRouter.post("/account-requests", requireBotOrAdmin, async (req, res) => {
   });
 
   await prisma.playerMatchStats.updateMany({
+    where: {
+      providerId: created.providerId,
+      gameAccountId: null,
+    },
+    data: { gameAccountId: created.id },
+  });
+
+  await prisma.condorMatchStats.updateMany({
     where: {
       providerId: created.providerId,
       gameAccountId: null,

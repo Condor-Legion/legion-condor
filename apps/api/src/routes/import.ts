@@ -182,7 +182,7 @@ importRouter.post("/crcon-fetch", requireBotOrAdmin, async (req, res) => {
       teamSide: row.teamSide ?? null,
       teamRatio: row.teamRatio,
     }));
-    await prisma.condorMatchStats.createMany({ data: statsData });
+    await prisma.playerMatchStats.createMany({ data: statsData });
 
     await logAudit({
       action: AUDIT_ACTIONS.CRCON_IMPORT,
