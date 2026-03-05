@@ -166,13 +166,15 @@ function getISOWeekBounds(offset = 0): {
   );
   const end = new Date(sundayLocalMs - GMT3_OFFSET_MS);
 
-  // Número ISO de semana (basado en el jueves de la semana)
+  // ISO 8601 week number: week 1 contains the year's first Thursday
   const thursdayLocalMs = mondayLocalMs + 3 * 86400000;
   const thursday = new Date(thursdayLocalMs);
   const thursdayYear = thursday.getUTCFullYear();
-  const jan1 = Date.UTC(thursdayYear, 0, 1);
-  const dayOfYear = Math.floor((thursdayLocalMs - jan1) / 86400000) + 1;
-  const weekNumber = Math.ceil(dayOfYear / 7);
+  const jan4 = Date.UTC(thursdayYear, 0, 4);
+  const jan4Weekday = (new Date(jan4).getUTCDay() + 6) % 7; // 0=Mon
+  const isoWeek1Monday = jan4 - jan4Weekday * 86400000;
+  const weekNumber =
+    Math.floor((thursdayLocalMs - isoWeek1Monday) / (7 * 86400000)) + 1;
 
   return { start, end, weekNumber, year: thursdayYear };
 }

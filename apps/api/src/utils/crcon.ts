@@ -164,7 +164,7 @@ export function extractPlayerStats(payload: unknown): CrconPlayerRow[] {
         row.kd_ratio,
         row.kdr
       ),
-      score: readNumber(row.score, row.combat_score, row.combatScore),
+      score: readNumber(row.score),
       combat: readNumber(row.combat),
       offense: readNumber(row.offense),
       defense: readNumber(row.defense),
