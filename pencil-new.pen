@@ -1,0 +1,1457 @@
+{
+  "version": "2.8",
+  "children": [
+    {
+      "type": "frame",
+      "id": "bi8Au",
+      "x": 0,
+      "y": -5.684341886080802e-14,
+      "name": "Home / Legion Condor",
+      "clip": true,
+      "width": 1440,
+      "height": 900,
+      "fill": "#0a0a0a",
+      "layout": "none",
+      "children": [
+        {
+          "type": "frame",
+          "id": "JFoCt",
+          "x": 240,
+          "y": 180,
+          "name": "homeWrap",
+          "width": 820,
+          "layout": "vertical",
+          "gap": 24,
+          "children": [
+            {
+              "type": "text",
+              "id": "m4Rjg",
+              "name": "homeTitle",
+              "fill": "#f5f5f5",
+              "content": "Legion Condor",
+              "fontFamily": "Inter",
+              "fontSize": 64,
+              "fontWeight": "700"
+            },
+            {
+              "type": "text",
+              "id": "2b1yM",
+              "name": "homeDesc",
+              "fill": "#a3a3a3",
+              "content": "Plataforma administrativa del clan para roster, asistencia y estadisticas.",
+              "fontFamily": "Inter",
+              "fontSize": 22,
+              "fontWeight": "normal"
+            },
+            {
+              "type": "frame",
+              "id": "20Toi",
+              "name": "homeActions",
+              "gap": 16,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "QyLsT",
+                  "name": "homeBtn",
+                  "fill": "#fafafa",
+                  "cornerRadius": 8,
+                  "padding": 14,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "Edvp4",
+                      "name": "homeBtnTxt",
+                      "fill": "#0a0a0a",
+                      "content": "Ir al admin",
+                      "fontFamily": "Inter",
+                      "fontSize": 16,
+                      "fontWeight": "600"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "rectangle",
+          "id": "hohlA",
+          "x": 270,
+          "y": 5.684341886080802e-14,
+          "fill": {
+            "type": "image",
+            "opacity": 0.1,
+            "enabled": true,
+            "url": "./Fondo Legion Condor.webp",
+            "mode": "fill"
+          },
+          "width": 900,
+          "height": 900
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "nkIWN",
+      "x": 1520,
+      "y": 0,
+      "name": "Admin / Eventos",
+      "width": 1440,
+      "height": 900,
+      "fill": "#0a0a0a",
+      "layout": "none",
+      "children": [
+        {
+          "type": "frame",
+          "id": "KTyig",
+          "x": 180,
+          "y": 90,
+          "name": "adminWrap",
+          "width": 1080,
+          "layout": "vertical",
+          "gap": 24,
+          "children": [
+            {
+              "type": "frame",
+              "id": "7awIp",
+              "name": "adminTop",
+              "width": "fill_container",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "LBnEx",
+                  "name": "adminTitle",
+                  "fill": "#f5f5f5",
+                  "content": "Admin",
+                  "fontFamily": "Inter",
+                  "fontSize": 40,
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "frame",
+                  "id": "vEkMr",
+                  "name": "adminActions",
+                  "gap": 10,
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "43BF6",
+                      "name": "btnNew",
+                      "fill": "#171717",
+                      "cornerRadius": 8,
+                      "padding": 10,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "a3uaj",
+                          "name": "btnNewTxt",
+                          "fill": "#f5f5f5",
+                          "content": "Nuevo roster",
+                          "fontFamily": "Inter",
+                          "fontSize": 14,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "djon0",
+                      "name": "btnTpl",
+                      "fill": "#171717",
+                      "cornerRadius": 8,
+                      "padding": 10,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "FG0pi",
+                          "name": "btnTplTxt",
+                          "fill": "#f5f5f5",
+                          "content": "Plantillas",
+                          "fontFamily": "Inter",
+                          "fontSize": 14,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "2AJuM",
+                      "name": "btnCat",
+                      "fill": "#171717",
+                      "cornerRadius": 8,
+                      "padding": 10,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "FA9gl",
+                          "name": "btnCatTxt",
+                          "fill": "#f5f5f5",
+                          "content": "Catalogos",
+                          "fontFamily": "Inter",
+                          "fontSize": 14,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "qDnM7",
+                      "name": "btnLog",
+                      "fill": "#171717",
+                      "cornerRadius": 8,
+                      "padding": 10,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "6Gb1c",
+                          "name": "btnLogTxt",
+                          "fill": "#f5f5f5",
+                          "content": "Login",
+                          "fontFamily": "Inter",
+                          "fontSize": 14,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "id": "ZCZoV",
+              "name": "adminErr",
+              "fill": "#f87171",
+              "content": "Debes iniciar sesion para ver eventos.",
+              "fontFamily": "Inter",
+              "fontSize": 16,
+              "fontWeight": "normal"
+            },
+            {
+              "type": "frame",
+              "id": "vtnEh",
+              "name": "adminList",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 12,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "frDg5",
+                  "name": "cardOne",
+                  "width": "fill_container",
+                  "fill": "#0f0f0f",
+                  "cornerRadius": 8,
+                  "layout": "vertical",
+                  "gap": 6,
+                  "padding": 14,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "MahYv",
+                      "name": "cardOneTitle",
+                      "fill": "#fafafa",
+                      "content": "Entrenamiento Night Ops",
+                      "fontFamily": "Inter",
+                      "fontSize": 24,
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "text",
+                      "id": "oqq8B",
+                      "name": "cardOneDate",
+                      "fill": "#a3a3a3",
+                      "content": "03/03/2026 22:30",
+                      "fontFamily": "Inter",
+                      "fontSize": 14,
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "text",
+                      "id": "naBaP",
+                      "name": "cardOneStatus",
+                      "fill": "#737373",
+                      "content": "DRAFT",
+                      "fontFamily": "Inter",
+                      "fontSize": 12,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "rectangle",
+          "id": "jdrWC",
+          "x": 270,
+          "y": 0,
+          "fill": {
+            "type": "image",
+            "opacity": 0.1,
+            "enabled": true,
+            "url": "./Fondo Legion Condor.webp",
+            "mode": "fill"
+          },
+          "width": 900,
+          "height": 900
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "E2bmC",
+      "x": 3040,
+      "y": 0,
+      "name": "Admin / Login",
+      "width": 1440,
+      "height": 900,
+      "fill": "#0a0a0a",
+      "layout": "none",
+      "children": [
+        {
+          "type": "frame",
+          "id": "wZBXA",
+          "x": 500,
+          "y": 180,
+          "name": "loginWrap",
+          "width": 440,
+          "layout": "vertical",
+          "gap": 16,
+          "children": [
+            {
+              "type": "text",
+              "id": "2AX53",
+              "name": "loginTitle",
+              "fill": "#f5f5f5",
+              "content": "Login admin",
+              "fontFamily": "Inter",
+              "fontSize": 40,
+              "fontWeight": "600"
+            },
+            {
+              "type": "frame",
+              "id": "iXiUb",
+              "name": "loginUser",
+              "width": "fill_container",
+              "height": 48,
+              "fill": "#171717",
+              "cornerRadius": 8,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "RcTxb",
+                  "name": "loginUserTxt",
+                  "fill": "#737373",
+                  "content": "Usuario",
+                  "fontFamily": "Inter",
+                  "fontSize": 16,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "jNKTC",
+              "name": "loginPass",
+              "width": "fill_container",
+              "height": 48,
+              "fill": "#171717",
+              "cornerRadius": 8,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "weJny",
+                  "name": "loginPassTxt",
+                  "fill": "#737373",
+                  "content": "Password",
+                  "fontFamily": "Inter",
+                  "fontSize": 16,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "pSzVs",
+              "name": "loginBtn",
+              "width": "fill_container",
+              "height": 48,
+              "fill": "#fafafa",
+              "cornerRadius": 8,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "aUhre",
+                  "name": "loginBtnTxt",
+                  "fill": "#0a0a0a",
+                  "content": "Ingresar",
+                  "fontFamily": "Inter",
+                  "fontSize": 16,
+                  "fontWeight": "600"
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "id": "hdWIV",
+              "name": "loginNote",
+              "fill": "#d4d4d4",
+              "content": "Credenciales invalidas.",
+              "fontFamily": "Inter",
+              "fontSize": 14,
+              "fontWeight": "normal"
+            }
+          ]
+        },
+        {
+          "type": "rectangle",
+          "id": "nMux7",
+          "x": 270,
+          "y": 0,
+          "fill": {
+            "type": "image",
+            "opacity": 0.1,
+            "enabled": true,
+            "url": "./Fondo Legion Condor.webp",
+            "mode": "fill"
+          },
+          "width": 900,
+          "height": 900
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "JE7Ct",
+      "x": 4560,
+      "y": 0,
+      "name": "Admin / Catalogos",
+      "width": 1440,
+      "height": 900,
+      "fill": "#0a0a0a",
+      "layout": "none",
+      "children": [
+        {
+          "type": "frame",
+          "id": "0RdZs",
+          "x": 140,
+          "y": 80,
+          "name": "catalogWrap",
+          "width": 1160,
+          "layout": "vertical",
+          "gap": 24,
+          "children": [
+            {
+              "type": "frame",
+              "id": "AiH4n",
+              "name": "catalogTop",
+              "width": "fill_container",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "ffhRh",
+                  "name": "catalogTitle",
+                  "fill": "#f5f5f5",
+                  "content": "Catalogos",
+                  "fontFamily": "Inter",
+                  "fontSize": 40,
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "frame",
+                  "id": "Y9h5i",
+                  "name": "catalogBack",
+                  "fill": "#171717",
+                  "cornerRadius": 8,
+                  "padding": 10,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "ureqs",
+                      "name": "catalogBackTxt",
+                      "fill": "#f5f5f5",
+                      "content": "Volver",
+                      "fontFamily": "Inter",
+                      "fontSize": 14,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "ZGSqG",
+              "name": "catalogGrid",
+              "width": "fill_container",
+              "gap": 24,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "LtR83",
+                  "name": "mapsCard",
+                  "width": "fill_container",
+                  "fill": "#0f0f0f",
+                  "cornerRadius": 10,
+                  "layout": "vertical",
+                  "gap": 12,
+                  "padding": 16,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "LMOiX",
+                      "name": "mapsTitle",
+                      "fill": "#f5f5f5",
+                      "content": "Mapas",
+                      "fontFamily": "Inter",
+                      "fontSize": 28,
+                      "fontWeight": "600"
+                    },
+                    {
+                      "type": "frame",
+                      "id": "ofztR",
+                      "name": "mapInput",
+                      "width": "fill_container",
+                      "height": 42,
+                      "fill": "#171717",
+                      "cornerRadius": 8,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "s22LK",
+                          "name": "mapInputTxt",
+                          "fill": "#737373",
+                          "content": "Nuevo mapa",
+                          "fontFamily": "Inter",
+                          "fontSize": 14,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "LOu8l",
+                      "name": "mapRow",
+                      "width": "fill_container",
+                      "height": 44,
+                      "fill": "#171717",
+                      "cornerRadius": 8,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "2m0o8",
+                          "name": "mapRowName",
+                          "fill": "#f5f5f5",
+                          "content": "SME",
+                          "fontFamily": "Inter",
+                          "fontSize": 14,
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "text",
+                          "id": "sDQOg",
+                          "name": "mapRowState",
+                          "fill": "#4ade80",
+                          "content": "Activo",
+                          "fontFamily": "Inter",
+                          "fontSize": 14,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "S4r2j",
+                  "name": "sidesCard",
+                  "width": "fill_container",
+                  "fill": "#0f0f0f",
+                  "cornerRadius": 10,
+                  "layout": "vertical",
+                  "gap": 12,
+                  "padding": 16,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "wTEzP",
+                      "name": "sidesTitle",
+                      "fill": "#f5f5f5",
+                      "content": "Bandos",
+                      "fontFamily": "Inter",
+                      "fontSize": 28,
+                      "fontWeight": "600"
+                    },
+                    {
+                      "type": "frame",
+                      "id": "cIcwP",
+                      "name": "sideInput",
+                      "width": "fill_container",
+                      "height": 42,
+                      "fill": "#171717",
+                      "cornerRadius": 8,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "7rLeR",
+                          "name": "sideInputTxt",
+                          "fill": "#737373",
+                          "content": "Nuevo bando",
+                          "fontFamily": "Inter",
+                          "fontSize": 14,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "PtaIX",
+                      "name": "sideRow",
+                      "width": "fill_container",
+                      "height": 44,
+                      "fill": "#171717",
+                      "cornerRadius": 8,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "jdcv0",
+                          "name": "sideRowName",
+                          "fill": "#f5f5f5",
+                          "content": "Allies",
+                          "fontFamily": "Inter",
+                          "fontSize": 14,
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "text",
+                          "id": "DYthJ",
+                          "name": "sideRowState",
+                          "fill": "#4ade80",
+                          "content": "Activo",
+                          "fontFamily": "Inter",
+                          "fontSize": 14,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "rectangle",
+          "id": "SwovD",
+          "x": 270,
+          "y": 0,
+          "fill": {
+            "type": "image",
+            "opacity": 0.1,
+            "enabled": true,
+            "url": "./Fondo Legion Condor.webp",
+            "mode": "fill"
+          },
+          "width": 900,
+          "height": 900
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "zYb3w",
+      "x": 6080,
+      "y": 0,
+      "name": "Admin / Plantillas",
+      "width": 1440,
+      "height": 900,
+      "fill": "#0a0a0a",
+      "layout": "none",
+      "children": [
+        {
+          "type": "frame",
+          "id": "K9tUN",
+          "x": 140,
+          "y": 80,
+          "name": "tplWrap",
+          "width": 1160,
+          "layout": "vertical",
+          "gap": 22,
+          "children": [
+            {
+              "type": "frame",
+              "id": "cU4S0",
+              "name": "tplTop",
+              "width": "fill_container",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "vUKK4",
+                  "name": "tplTitle",
+                  "fill": "#f5f5f5",
+                  "content": "Plantillas",
+                  "fontFamily": "Inter",
+                  "fontSize": 40,
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "frame",
+                  "id": "A69Nb",
+                  "name": "tplBack",
+                  "fill": "#171717",
+                  "cornerRadius": 8,
+                  "padding": 10,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "ycVv3",
+                      "name": "tplBackTxt",
+                      "fill": "#f5f5f5",
+                      "content": "Volver",
+                      "fontFamily": "Inter",
+                      "fontSize": 14,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "wSjGn",
+              "name": "tplForm",
+              "width": "fill_container",
+              "fill": "#0f0f0f",
+              "cornerRadius": 10,
+              "gap": 12,
+              "padding": 14,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "BVhBb",
+                  "name": "tplName",
+                  "width": 520,
+                  "height": 44,
+                  "fill": "#171717",
+                  "cornerRadius": 8,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "j2ZXY",
+                      "name": "tplNameTxt",
+                      "fill": "#737373",
+                      "content": "Nombre",
+                      "fontFamily": "Inter",
+                      "fontSize": 14,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "ii8Xd",
+                  "name": "tplMode",
+                  "width": 220,
+                  "height": 44,
+                  "fill": "#171717",
+                  "cornerRadius": 8,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "sI7ik",
+                      "name": "tplModeTxt",
+                      "fill": "#f5f5f5",
+                      "content": "36x36",
+                      "fontFamily": "Inter",
+                      "fontSize": 14,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "I7a6H",
+                  "name": "tplCreate",
+                  "width": 140,
+                  "height": 44,
+                  "fill": "#047857",
+                  "cornerRadius": 8,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "WB687",
+                      "name": "tplCreateTxt",
+                      "fill": "#ecfdf5",
+                      "content": "Crear",
+                      "fontFamily": "Inter",
+                      "fontSize": 14,
+                      "fontWeight": "600"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "VJwBP",
+              "name": "tplCard",
+              "width": "fill_container",
+              "fill": "#0f0f0f",
+              "cornerRadius": 10,
+              "layout": "vertical",
+              "gap": 12,
+              "padding": 16,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "fnCYC",
+                  "name": "tplCardTop",
+                  "width": "fill_container",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "7SHxp",
+                      "name": "tplCardTitle",
+                      "fill": "#f5f5f5",
+                      "content": "Competitive 36x36",
+                      "fontFamily": "Inter",
+                      "fontSize": 24,
+                      "fontWeight": "600"
+                    },
+                    {
+                      "type": "frame",
+                      "id": "GgOC5",
+                      "name": "tplAddUnit",
+                      "fill": "#171717",
+                      "cornerRadius": 8,
+                      "padding": 10,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "OPL0z",
+                          "name": "tplAddUnitTxt",
+                          "fill": "#f5f5f5",
+                          "content": "+ Unidad",
+                          "fontFamily": "Inter",
+                          "fontSize": 13,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "DIlQM",
+                  "name": "tplUnits",
+                  "width": "fill_container",
+                  "gap": 12,
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "f5egx",
+                      "name": "unitCard",
+                      "width": 360,
+                      "fill": "#171717",
+                      "cornerRadius": 8,
+                      "layout": "vertical",
+                      "gap": 8,
+                      "padding": 12,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "kN4g7",
+                          "name": "unitTitle",
+                          "fill": "#f5f5f5",
+                          "content": "Alpha",
+                          "fontFamily": "Inter",
+                          "fontSize": 18,
+                          "fontWeight": "600"
+                        },
+                        {
+                          "type": "frame",
+                          "id": "h2pDp",
+                          "name": "unitSlot",
+                          "width": "fill_container",
+                          "height": 34,
+                          "fill": "#262626",
+                          "cornerRadius": 6,
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "eWkO6",
+                              "name": "unitSlotTxt",
+                              "fill": "#e5e5e5",
+                              "content": "SL",
+                              "fontFamily": "Inter",
+                              "fontSize": 13,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "bTwgd",
+                          "name": "unitSlot2",
+                          "width": "fill_container",
+                          "height": 34,
+                          "fill": "#262626",
+                          "cornerRadius": 6,
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "NOwHU",
+                              "name": "unitSlot2Txt",
+                              "fill": "#e5e5e5",
+                              "content": "Medic",
+                              "fontFamily": "Inter",
+                              "fontSize": 13,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "rectangle",
+          "id": "UUJXO",
+          "x": 270,
+          "y": 0,
+          "fill": {
+            "type": "image",
+            "opacity": 0.1,
+            "enabled": true,
+            "url": "./Fondo Legion Condor.webp",
+            "mode": "fill"
+          },
+          "width": 900,
+          "height": 900
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "tCK7Z",
+      "x": 7600,
+      "y": 0,
+      "name": "Admin / Evento Detalle",
+      "width": 1600,
+      "height": 980,
+      "fill": "#0a0a0a",
+      "layout": "none",
+      "children": [
+        {
+          "type": "frame",
+          "id": "9G0BO",
+          "x": 80,
+          "y": 60,
+          "name": "eventWrap",
+          "width": 1440,
+          "layout": "vertical",
+          "gap": 20,
+          "children": [
+            {
+              "type": "frame",
+              "id": "WZijQ",
+              "name": "eventMeta",
+              "width": "fill_container",
+              "fill": "#0f0f0f",
+              "cornerRadius": 10,
+              "layout": "vertical",
+              "gap": 14,
+              "padding": 16,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "v0Q3H",
+                  "name": "eventHead",
+                  "width": "fill_container",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "2DLrV",
+                      "name": "eventTitle",
+                      "fill": "#f5f5f5",
+                      "content": "Editor de roster",
+                      "fontFamily": "Inter",
+                      "fontSize": 36,
+                      "fontWeight": "600"
+                    },
+                    {
+                      "type": "frame",
+                      "id": "QVhn6",
+                      "name": "eventAddUnit",
+                      "fill": "#171717",
+                      "cornerRadius": 8,
+                      "padding": 10,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "5YQYL",
+                          "name": "eventAddUnitTxt",
+                          "fill": "#f5f5f5",
+                          "content": "+ Unidad",
+                          "fontFamily": "Inter",
+                          "fontSize": 14,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "DXl1v",
+                  "name": "metaGrid",
+                  "width": "fill_container",
+                  "gap": 10,
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "G5dYz",
+                      "name": "metaEvent",
+                      "width": 280,
+                      "height": 46,
+                      "fill": "#171717",
+                      "cornerRadius": 8,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "5eOos",
+                          "name": "metaEventTxt",
+                          "fill": "#737373",
+                          "content": "Evento",
+                          "fontFamily": "Inter",
+                          "fontSize": 13,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "sWXGX",
+                      "name": "metaDate",
+                      "width": 280,
+                      "height": 46,
+                      "fill": "#171717",
+                      "cornerRadius": 8,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "DYKon",
+                          "name": "metaDateTxt",
+                          "fill": "#737373",
+                          "content": "Fecha",
+                          "fontFamily": "Inter",
+                          "fontSize": 13,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "PJCga",
+                      "name": "metaMap",
+                      "width": 220,
+                      "height": 46,
+                      "fill": "#171717",
+                      "cornerRadius": 8,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "qjCWG",
+                          "name": "metaMapTxt",
+                          "fill": "#737373",
+                          "content": "Mapa",
+                          "fontFamily": "Inter",
+                          "fontSize": 13,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "C3uh3",
+                      "name": "metaSide",
+                      "width": 220,
+                      "height": 46,
+                      "fill": "#171717",
+                      "cornerRadius": 8,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "hSunH",
+                          "name": "metaSideTxt",
+                          "fill": "#737373",
+                          "content": "Bando",
+                          "fontFamily": "Inter",
+                          "fontSize": 13,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "Jp24d",
+                      "name": "metaStatus",
+                      "width": 220,
+                      "height": 46,
+                      "fill": "#171717",
+                      "cornerRadius": 8,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "RuRco",
+                          "name": "metaStatusTxt",
+                          "fill": "#737373",
+                          "content": "Estado",
+                          "fontFamily": "Inter",
+                          "fontSize": 13,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "Pqmui",
+                  "name": "statsRow",
+                  "gap": 20,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "a3bRK",
+                      "name": "statsSlots",
+                      "fill": "#d4d4d4",
+                      "content": "Total slots: 36",
+                      "fontFamily": "Inter",
+                      "fontSize": 14,
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "text",
+                      "id": "sVgsV",
+                      "name": "statsPlayers",
+                      "fill": "#d4d4d4",
+                      "content": "Total jugadores: 30",
+                      "fontFamily": "Inter",
+                      "fontSize": 14,
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "text",
+                      "id": "ZmliF",
+                      "name": "statsPresent",
+                      "fill": "#d4d4d4",
+                      "content": "Total presentes: 26",
+                      "fontFamily": "Inter",
+                      "fontSize": 14,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "fg3wt",
+                  "name": "warnTxt",
+                  "fill": "#fbbf24",
+                  "content": "Jugador duplicado: Falcon en slots [SL, AR]",
+                  "fontFamily": "Inter",
+                  "fontSize": 13,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "01Srd",
+              "name": "eventUnits",
+              "width": "fill_container",
+              "gap": 14,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "pzmed",
+                  "name": "alphaCol",
+                  "width": 460,
+                  "fill": "#0f0f0f",
+                  "cornerRadius": 10,
+                  "layout": "vertical",
+                  "gap": 10,
+                  "padding": 14,
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "jQH5w",
+                      "name": "alphaHead",
+                      "width": "fill_container",
+                      "height": 44,
+                      "fill": "#1d4ed8",
+                      "cornerRadius": 8,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "c2bMj",
+                          "name": "alphaHeadTxt",
+                          "fill": "#ffffff",
+                          "content": "Alpha",
+                          "fontFamily": "Inter",
+                          "fontSize": 18,
+                          "fontWeight": "600"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "zEXUS",
+                      "name": "slotRow1",
+                      "width": "fill_container",
+                      "height": 48,
+                      "fill": "#171717",
+                      "cornerRadius": 8,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "8QFaL",
+                          "name": "slotRow1Txt",
+                          "fill": "#f5f5f5",
+                          "content": "SL - Jugador asignado",
+                          "fontFamily": "Inter",
+                          "fontSize": 14,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "AcFvP",
+                      "name": "slotRow2",
+                      "width": "fill_container",
+                      "height": 48,
+                      "fill": "#171717",
+                      "cornerRadius": 8,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "tJxxD",
+                          "name": "slotRow2Txt",
+                          "fill": "#a3a3a3",
+                          "content": "Medic - Libre",
+                          "fontFamily": "Inter",
+                          "fontSize": 14,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "NbLvW",
+                  "name": "bravoCol",
+                  "width": 460,
+                  "fill": "#0f0f0f",
+                  "cornerRadius": 10,
+                  "layout": "vertical",
+                  "gap": 10,
+                  "padding": 14,
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "WDa4I",
+                      "name": "bravoHead",
+                      "width": "fill_container",
+                      "height": 44,
+                      "fill": "#0f766e",
+                      "cornerRadius": 8,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "iBUDQ",
+                          "name": "bravoHeadTxt",
+                          "fill": "#ffffff",
+                          "content": "Bravo",
+                          "fontFamily": "Inter",
+                          "fontSize": 18,
+                          "fontWeight": "600"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "UKhqp",
+                      "name": "bravoSlot1",
+                      "width": "fill_container",
+                      "height": 48,
+                      "fill": "#171717",
+                      "cornerRadius": 8,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "osRBE",
+                          "name": "bravoSlot1Txt",
+                          "fill": "#f5f5f5",
+                          "content": "AR - Jugador asignado",
+                          "fontFamily": "Inter",
+                          "fontSize": 14,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "OtBh8",
+                      "name": "bravoSlot2",
+                      "width": "fill_container",
+                      "height": 48,
+                      "fill": "#171717",
+                      "cornerRadius": 8,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "ZPxb9",
+                          "name": "bravoSlot2Txt",
+                          "fill": "#a3a3a3",
+                          "content": "AT - Libre",
+                          "fontFamily": "Inter",
+                          "fontSize": 14,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "rectangle",
+          "id": "WW4cc",
+          "x": 350,
+          "y": 15,
+          "fill": {
+            "type": "image",
+            "opacity": 0.1,
+            "enabled": true,
+            "url": "./Fondo Legion Condor.webp",
+            "mode": "fill"
+          },
+          "width": 900,
+          "height": 900
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "6hv3x",
+      "x": 9280,
+      "y": 0,
+      "name": "Admin / Import",
+      "width": 1440,
+      "height": 900,
+      "fill": "#0a0a0a",
+      "layout": "none",
+      "children": [
+        {
+          "type": "frame",
+          "id": "dCQTu",
+          "x": 420,
+          "y": 170,
+          "name": "importWrap",
+          "width": 600,
+          "layout": "vertical",
+          "gap": 16,
+          "children": [
+            {
+              "type": "text",
+              "id": "8UwCX",
+              "name": "importTitle",
+              "fill": "#f5f5f5",
+              "content": "Importar CRCON",
+              "fontFamily": "Inter",
+              "fontSize": 40,
+              "fontWeight": "600"
+            },
+            {
+              "type": "frame",
+              "id": "AKHp5",
+              "name": "importInput",
+              "width": "fill_container",
+              "height": 48,
+              "fill": "#171717",
+              "cornerRadius": 8,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "gEoJe",
+                  "name": "importInputTxt",
+                  "fill": "#737373",
+                  "content": "http://host:7010/games/{gameId}",
+                  "fontFamily": "Inter",
+                  "fontSize": 14,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "fi8VY",
+              "name": "importBtn",
+              "width": "fill_container",
+              "height": 48,
+              "fill": "#fafafa",
+              "cornerRadius": 8,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "ixDTg",
+                  "name": "importBtnTxt",
+                  "fill": "#0a0a0a",
+                  "content": "Importar",
+                  "fontFamily": "Inter",
+                  "fontSize": 16,
+                  "fontWeight": "600"
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "id": "xMRYS",
+              "name": "importStatus",
+              "fill": "#d4d4d4",
+              "content": "Importado: imp_1288 (stats: 125)",
+              "fontFamily": "Inter",
+              "fontSize": 14,
+              "fontWeight": "normal"
+            }
+          ]
+        },
+        {
+          "type": "rectangle",
+          "id": "4P0QA",
+          "x": 270,
+          "y": 0,
+          "fill": {
+            "type": "image",
+            "opacity": 0.1,
+            "enabled": true,
+            "url": "./Fondo Legion Condor.webp",
+            "mode": "fill"
+          },
+          "width": 900,
+          "height": 900
+        }
+      ]
+    }
+  ]
+}

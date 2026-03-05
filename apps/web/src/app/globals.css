@@ -3,5 +3,13 @@
 @tailwind utilities;
 
 body {
-  @apply bg-neutral-950 text-neutral-100;
+  @apply text-neutral-100;
+  background-color: #030712;
+  background-image:
+    linear-gradient(rgba(3, 7, 18, 0.72), rgba(3, 7, 18, 0.72)),
+    url("/Fondo%20Legion%20Condor.webp");
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: contain;
+  background-attachment: scroll;
 }
