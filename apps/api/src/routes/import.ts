@@ -129,9 +129,10 @@ importRouter.post("/crcon-fetch", requireBotOrAdmin, async (req, res) => {
     const accountByProviderId = new Map(
       gameAccounts.map((a) => [a.providerId, a.id])
     );
-    const linkedRows = allRows.filter(
+    const linkedRowsCount = allRows.filter(
       (row) => row.providerId && accountByProviderId.has(row.providerId)
-    );
+    ).length;
+    const unlinkedRowsCount = allRows.length - linkedRowsCount;
 
     const importRecord = await prisma.importCrcon.create({
       data: {
@@ -140,16 +141,18 @@ importRouter.post("/crcon-fetch", requireBotOrAdmin, async (req, res) => {
         source: "DISCORD_STATS",
         title: title && title.length > 0 ? title : null,
         payloadHash,
-        status: linkedRows.length > 0 ? "SUCCESS" : "PARTIAL",
+        status: allRows.length > 0 ? "SUCCESS" : "PARTIAL",
         mapName: extractMapName(payload),
         discordMessageId: discordMessageId ?? null,
         importedById: (req as Request & { adminId?: string }).adminId
       }
     });
 
-    const statsData = linkedRows.map((row) => ({
+    const statsData = allRows.map((row) => ({
       importCrconId: importRecord.id,
-      gameAccountId: accountByProviderId.get(row.providerId!) ?? null,
+      gameAccountId: row.providerId
+        ? accountByProviderId.get(row.providerId) ?? null
+        : null,
       playerName: row.playerName,
       providerId: row.providerId ?? null,
       kills: row.kills,
@@ -169,25 +172,40 @@ importRouter.post("/crcon-fetch", requireBotOrAdmin, async (req, res) => {
       teamSide: row.teamSide ?? null,
       teamRatio: row.teamRatio,
     }));
-    await prisma.playerMatchStats.createMany({ data: statsData });
+    if (statsData.length > 0) {
+      await prisma.playerMatchStats.createMany({ data: statsData });
+    }
 
     await logAudit({
       action: AUDIT_ACTIONS.CRCON_IMPORT,
       entityType: "ImportCrcon",
       entityId: importRecord.id,
       actorId: (req as Request & { adminId?: string }).adminId,
-      metadata: { statsCount: statsData.length, gameId: mapId }
+      metadata: {
+        statsCount: statsData.length,
+        linkedRowsCount,
+        unlinkedRowsCount,
+        gameId: mapId,
+      }
     });
 
     req.log.info(
-      { importId: importRecord.id, mapId, statsCount: linkedRows.length },
+      {
+        importId: importRecord.id,
+        mapId,
+        statsCount: statsData.length,
+        linkedRowsCount,
+        unlinkedRowsCount,
+      },
       "CRCON import completed"
     );
 
     return res.json({
       status: "SUCCESS",
       importId: importRecord.id,
-      statsCount: linkedRows.length,
+      statsCount: statsData.length,
+      linkedRowsCount,
+      unlinkedRowsCount,
       discordMessageId: importRecord.discordMessageId ?? null
     });
   } catch (error) {
