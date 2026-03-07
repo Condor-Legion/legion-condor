@@ -9,6 +9,14 @@ Debe existir y tener al menos:
 - `DATABASE_URL`
 - `ADMIN_USERNAME`
 - `ADMIN_PASSWORD`
+- `CRCON_STATS_API_URL` (si usaras el flujo de Ascenso del Condor por polling)
+
+Variables recomendadas para Ascenso del Condor:
+
+- `CRCON_STATS_API_URL=http://185.207.251.58:7010`
+- `CONDOR_POLL_INTERVAL_MINUTES=10`
+- `CONDOR_POLL_SCAN_LIMIT=5`
+- `CLAN_TAG_FILTERS=...`
 
 Ejemplo minimo:
 

@@ -11,13 +11,13 @@ import { statsRouter } from "./routes/stats";
 import { auditRouter } from "./routes/audit";
 import { discordRouter } from "./routes/discord";
 import { ticketsRouter } from "./routes/tickets";
-import { webhookRouter } from "./routes/webhook";
 import { createSocketServer } from "./socket";
 import { defaultRateLimit } from "./middleware/rateLimit";
 import {
   requestLoggerMiddleware,
   apiLogger,
 } from "./middleware/requestLogger";
+import { startCondorPolling } from "./services/condorPolling";
 
 const app = express();
 const server = http.createServer(app);
@@ -45,7 +45,6 @@ app.use("/api/stats", statsRouter);
 app.use("/api/audit", auditRouter);
 app.use("/api/discord", discordRouter);
 app.use("/api/tickets", ticketsRouter);
-app.use("/api/webhook", webhookRouter);
 
 app.get("/health", (_req, res) => {
   res.json({ ok: true });
@@ -79,4 +78,5 @@ io.on("connection", (socket) => {
 const port = Number(process.env.API_PORT ?? 3001);
 server.listen(port, () => {
   apiLogger.info({ port }, "API listening");
+  startCondorPolling(apiLogger.child({ service: "condor-polling" }));
 });

@@ -42,6 +42,11 @@ El proyecto estÃ¡ pensado para usarse con **Docker** y **Docker Compose**. **D
      - `TICKETS_PENDING_ROLE_ID` Rol que se asigna al pulsar "Otorgar Pre-Aspirante" (solo admins)
      - `TICKETS_MEMBER_ROLE_ID` Rol que se otorga al creador del ticket al pulsar "Completar ingreso"
      - `TICKETS_LOG_CHANNEL_ID` Canal donde se guarda el transcript al completar ingreso
+   - **Ascenso del Condor (polling CRCON)**:
+     - `CRCON_STATS_API_URL` (base URL para `get_scoreboard_maps` y `get_map_scoreboard`)
+     - `CONDOR_POLL_INTERVAL_MINUTES` (intervalo de polling, default `10`)
+     - `CONDOR_POLL_SCAN_LIMIT` (ventana de ultimas partidas a revisar por ciclo, default `5`)
+     - `CLAN_TAG_FILTERS` (tags de clan para filtrar jugadores)
 
    Ejemplo mÃ­nimo en `.env` para tener admin:
 

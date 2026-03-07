@@ -1,0 +1,4 @@
+* text=auto
+
+# Prisma migration checksums are sensitive to line endings.
+prisma/migrations/**/migration.sql text eol=lf
