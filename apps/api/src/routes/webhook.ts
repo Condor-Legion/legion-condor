@@ -107,9 +107,10 @@ webhookRouter.get("/match-ended", requireWebhookAuth, async (req, res) => {
     const clanRows = allRows.filter((row) =>
       matchesClanTag(row.playerName, CLAN_TAGS)
     );
+    const qualifiedRows = clanRows.filter(isQualifiedPlayer);
 
-    // 5-7. Atomic write: ImportCrcon + RawPayload + CondorMatchStats
-    const providerIds = clanRows
+    // 5-7. Atomic write: ImportCrcon + CondorMatchStats
+    const providerIds = qualifiedRows
       .map((r) => r.providerId)
       .filter(Boolean) as string[];
     const gameAccounts = providerIds.length
@@ -121,7 +122,7 @@ webhookRouter.get("/match-ended", requireWebhookAuth, async (req, res) => {
       gameAccounts.map((a) => [a.providerId, a.id])
     );
 
-    const qualifiedCount = clanRows.filter(isQualifiedPlayer).length;
+    const qualifiedCount = qualifiedRows.length;
     req.log.info(
       {
         gameId,
@@ -137,20 +138,14 @@ webhookRouter.get("/match-ended", requireWebhookAuth, async (req, res) => {
         data: {
           gameId,
           sourceUrl: scoreboardUrl,
+          source: "WEBHOOK",
           payloadHash,
           status: qualifiedCount > 0 ? "SUCCESS" : "PARTIAL",
           mapName: extractMapName(scoreboardPayload)
         }
       });
 
-      await tx.rawPayload.create({
-        data: {
-          importCrconId: importRecord.id,
-          payload: scoreboardPayload
-        }
-      });
-
-      const statsData = clanRows.map((row) => ({
+      const statsData = qualifiedRows.map((row) => ({
         importCrconId: importRecord.id,
         gameAccountId: row.providerId
           ? (accountByProviderId.get(row.providerId) ?? null)

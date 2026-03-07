@@ -24,6 +24,12 @@ enum ImportStatus {
   ERROR
 }
 
+enum ImportSource {
+  UNKNOWN
+  WEBHOOK
+  DISCORD_STATS
+}
+
 enum VipOrderStatus {
   PENDING
   PAID
@@ -223,6 +229,7 @@ model ImportCrcon {
   id           String        @id @default(cuid())
   gameId       String
   sourceUrl    String
+  source       ImportSource  @default(UNKNOWN)
   title        String?
   payloadHash  String
   status       ImportStatus
@@ -234,7 +241,6 @@ model ImportCrcon {
   eventId      String?
   importedBy   AdminUser?         @relation(fields: [importedById], references: [id], onDelete: SetNull)
   event        Event?             @relation(fields: [eventId], references: [id], onDelete: SetNull)
-  rawPayload   RawPayload?
   stats        PlayerMatchStats[]
   condorStats  CondorMatchStats[]
 
@@ -242,14 +248,6 @@ model ImportCrcon {
   @@index([importedAt])
   @@index([payloadHash])
   @@index([discordMessageId])
-}
-
-model RawPayload {
-  id            String     @id @default(cuid())
-  importCrconId String     @unique
-  payload       Json
-  createdAt     DateTime   @default(now())
-  importCrcon   ImportCrcon @relation(fields: [importCrconId], references: [id], onDelete: Cascade)
 }
 
 model PlayerMatchStats {

@@ -5,9 +5,6 @@ import { getAdminFromRequest, getBotApiKey } from "../auth";
 import {
   extractMapName,
   getPayloadHash,
-  parseClanTags,
-  matchesClanTag,
-  isQualifiedPlayer,
   buildCrconScoreboardUrl,
   extractPlayerStats,
   fetchCrconPayload,
@@ -15,8 +12,6 @@ import {
 import { logAudit } from "../utils/audit";
 
 export const importRouter = Router();
-
-const CLAN_TAGS = parseClanTags();
 
 async function requireBotOrAdmin(
   req: import("express").Request,
@@ -123,10 +118,7 @@ importRouter.post("/crcon-fetch", requireBotOrAdmin, async (req, res) => {
       await prisma.importCrcon.deleteMany({ where: { payloadHash } });
     }
 
-    const clanRows = allRows.filter((row) => matchesClanTag(row.playerName, CLAN_TAGS));
-    const qualifiedCount = clanRows.filter(isQualifiedPlayer).length;
-
-    const providerIds = clanRows
+    const providerIds = allRows
       .map((r) => r.providerId)
       .filter(Boolean) as string[];
     const gameAccounts = providerIds.length
@@ -137,32 +129,27 @@ importRouter.post("/crcon-fetch", requireBotOrAdmin, async (req, res) => {
     const accountByProviderId = new Map(
       gameAccounts.map((a) => [a.providerId, a.id])
     );
+    const linkedRows = allRows.filter(
+      (row) => row.providerId && accountByProviderId.has(row.providerId)
+    );
 
     const importRecord = await prisma.importCrcon.create({
       data: {
         gameId: mapId,
         sourceUrl: url,
+        source: "DISCORD_STATS",
         title: title && title.length > 0 ? title : null,
         payloadHash,
-        status: qualifiedCount > 0 ? "SUCCESS" : "PARTIAL",
+        status: linkedRows.length > 0 ? "SUCCESS" : "PARTIAL",
         mapName: extractMapName(payload),
         discordMessageId: discordMessageId ?? null,
         importedById: (req as Request & { adminId?: string }).adminId
       }
     });
 
-    await prisma.rawPayload.create({
-      data: {
-        importCrconId: importRecord.id,
-        payload
-      }
-    });
-
-    const statsData = clanRows.map((row) => ({
+    const statsData = linkedRows.map((row) => ({
       importCrconId: importRecord.id,
-      gameAccountId: row.providerId
-        ? accountByProviderId.get(row.providerId) ?? null
-        : null,
+      gameAccountId: accountByProviderId.get(row.providerId!) ?? null,
       playerName: row.playerName,
       providerId: row.providerId ?? null,
       kills: row.kills,
@@ -182,7 +169,7 @@ importRouter.post("/crcon-fetch", requireBotOrAdmin, async (req, res) => {
       teamSide: row.teamSide ?? null,
       teamRatio: row.teamRatio,
     }));
-    await prisma.condorMatchStats.createMany({ data: statsData });
+    await prisma.playerMatchStats.createMany({ data: statsData });
 
     await logAudit({
       action: AUDIT_ACTIONS.CRCON_IMPORT,
@@ -193,14 +180,14 @@ importRouter.post("/crcon-fetch", requireBotOrAdmin, async (req, res) => {
     });
 
     req.log.info(
-      { importId: importRecord.id, mapId, statsCount: clanRows.length },
+      { importId: importRecord.id, mapId, statsCount: linkedRows.length },
       "CRCON import completed"
     );
 
     return res.json({
       status: "SUCCESS",
       importId: importRecord.id,
-      statsCount: clanRows.length,
+      statsCount: linkedRows.length,
       discordMessageId: importRecord.discordMessageId ?? null
     });
   } catch (error) {
