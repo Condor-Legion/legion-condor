@@ -31,13 +31,25 @@ function requireWebhookAuth(
 ) {
   // IP allowlist check
   if (ALLOWED_IPS.length > 0) {
-    const clientIp =
-      (req.header("x-forwarded-for") ?? "").split(",")[0].trim() ||
-      req.socket.remoteAddress ||
-      "";
+    const forwardedFor = req.header("x-forwarded-for") ?? "";
+    const remoteAddress = req.socket.remoteAddress ?? "";
+    const clientIp = forwardedFor.split(",")[0].trim() || remoteAddress;
+    req.log.info(
+      {
+        clientIp,
+        forwardedFor,
+        remoteAddress,
+        allowedIps: ALLOWED_IPS
+      },
+      "webhook ip auth check"
+    );
     if (
       !ALLOWED_IPS.some((ip) => clientIp === ip || clientIp === `::ffff:${ip}`)
     ) {
+      req.log.warn(
+        { clientIp, allowedIps: ALLOWED_IPS },
+        "webhook ip rejected by allowlist"
+      );
       return res.status(403).json({ error: "Forbidden" });
     }
   }
