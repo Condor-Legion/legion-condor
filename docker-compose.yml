@@ -53,7 +53,9 @@ services:
       CLAN_TAG_FILTERS: ${CLAN_TAG_FILTERS:-${CLAN_TAG_FILTER:-}}
       NODE_ENV: production
       LOG_LEVEL: ${LOG_LEVEL:-info}
-      LOG_PRETTY: ${LOG_PRETTY:-true}
+      LOG_PRETTY: ${LOG_PRETTY:-false}
+      LOG_SUCCESS_SAMPLE_RATE: ${LOG_SUCCESS_SAMPLE_RATE:-1}
+      LOG_ENABLE_DOMAIN_START: ${LOG_ENABLE_DOMAIN_START:-true}
     depends_on:
       postgres:
         condition: service_healthy
@@ -112,7 +114,9 @@ services:
       CLEAR_GLOBAL_COMMANDS: ${CLEAR_GLOBAL_COMMANDS:-}
       NODE_ENV: production
       LOG_LEVEL: ${LOG_LEVEL:-info}
-      LOG_PRETTY: ${LOG_PRETTY:-true}
+      LOG_PRETTY: ${LOG_PRETTY:-false}
+      LOG_SUCCESS_SAMPLE_RATE: ${LOG_SUCCESS_SAMPLE_RATE:-1}
+      LOG_ENABLE_DOMAIN_START: ${LOG_ENABLE_DOMAIN_START:-true}
     depends_on:
       - api
     logging:
@@ -131,7 +135,9 @@ services:
       PORT: 9000
       NODE_ENV: production
       LOG_LEVEL: ${LOG_LEVEL:-info}
-      LOG_PRETTY: ${LOG_PRETTY:-true}
+      LOG_PRETTY: ${LOG_PRETTY:-false}
+      LOG_SUCCESS_SAMPLE_RATE: ${LOG_SUCCESS_SAMPLE_RATE:-1}
+      LOG_ENABLE_DOMAIN_START: ${LOG_ENABLE_DOMAIN_START:-true}
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - "${REPO_PATH:-.}:/repo"
@@ -142,6 +148,24 @@ services:
       options:
         max-size: "5m"
         max-file: "3"
+    restart: unless-stopped
+  alloy:
+    image: grafana/alloy:latest
+    command:
+      - run
+      - /etc/alloy/config.alloy
+    environment:
+      GRAFANA_CLOUD_LOKI_URL: ${GRAFANA_CLOUD_LOKI_URL:-}
+      GRAFANA_CLOUD_LOKI_USER: ${GRAFANA_CLOUD_LOKI_USER:-}
+      GRAFANA_CLOUD_LOKI_API_KEY: ${GRAFANA_CLOUD_LOKI_API_KEY:-}
+      DEPLOY_ENVIRONMENT: ${DEPLOY_ENVIRONMENT:-production}
+    volumes:
+      - ./ops/alloy/config.alloy:/etc/alloy/config.alloy:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+    depends_on:
+      - api
+      - bot
+      - deploy-listener
     restart: unless-stopped
 volumes:
   postgres_data:

@@ -211,6 +211,7 @@ async function requireBotOrAdmin(
   if (botKey && expectedKey && botKey === expectedKey) return next();
   const admin = await getAdminFromRequest(req);
   if (!admin) return res.status(401).json({ error: "Unauthorized" });
+  (req as import("express").Request & { adminId?: string }).adminId = admin.id;
   return next();
 }
 

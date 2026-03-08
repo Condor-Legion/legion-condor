@@ -1,13 +1,13 @@
-import { createLogger } from "@legion/shared";
+import { createLogger, createModuleLogger } from "@legion/shared";
 
 export const botLogger = createLogger({ service: "bot" });
 
 export const log = {
-  commands: botLogger.child({ module: "commands" }),
-  tickets: botLogger.child({ module: "tickets" }),
-  sync: botLogger.child({ module: "sync" }),
-  events: botLogger.child({ module: "events" }),
-  birthdays: botLogger.child({ module: "birthdays" }),
-  announcements: botLogger.child({ module: "announcements" }),
-  stats: botLogger.child({ module: "stats" }),
+  commands: createModuleLogger(botLogger, "commands"),
+  tickets: createModuleLogger(botLogger, "tickets"),
+  sync: createModuleLogger(botLogger, "sync"),
+  events: createModuleLogger(botLogger, "events"),
+  birthdays: createModuleLogger(botLogger, "birthdays"),
+  announcements: createModuleLogger(botLogger, "announcements"),
+  stats: createModuleLogger(botLogger, "stats"),
 };

@@ -72,6 +72,9 @@ async function importCondorMatchByGameId(
   clanTags: string[],
   logger: Logger
 ): Promise<ImportMatchResult> {
+  const startedAt = Date.now();
+  logger.info({ gameId }, "condor polling processing game");
+
   const existingByGameId = await prisma.importCrcon.findFirst({
     where: {
       gameId,
@@ -80,12 +83,14 @@ async function importCondorMatchByGameId(
     select: { id: true },
   });
   if (existingByGameId) {
+    logger.info({ gameId, importId: existingByGameId.id }, "condor polling skipped game (already imported)");
     return { status: "SKIPPED_ALREADY_IMPORTED" };
   }
 
   const scoreboardUrl = `${statsApiBaseUrl}/api/get_map_scoreboard?map_id=${encodeURIComponent(
     gameId
   )}`;
+  logger.info({ gameId, scoreboardUrl }, "condor polling fetching map scoreboard");
   const scoreboardResponse = await fetch(scoreboardUrl);
   if (!scoreboardResponse.ok) {
     throw new Error(`Failed to fetch map scoreboard (${scoreboardResponse.status})`);
@@ -101,12 +106,25 @@ async function importCondorMatchByGameId(
     select: { id: true },
   });
   if (duplicateByHash) {
+    logger.info(
+      { gameId, importId: duplicateByHash.id, payloadHash },
+      "condor polling skipped game (duplicate payload hash)"
+    );
     return { status: "SKIPPED_DUPLICATE_HASH", importId: duplicateByHash.id };
   }
 
   const allRows = extractPlayerStats(scoreboardPayload);
   const clanRows = allRows.filter((row) => matchesClanTag(row.playerName, clanTags));
   const qualifiedRows = clanRows.filter(isQualifiedPlayer);
+  logger.info(
+    {
+      gameId,
+      totalPlayers: allRows.length,
+      clanFiltered: clanRows.length,
+      qualifiedPlayers: qualifiedRows.length,
+    },
+    "condor polling extracted and filtered player rows"
+  );
 
   const providerIds = qualifiedRows
     .map((row) => row.providerId)
@@ -190,6 +208,7 @@ async function importCondorMatchByGameId(
       totalPlayers: allRows.length,
       clanFiltered: clanRows.length,
       qualifiedPlayers: qualifiedRows.length,
+      elapsedMs: Date.now() - startedAt,
     },
     "condor polling imported match"
   );
@@ -215,20 +234,26 @@ export function startCondorPolling(logger: Logger): void {
 
   let isRunning = false;
   const runCycle = async (reason: "startup" | "interval") => {
+    const cycleStartedAt = Date.now();
+    const cycleLogger = logger.child({ reason });
+
     if (isRunning) {
-      logger.warn({ reason }, "condor polling cycle skipped because previous cycle is still running");
+      cycleLogger.warn("condor polling cycle skipped because previous cycle is still running");
       return;
     }
 
     isRunning = true;
     try {
+      const mapsUrl = `${statsApiBaseUrl}/api/get_scoreboard_maps?page=1&limit=${scanLimit}`;
+      cycleLogger.info({ mapsUrl }, "condor polling fetching recent maps");
       const mapIds = await fetchLatestMapIds(statsApiBaseUrl, scanLimit);
       if (mapIds.length === 0) {
-        logger.info({ reason }, "condor polling found no recent maps");
+        cycleLogger.info("condor polling found no recent maps");
         return;
       }
 
       const orderedMapIds = [...mapIds].reverse();
+      cycleLogger.info({ discovered: mapIds.length, gameIds: orderedMapIds }, "condor polling map ids to process");
       let imported = 0;
       let skipped = 0;
       let failed = 0;
@@ -239,7 +264,7 @@ export function startCondorPolling(logger: Logger): void {
             gameId,
             statsApiBaseUrl,
             clanTags,
-            logger
+            cycleLogger
           );
           if (result.status === "IMPORTED") {
             imported += 1;
@@ -248,24 +273,27 @@ export function startCondorPolling(logger: Logger): void {
           }
         } catch (error) {
           failed += 1;
-          logger.error({ err: error, gameId, reason }, "condor polling failed to process game");
+          cycleLogger.error({ err: error, gameId }, "condor polling failed to process game");
         }
       }
 
-      logger.info(
+      cycleLogger.info(
         {
-          reason,
           scanLimit,
           discovered: mapIds.length,
           processed: orderedMapIds.length,
           imported,
           skipped,
           failed,
+          elapsedMs: Date.now() - cycleStartedAt,
         },
         "condor polling cycle completed"
       );
     } catch (error) {
-      logger.error({ err: error, reason }, "condor polling cycle failed");
+      cycleLogger.error(
+        { err: error, elapsedMs: Date.now() - cycleStartedAt },
+        "condor polling cycle failed"
+      );
     } finally {
       isRunning = false;
     }

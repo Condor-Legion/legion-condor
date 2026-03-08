@@ -1,4 +1,4 @@
-import { createHmac, timingSafeEqual } from "node:crypto";
+import { createHmac, timingSafeEqual, randomUUID } from "node:crypto";
 
 type PushCommit = {
   added?: string[];
@@ -41,6 +41,19 @@ const logger = {
     writeLog("error", message ?? "error", data);
   },
 };
+
+function domainLog(
+  level: LogLevel,
+  event: string,
+  message: string,
+  data?: Record<string, unknown>
+): void {
+  writeLog(level, message, {
+    event,
+    module: "webhook",
+    ...data,
+  });
+}
 
 function getSignature256(req: Request): string | null {
   const sig = req.headers.get("x-hub-signature-256");
@@ -106,8 +119,15 @@ async function spawnDeploy(services: Service[]): Promise<void> {
   const scriptPath = `${repoDir}/scripts/deploy.sh`;
   const cmd = ["sh", scriptPath, ...services];
 
-  logger.info({ services }, "deploy started");
+  domainLog("info", "deploy_trigger_started", "deploy started", {
+    operation: "deploy_trigger",
+    actorType: "webhook",
+    actorId: "github",
+    outcome: "success",
+    services,
+  });
 
+  const startedAt = Date.now();
   const child = Bun.spawn({
     cmd,
     env: {
@@ -122,11 +142,26 @@ async function spawnDeploy(services: Service[]): Promise<void> {
   // Pero registrar cuando termina y con que codigo.
   void child.exited.then((code) => {
     if (code === 0) {
-      logger.info({ services }, "deploy finished OK");
+      domainLog("info", "deploy_trigger_completed", "deploy finished OK", {
+        operation: "deploy_trigger",
+        actorType: "webhook",
+        actorId: "github",
+        outcome: "success",
+        durationMs: Date.now() - startedAt,
+        services,
+      });
       return;
     }
 
-    logger.error({ services, exitCode: code }, "deploy finished with error");
+    domainLog("error", "deploy_trigger_failed", "deploy finished with error", {
+      operation: "deploy_trigger",
+      actorType: "webhook",
+      actorId: "github",
+      outcome: "internal_error",
+      durationMs: Date.now() - startedAt,
+      services,
+      exitCode: code,
+    });
   });
 }
 
@@ -140,13 +175,27 @@ if (!secret) {
 Bun.serve({
   port,
   async fetch(req) {
+    const startedAt = Date.now();
     const url = new URL(req.url);
+    const requestId = req.headers.get("x-github-delivery") ?? randomUUID();
+    const correlationId = requestId;
     const isDeployPath = url.pathname === "/deploy" || url.pathname === "/deploy/detect";
     if (!isDeployPath) return new Response("Not found", { status: 404 });
     if (req.method !== "POST") return new Response("Method not allowed", { status: 405 });
 
     const sig = getSignature256(req);
-    if (!sig) return new Response("Missing signature", { status: 401 });
+    if (!sig) {
+      domainLog("warn", "github_webhook_rejected", "missing signature", {
+        operation: "github_webhook_receive",
+        actorType: "webhook",
+        actorId: "github",
+        outcome: "unauthorized",
+        reason: "missing_signature",
+        requestId,
+        correlationId,
+      });
+      return new Response("Missing signature", { status: 401 });
+    }
 
     const bodyUtf8 = await req.text();
     const ok = verifyGitHubSignature({
@@ -154,17 +203,47 @@ Bun.serve({
       signatureHex: sig,
       secret,
     });
-    if (!ok) return new Response("Invalid signature", { status: 401 });
+    if (!ok) {
+      domainLog("warn", "github_webhook_rejected", "invalid signature", {
+        operation: "github_webhook_receive",
+        actorType: "webhook",
+        actorId: "github",
+        outcome: "unauthorized",
+        reason: "invalid_signature",
+        requestId,
+        correlationId,
+      });
+      return new Response("Invalid signature", { status: 401 });
+    }
 
     let payload: PushPayload;
     try {
       payload = JSON.parse(bodyUtf8) as PushPayload;
     } catch {
+      domainLog("warn", "github_webhook_rejected", "invalid json payload", {
+        operation: "github_webhook_receive",
+        actorType: "webhook",
+        actorId: "github",
+        outcome: "validation_error",
+        reason: "invalid_json",
+        requestId,
+        correlationId,
+      });
       return new Response("Invalid JSON", { status: 400 });
     }
 
     // Solo desplegar en pushes a main
     if (payload.ref && payload.ref !== "refs/heads/main") {
+      domainLog("info", "github_webhook_ignored", "ignored non-main branch", {
+        operation: "github_webhook_receive",
+        actorType: "webhook",
+        actorId: "github",
+        outcome: "success",
+        requestId,
+        correlationId,
+        resourceType: "git_ref",
+        resourceId: payload.ref,
+      });
       return Response.json({ ok: true, action: "ignored", reason: "branch", ref: payload.ref });
     }
 
@@ -181,7 +260,29 @@ Bun.serve({
 
     // Siempre ejecutamos el script de deploy: si no hay servicios afectados,
     // deploy.sh solo hara git pull y terminara.
+    domainLog("info", "github_webhook_received", "webhook validated", {
+      operation: "github_webhook_receive",
+      actorType: "webhook",
+      actorId: "github",
+      outcome: "success",
+      requestId,
+      correlationId,
+      resourceType: "git_ref",
+      resourceId: payload.ref ?? "refs/heads/main",
+      touchedFiles: touched.length,
+      services,
+    });
     await spawnDeploy(services);
+    domainLog("info", "github_webhook_completed", "webhook processing completed", {
+      operation: "github_webhook_receive",
+      actorType: "webhook",
+      actorId: "github",
+      outcome: "success",
+      requestId,
+      correlationId,
+      durationMs: Date.now() - startedAt,
+      services,
+    });
     return Response.json({
       ok: true,
       action: services.length === 0 ? "pull-only" : "deploy",

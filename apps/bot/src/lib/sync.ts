@@ -1,5 +1,6 @@
 import type { Client, Collection, Guild, GuildMember } from "discord.js";
 import { SYNC_CHUNK_SIZE } from "@legion/shared";
+import crypto from "node:crypto";
 import { config } from "../config";
 import { log } from "../logger";
 
@@ -53,6 +54,21 @@ export async function syncMembers(
   client: Client,
   guildIdToSync: string
 ): Promise<number> {
+  const startedAt = Date.now();
+  const correlationId = crypto.randomUUID();
+  log.sync.info(
+    {
+      event: "discord_sync_members_started",
+      module: "sync",
+      operation: "sync_members",
+      actorType: "system",
+      actorId: null,
+      correlationId,
+      guildId: guildIdToSync,
+    },
+    "members sync started"
+  );
+
   const guild = await client.guilds.fetch(guildIdToSync);
   const members = await fetchAllGuildMembers(guild);
   const payload = members.map((member) => ({
@@ -65,21 +81,64 @@ export async function syncMembers(
       .map((role) => ({ id: role.id, name: role.name })),
   }));
 
+  const chunkTotal = Math.ceil(payload.length / SYNC_CHUNK_SIZE);
   for (let i = 0; i < payload.length; i += SYNC_CHUNK_SIZE) {
     const chunk = payload.slice(i, i + SYNC_CHUNK_SIZE);
+    const chunkIndex = Math.floor(i / SYNC_CHUNK_SIZE) + 1;
+    const requestId = crypto.randomUUID();
+    const requestStartedAt = Date.now();
     const res = await fetch(`${config.apiUrl}/api/discord/members/sync`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         "x-bot-api-key": config.botApiKey,
+        "x-request-id": requestId,
+        "x-correlation-id": correlationId,
       },
       body: JSON.stringify({ members: chunk }),
     });
+    log.sync.info(
+      {
+        event: "discord_sync_members_chunk_sent",
+        module: "sync",
+        operation: "sync_members",
+        actorType: "system",
+        actorId: null,
+        outcome: res.ok ? "success" : "external_error",
+        correlationId,
+        requestId,
+        targetService: "api",
+        targetUrlPath: "/api/discord/members/sync",
+        targetStatusCode: res.status,
+        targetDurationMs: Date.now() - requestStartedAt,
+        chunkIndex,
+        chunkTotal,
+        membersInChunk: chunk.length,
+      },
+      "members sync chunk completed"
+    );
     if (!res.ok) {
       const text = await res.text();
       throw new Error(`Sync failed: ${res.status} ${text}`);
     }
   }
+
+  log.sync.info(
+    {
+      event: "discord_sync_members_completed",
+      module: "sync",
+      operation: "sync_members",
+      actorType: "system",
+      actorId: null,
+      outcome: "success",
+      correlationId,
+      guildId: guildIdToSync,
+      itemsProcessed: payload.length,
+      chunkTotal,
+      durationMs: Date.now() - startedAt,
+    },
+    "members sync completed"
+  );
 
   return payload.length;
 }
@@ -88,6 +147,21 @@ export async function syncRoster(
   client: Client,
   guildIdToSync: string
 ): Promise<number> {
+  const startedAt = Date.now();
+  const correlationId = crypto.randomUUID();
+  log.sync.info(
+    {
+      event: "discord_sync_roster_started",
+      module: "sync",
+      operation: "sync_roster",
+      actorType: "system",
+      actorId: null,
+      correlationId,
+      guildId: guildIdToSync,
+    },
+    "roster sync started"
+  );
+
   if (config.rosterRoleIds.length === 0) {
     throw new Error("Missing ROSTER_ROLE_IDS env var.");
   }
@@ -113,13 +187,48 @@ export async function syncRoster(
     headers: {
       "Content-Type": "application/json",
       "x-bot-api-key": config.botApiKey,
+      "x-request-id": crypto.randomUUID(),
+      "x-correlation-id": correlationId,
     },
     body: JSON.stringify({ members: payload }),
   });
+  log.sync.info(
+    {
+      event: "discord_sync_roster_request_completed",
+      module: "sync",
+      operation: "sync_roster",
+      actorType: "system",
+      actorId: null,
+      outcome: res.ok ? "success" : "external_error",
+      correlationId,
+      targetService: "api",
+      targetUrlPath: "/api/discord/roster/sync",
+      targetStatusCode: res.status,
+      targetDurationMs: Date.now() - startedAt,
+      itemsProcessed: payload.length,
+    },
+    "roster sync request completed"
+  );
   if (!res.ok) {
     const text = await res.text();
     throw new Error(`Roster sync failed: ${res.status} ${text}`);
   }
+
+  log.sync.info(
+    {
+      event: "discord_sync_roster_completed",
+      module: "sync",
+      operation: "sync_roster",
+      actorType: "system",
+      actorId: null,
+      outcome: "success",
+      correlationId,
+      guildId: guildIdToSync,
+      itemsProcessed: payload.length,
+      durationMs: Date.now() - startedAt,
+    },
+    "roster sync completed"
+  );
 
   return payload.length;
 }

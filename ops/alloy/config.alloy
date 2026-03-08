@@ -1,0 +1,65 @@
+local.file_match "docker_json_logs" {
+  path_targets = [
+    { __path__ = "/var/lib/docker/containers/*/*-json.log" },
+  ]
+}
+
+loki.process "docker_pipeline" {
+  stage.json {
+    expressions = {
+      message = "log",
+      stream  = "stream",
+      time    = "time",
+    }
+  }
+
+  stage.json {
+    source = "message"
+    expressions = {
+      level   = "level",
+      service = "service",
+      module  = "module",
+      event   = "event",
+    }
+  }
+
+  stage.regex {
+    source = "filename"
+    expression = ".*/containers/(?P<container_id>[^/]+)/.*"
+  }
+
+  stage.labels {
+    values = {
+      level        = "level",
+      service      = "service",
+      module       = "module",
+      event        = "event",
+      stream       = "stream",
+      container_id = "container_id",
+    }
+  }
+
+  stage.output {
+    source = "message"
+  }
+
+  forward_to = [loki.write.grafana_cloud.receiver]
+}
+
+loki.source.file "docker_json_logs" {
+  targets    = local.file_match.docker_json_logs.targets
+  forward_to = [loki.process.docker_pipeline.receiver]
+}
+
+loki.write "grafana_cloud" {
+  endpoint {
+    url = env("GRAFANA_CLOUD_LOKI_URL")
+    basic_auth {
+      username = env("GRAFANA_CLOUD_LOKI_USER")
+      password = env("GRAFANA_CLOUD_LOKI_API_KEY")
+    }
+  }
+  external_labels = {
+    environment = env("DEPLOY_ENVIRONMENT"),
+  }
+}
