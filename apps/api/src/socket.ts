@@ -3,7 +3,8 @@ import { Server } from "socket.io";
 export function createSocketServer(httpServer: import("http").Server) {
   const io = new Server(httpServer, {
     cors: {
-      origin: "*"
+      origin: process.env.CORS_ORIGIN ?? "http://localhost:3000",
+      credentials: true
     }
   });
 

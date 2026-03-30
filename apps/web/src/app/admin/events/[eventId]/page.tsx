@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { use, useEffect, useMemo, useState } from "react";
 import { io } from "socket.io-client";
 import { InputDialog } from "../../../../components/ui/input-dialog";
@@ -68,6 +69,7 @@ const UNIT_COLORS = [
 
 export default function EventDetail({ params }: { params: Promise<{ eventId: string }> }) {
   const { eventId } = use(params);
+  const router = useRouter();
   const [event, setEvent] = useState<EventData | null>(null);
   const [members, setMembers] = useState<Member[]>([]);
   const [maps, setMaps] = useState<CatalogEntry[]>([]);
@@ -76,6 +78,9 @@ export default function EventDetail({ params }: { params: Promise<{ eventId: str
   const [error, setError] = useState<string | null>(null);
   const [unitModalOpen, setUnitModalOpen] = useState(false);
   const [slotModalUnitId, setSlotModalUnitId] = useState<string | null>(null);
+  const [draggedUnitId, setDraggedUnitId] = useState<string | null>(null);
+  const [dropTargetUnitId, setDropTargetUnitId] = useState<string | null>(null);
+  const [isReorderingUnits, setIsReorderingUnits] = useState(false);
   const [colorPicker, setColorPicker] = useState<{
     unitId: string;
     top: number;
@@ -186,6 +191,7 @@ export default function EventDetail({ params }: { params: Promise<{ eventId: str
     }
     return map;
   }, [members]);
+  const sortedUnits = useMemo(() => (event ? [...event.units].sort((a, b) => a.order - b.order) : []), [event]);
 
   async function updateEventMeta(patch: Partial<EventData>) {
     if (!event) return;
@@ -280,15 +286,21 @@ export default function EventDetail({ params }: { params: Promise<{ eventId: str
     await reload();
   }
 
-  async function moveUnit(unitId: string, direction: "UP" | "DOWN") {
+  async function moveUnit(unitId: string, direction: "UP" | "DOWN", reloadAfter = true) {
     const res = await fetch(`${apiUrl}/api/roster/events/${eventId}/units/${unitId}/reorder`, {
       method: "PATCH",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ direction }),
     });
-    if (!res.ok) return setError("No se pudo mover unidad.");
-    await reload();
+    if (!res.ok) {
+      setError("No se pudo mover unidad.");
+      return false;
+    }
+    if (reloadAfter) {
+      await reload();
+    }
+    return true;
   }
 
   async function removeSlot(slotId: string) {
@@ -323,6 +335,30 @@ export default function EventDetail({ params }: { params: Promise<{ eventId: str
     setColorPicker({ unitId, left, top });
   }
 
+  async function reorderUnitsByDrag(sourceUnitId: string, targetUnitId: string) {
+    if (isReorderingUnits) return;
+
+    const sourceIndex = sortedUnits.findIndex((unit) => unit.id === sourceUnitId);
+    const targetIndex = sortedUnits.findIndex((unit) => unit.id === targetUnitId);
+    if (sourceIndex < 0 || targetIndex < 0 || sourceIndex === targetIndex) return;
+
+    const direction: "UP" | "DOWN" = sourceIndex < targetIndex ? "DOWN" : "UP";
+    const steps = Math.abs(sourceIndex - targetIndex);
+
+    setIsReorderingUnits(true);
+    try {
+      for (let step = 0; step < steps; step++) {
+        const moved = await moveUnit(sourceUnitId, direction, false);
+        if (!moved) {
+          return;
+        }
+      }
+      await reload();
+    } finally {
+      setIsReorderingUnits(false);
+    }
+  }
+
   if (error) {
     return (
       <main className="min-h-screen px-6 py-10">
@@ -344,9 +380,14 @@ export default function EventDetail({ params }: { params: Promise<{ eventId: str
         <section className="rounded border border-neutral-800 p-4">
           <div className="mb-4 flex items-center justify-between">
             <h1 className="text-2xl font-semibold">Editor de roster</h1>
-            <button className="rounded border border-neutral-700 px-3 py-2 text-sm hover:bg-neutral-900" onClick={() => setUnitModalOpen(true)}>
-              + Unidad
-            </button>
+            <div className="flex items-center gap-2">
+              <button className="rounded border border-neutral-700 px-3 py-2 text-sm hover:bg-neutral-900" onClick={() => router.back()}>
+                Volver
+              </button>
+              <button className="rounded border border-neutral-700 px-3 py-2 text-sm hover:bg-neutral-900" onClick={() => setUnitModalOpen(true)}>
+                + Unidad
+              </button>
+            </div>
           </div>
           <div className="grid gap-3 md:grid-cols-5">
             <label className="flex flex-col gap-1">
@@ -405,11 +446,39 @@ export default function EventDetail({ params }: { params: Promise<{ eventId: str
         </section>
 
         <div className="flex flex-wrap items-start gap-4">
-          {event.units
-            .slice()
-            .sort((a, b) => a.order - b.order)
-            .map((unit) => (
-              <section key={unit.id} className="w-full rounded border border-neutral-800 p-4 md:w-auto md:min-w-[22rem] md:max-w-[30rem]">
+          {sortedUnits.map((unit) => (
+              <section
+                key={unit.id}
+                className={`w-full rounded border border-neutral-800 p-4 md:w-auto md:min-w-[22rem] md:max-w-[30rem] ${draggedUnitId === unit.id ? "opacity-60" : ""} ${dropTargetUnitId === unit.id && draggedUnitId !== unit.id ? "ring-2 ring-emerald-500" : ""}`}
+                draggable={!isReorderingUnits}
+                onDragStart={(event) => {
+                  setDraggedUnitId(unit.id);
+                  event.dataTransfer.effectAllowed = "move";
+                }}
+                onDragOver={(event) => {
+                  event.preventDefault();
+                  if (draggedUnitId && draggedUnitId !== unit.id) {
+                    setDropTargetUnitId(unit.id);
+                  }
+                }}
+                onDragLeave={() => {
+                  if (dropTargetUnitId === unit.id) {
+                    setDropTargetUnitId(null);
+                  }
+                }}
+                onDrop={async (event) => {
+                  event.preventDefault();
+                  const sourceUnitId = draggedUnitId;
+                  setDraggedUnitId(null);
+                  setDropTargetUnitId(null);
+                  if (!sourceUnitId || sourceUnitId === unit.id) return;
+                  await reorderUnitsByDrag(sourceUnitId, unit.id);
+                }}
+                onDragEnd={() => {
+                  setDraggedUnitId(null);
+                  setDropTargetUnitId(null);
+                }}
+              >
                 <div className="mb-3 flex items-center justify-between rounded px-2 py-2" style={{ backgroundColor: unit.color }}>
                   <h2 className="text-lg font-semibold text-white">{unit.name}</h2>
                   <div className="flex gap-2">
@@ -468,12 +537,6 @@ export default function EventDetail({ params }: { params: Promise<{ eventId: str
                         </div>
                       )}
                     </div>
-                    <button className="rounded border border-neutral-700 px-2 py-1 text-xs hover:bg-neutral-900" onClick={() => moveUnit(unit.id, "UP")}>
-                      ↑
-                    </button>
-                    <button className="rounded border border-neutral-700 px-2 py-1 text-xs hover:bg-neutral-900" onClick={() => moveUnit(unit.id, "DOWN")}>
-                      ↓
-                    </button>
                     <button className="rounded border border-neutral-700 px-2 py-1 text-xs hover:bg-neutral-900" onClick={() => setSlotModalUnitId(unit.id)}>
                       + Slot
                     </button>
@@ -482,7 +545,7 @@ export default function EventDetail({ params }: { params: Promise<{ eventId: str
                     </button>
                   </div>
                 </div>
-                <div className="space-y-2">
+                <div className="space-y-1.5">
                   {unit.slots
                     .slice()
                     .sort((a, b) => a.order - b.order)
@@ -490,11 +553,11 @@ export default function EventDetail({ params }: { params: Promise<{ eventId: str
                       const slot = assignmentMap.get(slotMeta.id);
                       if (!slot) return null;
                       return (
-                        <div key={slotMeta.id} className="rounded border border-neutral-900 p-2">
-                          <div className="flex items-center gap-2">
-                            <div className="w-28 shrink-0 text-sm text-neutral-300">{slotMeta.label}</div>
+                        <div key={slotMeta.id} className="rounded border border-neutral-900 p-1.5">
+                          <div className="flex items-center gap-1.5">
+                            <div className="w-24 shrink-0 text-xs text-neutral-300">{slotMeta.label}</div>
                             <select
-                              className="w-full flex-1 rounded bg-neutral-900 px-2 py-1 text-base"
+                              className="w-full flex-1 rounded bg-neutral-900 px-2 py-0.5 text-sm"
                               value={slot.memberId ?? ""}
                               onChange={(e) => {
                                 const selectedMemberId = e.target.value || null;
@@ -504,14 +567,14 @@ export default function EventDetail({ params }: { params: Promise<{ eventId: str
                                 });
                               }}
                             >
-                              <option value="">Libre</option>
+                              <option value=""></option>
                               {members.map((member) => (
                                 <option key={member.id} value={member.id}>
                                   {member.displayName}
                                 </option>
                               ))}
                             </select>
-                            <label className="inline-flex shrink-0 items-center rounded border border-neutral-800 px-2 py-1 text-xs">
+                            <label className="inline-flex shrink-0 items-center rounded border border-neutral-800 px-1.5 py-0.5 text-xs">
                               <input
                                 type="checkbox"
                                 checked={Boolean(slot.memberId) && slot.attendance === "PRESENT"}
@@ -523,7 +586,7 @@ export default function EventDetail({ params }: { params: Promise<{ eventId: str
                                 }
                               />
                             </label>
-                            <button className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded border border-red-900 text-xs leading-none text-red-300 hover:bg-red-950" onClick={() => removeSlot(slotMeta.id)}>
+                            <button className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded border border-red-900 text-xs leading-none text-red-300 hover:bg-red-950" onClick={() => removeSlot(slotMeta.id)}>
                               x
                             </button>
                           </div>
@@ -551,6 +614,7 @@ export default function EventDetail({ params }: { params: Promise<{ eventId: str
         title="Nuevo slot"
         label="Nombre del slot"
         confirmText="Crear slot"
+        submitOnEnter
         onClose={() => setSlotModalUnitId(null)}
         onConfirm={async (value) => {
           if (!slotModalUnitId) return;
@@ -561,3 +625,4 @@ export default function EventDetail({ params }: { params: Promise<{ eventId: str
     </main>
   );
 }
+

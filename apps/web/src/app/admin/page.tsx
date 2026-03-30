@@ -54,9 +54,6 @@ export default function AdminHome() {
                 <Link href="/admin/catalogs">Catalogos</Link>
               </Button>
             )}
-            <Button asChild variant="outline">
-              <Link href="/admin/login">Login</Link>
-            </Button>
           </div>
         </div>
         {error && <p className="text-red-400">{error}</p>}

@@ -8,6 +8,7 @@ interface InputDialogProps {
   label: string;
   confirmText?: string;
   cancelText?: string;
+  submitOnEnter?: boolean;
   onClose: () => void;
   onConfirm: (value: string) => void | Promise<void>;
 }
@@ -18,6 +19,7 @@ export function InputDialog({
   label,
   confirmText = "Guardar",
   cancelText = "Cancelar",
+  submitOnEnter = false,
   onClose,
   onConfirm,
 }: InputDialogProps) {
@@ -51,6 +53,11 @@ export function InputDialog({
             className="rounded border border-neutral-800 bg-neutral-900 p-2"
             value={value}
             onChange={(event) => setValue(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key !== "Enter" || !submitOnEnter || busy || value.trim().length === 0) return;
+              event.preventDefault();
+              void handleConfirm();
+            }}
             autoFocus
           />
         </label>
