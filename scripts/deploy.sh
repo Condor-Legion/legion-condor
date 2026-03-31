@@ -9,6 +9,21 @@ if [ "${1:-}" = "--no-build" ]; then
   shift
 fi
 
+compose_up_with_build() {
+  # Fallback compatible para entornos sin buildx.
+  docker compose up -d --build "$@"
+}
+
+compose_up_without_build() {
+  docker compose up -d "$@"
+}
+
+bake_build_services() {
+  # bake puede tomar servicios definidos en docker-compose.yml como targets.
+  # Ej: api, bot, web, deploy-listener.
+  docker buildx bake -f docker-compose.yml "$@"
+}
+
 cd "$REPO_DIR"
 
 if command -v git >/dev/null 2>&1; then
@@ -56,9 +71,14 @@ echo "$dedup_services"
 
 if echo "$dedup_services" | grep -qx "all" 2>/dev/null; then
   if [ "$NO_BUILD" -eq 1 ]; then
-    docker compose up -d
+    compose_up_without_build
   else
-    docker compose up -d --build
+    if docker buildx version >/dev/null 2>&1; then
+      bake_build_services api bot web deploy-listener
+      docker compose up -d --no-build
+    else
+      compose_up_with_build
+    fi
   fi
   echo "deploy.sh: despliegue completado para: all"
   exit 0
@@ -73,9 +93,27 @@ $dedup_services
 EOF
 
 if [ "$NO_BUILD" -eq 1 ]; then
-  docker compose up -d $services_args
+  compose_up_without_build $services_args
 else
-  docker compose up -d --build $services_args
+  build_targets=""
+  while IFS= read -r svc; do
+    [ -n "$svc" ] || continue
+    case "$svc" in
+      bot|api|web|deploy-listener)
+        build_targets="${build_targets}${build_targets:+ }${svc}"
+        ;;
+    esac
+  done <<EOF
+$dedup_services
+EOF
+
+  if [ -n "$build_targets" ] && docker buildx version >/dev/null 2>&1; then
+    # Build desacoplado + up sin build reduce tiempo y evita rebuild innecesario.
+    bake_build_services $build_targets
+    docker compose up -d --no-build $services_args
+  else
+    compose_up_with_build $services_args
+  fi
 fi
 
 echo "deploy.sh: despliegue completado para servicios:"

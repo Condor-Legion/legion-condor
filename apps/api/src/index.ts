@@ -21,13 +21,13 @@ const app = express();
 const server = http.createServer(app);
 const io = createSocketServer(server);
 app.set("io", io);
-
+//comentario de test
 app.use(requestLoggerMiddleware);
 app.use(
   cors({
     origin: process.env.CORS_ORIGIN ?? "http://localhost:3000",
-    credentials: true
-  })
+    credentials: true,
+  }),
 );
 app.use(cookieParser());
 app.use(express.json({ limit: "2mb" }));
@@ -36,34 +36,34 @@ app.use(defaultRateLimit);
 app.use(
   "/api/auth",
   domainLoggerMiddleware({ module: "auth", sampleSuccess: false }),
-  authRouter
+  authRouter,
 );
 app.use(
   "/api/members",
   domainLoggerMiddleware({ module: "members" }),
-  membersRouter
+  membersRouter,
 );
 app.use(
   "/api/roster",
   domainLoggerMiddleware({ module: "roster", sampleSuccess: false }),
-  rosterRouter
+  rosterRouter,
 );
 app.use(
   "/api/import",
   domainLoggerMiddleware({ module: "import", sampleSuccess: false }),
-  importRouter
+  importRouter,
 );
 app.use("/api/stats", domainLoggerMiddleware({ module: "stats" }), statsRouter);
 app.use("/api/audit", domainLoggerMiddleware({ module: "audit" }), auditRouter);
 app.use(
   "/api/discord",
   domainLoggerMiddleware({ module: "discord", sampleSuccess: false }),
-  discordRouter
+  discordRouter,
 );
 app.use(
   "/api/tickets",
   domainLoggerMiddleware({ module: "tickets", sampleSuccess: false }),
-  ticketsRouter
+  ticketsRouter,
 );
 
 app.get("/health", (_req, res) => {
@@ -76,13 +76,13 @@ app.use(
     err: Error,
     req: express.Request,
     res: express.Response,
-    _next: express.NextFunction
+    _next: express.NextFunction,
   ) => {
     const log = req.log ?? apiLogger;
     log.error({ err }, "unhandled API error");
     if (res.headersSent) return;
     res.status(500).json({ error: "Internal server error" });
-  }
+  },
 );
 
 import("./prisma")
