@@ -13,6 +13,10 @@ type PushPayload = {
 
 type Service = "bot" | "api" | "web" | "deploy-listener";
 type LogLevel = "info" | "warn" | "error";
+type DeployPlan = {
+  services: Array<Service | "all">;
+  noBuild: boolean;
+};
 
 function writeLog(level: LogLevel, message: string, data?: Record<string, unknown>): void {
   const entry = {
@@ -81,11 +85,11 @@ function uniqueStrings(items: string[]): string[] {
   return [...new Set(items)];
 }
 
-function detectServicesFromPaths(paths: string[]): Service[] {
+function detectDeployPlanFromPaths(paths: string[]): DeployPlan {
   const services = new Set<Service>();
+  let composeChanged = false;
 
-  const rootAffectsAll = new Set([
-    "docker-compose.yml",
+  const rootAffectsBuildAll = new Set([
     "pnpm-lock.yaml",
     "pnpm-workspace.yaml",
     "tsconfig.base.json",
@@ -96,35 +100,46 @@ function detectServicesFromPaths(paths: string[]): Service[] {
   for (const p of paths) {
     if (!p) continue;
 
+    if (p === "docker-compose.yml") {
+      composeChanged = true;
+      continue;
+    }
+
     if (p.startsWith("apps/bot/")) services.add("bot");
     else if (p.startsWith("apps/api/")) services.add("api");
     else if (p.startsWith("apps/web/")) services.add("web");
     else if (p.startsWith("deploy-listener/")) services.add("deploy-listener");
+    else if (p.startsWith("prisma/")) services.add("api");
     else if (p.startsWith("packages/shared/")) {
       services.add("bot");
       services.add("api");
       services.add("web");
-    } else if (rootAffectsAll.has(p)) {
+    } else if (rootAffectsBuildAll.has(p)) {
       services.add("bot");
       services.add("api");
       services.add("web");
     }
   }
 
-  return [...services];
+  if (composeChanged && services.size === 0) {
+    return { services: ["all"], noBuild: true };
+  }
+
+  return { services: [...services], noBuild: false };
 }
 
-async function spawnDeploy(services: Service[]): Promise<void> {
+async function spawnDeploy(plan: DeployPlan): Promise<void> {
   const repoDir = process.env.REPO_DIR ?? "/repo";
   const scriptPath = `${repoDir}/scripts/deploy.sh`;
-  const cmd = ["sh", scriptPath, ...services];
+  const cmd = ["sh", scriptPath, ...(plan.noBuild ? ["--no-build"] : []), ...plan.services];
 
   domainLog("info", "deploy_trigger_started", "deploy started", {
     operation: "deploy_trigger",
     actorType: "webhook",
     actorId: "github",
     outcome: "success",
-    services,
+    services: plan.services,
+    noBuild: plan.noBuild,
   });
 
   const startedAt = Date.now();
@@ -148,7 +163,8 @@ async function spawnDeploy(services: Service[]): Promise<void> {
         actorId: "github",
         outcome: "success",
         durationMs: Date.now() - startedAt,
-        services,
+        services: plan.services,
+        noBuild: plan.noBuild,
       });
       return;
     }
@@ -159,7 +175,8 @@ async function spawnDeploy(services: Service[]): Promise<void> {
       actorId: "github",
       outcome: "internal_error",
       durationMs: Date.now() - startedAt,
-      services,
+      services: plan.services,
+      noBuild: plan.noBuild,
       exitCode: code,
     });
   });
@@ -256,7 +273,7 @@ Bun.serve({
       ])
     );
 
-    const services = detectServicesFromPaths(touched);
+    const plan = detectDeployPlanFromPaths(touched);
 
     // Siempre ejecutamos el script de deploy: si no hay servicios afectados,
     // deploy.sh solo hara git pull y terminara.
@@ -270,9 +287,10 @@ Bun.serve({
       resourceType: "git_ref",
       resourceId: payload.ref ?? "refs/heads/main",
       touchedFiles: touched.length,
-      services,
+      services: plan.services,
+      noBuild: plan.noBuild,
     });
-    await spawnDeploy(services);
+    await spawnDeploy(plan);
     domainLog("info", "github_webhook_completed", "webhook processing completed", {
       operation: "github_webhook_receive",
       actorType: "webhook",
@@ -281,12 +299,14 @@ Bun.serve({
       requestId,
       correlationId,
       durationMs: Date.now() - startedAt,
-      services,
+      services: plan.services,
+      noBuild: plan.noBuild,
     });
     return Response.json({
       ok: true,
-      action: services.length === 0 ? "pull-only" : "deploy",
-      services,
+      action: plan.services.length === 0 ? "pull-only" : "deploy",
+      services: plan.services,
+      noBuild: plan.noBuild,
     });
   },
 });

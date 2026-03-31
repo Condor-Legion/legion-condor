@@ -2,6 +2,12 @@
 set -eu
 
 REPO_DIR="${REPO_DIR:-/repo}"
+NO_BUILD=0
+
+if [ "${1:-}" = "--no-build" ]; then
+  NO_BUILD=1
+  shift
+fi
 
 cd "$REPO_DIR"
 
@@ -49,7 +55,11 @@ echo "deploy.sh: servicios a desplegar:"
 echo "$dedup_services"
 
 if echo "$dedup_services" | grep -qx "all" 2>/dev/null; then
-  docker compose up -d --build
+  if [ "$NO_BUILD" -eq 1 ]; then
+    docker compose up -d
+  else
+    docker compose up -d --build
+  fi
   echo "deploy.sh: despliegue completado para: all"
   exit 0
 fi
@@ -62,7 +72,11 @@ done <<EOF
 $dedup_services
 EOF
 
-docker compose up -d --build $services_args
+if [ "$NO_BUILD" -eq 1 ]; then
+  docker compose up -d $services_args
+else
+  docker compose up -d --build $services_args
+fi
 
 echo "deploy.sh: despliegue completado para servicios:"
 echo "$dedup_services"
