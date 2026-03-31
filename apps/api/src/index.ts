@@ -21,7 +21,7 @@ const app = express();
 const server = http.createServer(app);
 const io = createSocketServer(server);
 app.set("io", io);
-//comentario de test
+
 app.use(requestLoggerMiddleware);
 app.use(
   cors({
