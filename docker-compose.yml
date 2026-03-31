@@ -125,9 +125,6 @@ services:
         max-size: "10m"
         max-file: "5"
     restart: unless-stopped
-    dns:
-      - 1.1.1.1
-      - 8.8.8.8
   deploy-listener:
     build:
       context: .
