@@ -607,6 +607,15 @@ export async function handleSurveyStep1(
   await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
   try {
+    log.tickets.info(
+      {
+        ticketId,
+        userId: interaction.user.id,
+        playerIdLength: playerId.length,
+        platform
+      },
+      "validating playerId for survey step1"
+    );
     const validateRes = await fetch(
       `${
         config.apiUrl
@@ -616,15 +625,43 @@ export async function handleSurveyStep1(
       { headers: { "x-bot-api-key": config.botApiKey } }
     );
     if (validateRes.ok) {
-      const { valid, error } = await validateRes.json();
+      const { valid, error, errorCode } = await validateRes.json();
+      log.tickets.info(
+        {
+          ticketId,
+          userId: interaction.user.id,
+          playerIdLength: playerId.length,
+          valid,
+          errorCode: errorCode ?? null,
+          validationError: error ?? null
+        },
+        "playerId validation response received"
+      );
       if (!valid) {
-        await interaction.editReply(
-          `ID de jugador no válido${
-            error ? `: ${error}` : "."
-          } Revisá el valor (Opciones en juego) y volvé a enviar la encuesta.`
-        );
+        const message =
+          errorCode === "SERVICE_UNAVAILABLE"
+            ? "No se pudo validar el ID en los sitios externos en este momento. Probá de nuevo en unos minutos."
+            : `ID de jugador no válido${
+                error ? `: ${error}` : "."
+              } Revisá el valor (Opciones en juego) y volvé a enviar la encuesta.`;
+        await interaction.editReply(message);
         return;
       }
+    } else {
+      const responseText = await validateRes.text();
+      log.tickets.warn(
+        {
+          ticketId,
+          userId: interaction.user.id,
+          statusCode: validateRes.status,
+          responseText
+        },
+        "playerId validation request failed"
+      );
+      await interaction.editReply(
+        "No se pudo validar el ID de jugador en este momento. Intentá de nuevo."
+      );
+      return;
     }
   } catch (err) {
     log.tickets.error({ err, ticketId, userId: interaction.user.id }, "validate playerId error");
@@ -681,6 +718,18 @@ export async function handleSurveyStep2(
 
   await interaction.deferReply({ flags: MessageFlags.Ephemeral });
   try {
+    const apiStartedAt = Date.now();
+    log.tickets.info(
+      {
+        ticketId,
+        userId: interaction.user.id,
+        platform: cached.platform,
+        hasUsername: Boolean(cached.username),
+        playerIdLength: cached.playerId.length
+      },
+      "survey step2 saving ticket data"
+    );
+
     const res = await fetch(`${config.apiUrl}/api/tickets/${ticketId}`, {
       method: "PATCH",
       headers: {
@@ -697,11 +746,41 @@ export async function handleSurveyStep2(
 
     if (!res.ok) {
       const text = await res.text();
+      log.tickets.warn(
+        {
+          ticketId,
+          userId: interaction.user.id,
+          statusCode: res.status,
+          durationMs: Date.now() - apiStartedAt,
+          responseText: text
+        },
+        "survey step2 ticket update rejected"
+      );
       await interaction.editReply(
         `Error guardando datos: ${res.status} ${text}`
       );
       return;
     }
+
+    const response = (await res.json()) as {
+      ticket?: {
+        id?: string;
+        number?: number | null;
+        platform?: string | null;
+        playerId?: string | null;
+      };
+    };
+    log.tickets.info(
+      {
+        ticketId,
+        userId: interaction.user.id,
+        statusCode: res.status,
+        durationMs: Date.now() - apiStartedAt,
+        persistedPlatform: response.ticket?.platform ?? null,
+        persistedPlayerId: response.ticket?.playerId ?? null
+      },
+      "survey step2 ticket data saved"
+    );
 
     surveyCache.delete(ticketId);
     const channel = interaction.channel;
@@ -717,26 +796,81 @@ export async function handleSurveyStep2(
         competitive,
         interview
       };
-      await channel.send(buildSurveySummary(displayName, summary));
+
+      try {
+        await channel.send(buildSurveySummary(displayName, summary));
+        log.tickets.info(
+          {
+            ticketId,
+            userId: interaction.user.id,
+            channelId: interaction.channelId
+          },
+          "survey summary sent to ticket channel"
+        );
+      } catch (err) {
+        log.tickets.error(
+          {
+            err,
+            ticketId,
+            userId: interaction.user.id,
+            channelId: interaction.channelId
+          },
+          "survey saved but summary send failed"
+        );
+      }
 
       if (channel.type === ChannelType.GuildText) {
-        const messages = await channel.messages.fetch({ limit: 20 });
-        const welcomeMsg = messages.find(
-          (m) =>
-            m.author.bot &&
-            m.content.includes("Bienvenido") &&
-            m.content.includes("Responder encuesta")
-        );
-        if (welcomeMsg) {
-          await welcomeMsg
-            .edit({ components: [buildTicketActionRowAfterSurvey(ticketId)] })
-            .catch((err) =>
-              log.tickets.error({ err, ticketId }, "error updating ticket buttons")
+        try {
+          const messages = await channel.messages.fetch({ limit: 20 });
+          const welcomeMsg = messages.find(
+            (m) =>
+              m.author.bot &&
+              m.content.includes("Bienvenido") &&
+              m.content.includes("Responder encuesta")
+          );
+          if (welcomeMsg) {
+            await welcomeMsg.edit({ components: [buildTicketActionRowAfterSurvey(ticketId)] });
+            log.tickets.info(
+              {
+                ticketId,
+                userId: interaction.user.id,
+                channelId: interaction.channelId,
+                messageId: welcomeMsg.id
+              },
+              "ticket buttons updated after survey"
             );
+          } else {
+            log.tickets.warn(
+              {
+                ticketId,
+                userId: interaction.user.id,
+                channelId: interaction.channelId
+              },
+              "survey saved but welcome message not found for button update"
+            );
+          }
+        } catch (err) {
+          log.tickets.error(
+            {
+              err,
+              ticketId,
+              userId: interaction.user.id,
+              channelId: interaction.channelId
+            },
+            "survey saved but ticket button update failed"
+          );
         }
       }
     }
 
+    log.tickets.info(
+      {
+        ticketId,
+        userId: interaction.user.id,
+        channelId: interaction.channelId
+      },
+      "survey flow completed"
+    );
     await interaction.editReply("Encuesta completada. ¡Gracias!");
   } catch (error) {
     log.tickets.error({ err: error, ticketId, userId: interaction.user.id }, "survey submit error");

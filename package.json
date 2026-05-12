@@ -11,7 +11,8 @@
     "prisma:migrate": "pnpm exec prisma migrate dev",
     "prisma:deploy": "pnpm exec prisma migrate deploy",
     "seed": "bun run prisma/seed.ts",
-    "migrate:legacy:stats": "bun run prisma/migrate-legacy-stats.ts"
+    "migrate:legacy:stats": "bun run prisma/migrate-legacy-stats.ts",
+    "test:player-id-validation": "bun run scripts/test-player-id-validation.ts"
   },
   "devDependencies": {
     "prisma": "6.4.1",

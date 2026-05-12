@@ -1,11 +1,18 @@
 const DEFAULT_TIMEOUT_MS = 8000;
 
 type ValidationService = "hellor" | "hllrecords";
+type ValidationErrorCode =
+  | "ID_REQUIRED"
+  | "INVALID_FORMAT"
+  | "NOT_FOUND"
+  | "SERVICE_UNAVAILABLE";
 
 type ValidationResult = {
   valid: boolean;
   error?: string;
+  errorCode?: ValidationErrorCode;
   service?: ValidationService;
+  details?: Record<string, unknown>;
 };
 
 let lastService: ValidationService = "hllrecords";
@@ -81,22 +88,51 @@ async function validateWithService(
   if (service === "hllrecords") {
     const { ok, status } = await fetchStatusWithGet(url, timeoutMs);
     if (status === 404) {
-      return { valid: false, error: "ID no encontrado", service };
+      return {
+        valid: false,
+        error: "ID no encontrado",
+        errorCode: "NOT_FOUND",
+        service,
+        details: { status, url },
+      };
     }
     if (!ok) {
-      return { valid: false, error: "Servicio no disponible", service };
+      return {
+        valid: false,
+        error: "Servicio no disponible",
+        errorCode: "SERVICE_UNAVAILABLE",
+        service,
+        details: { status, url },
+      };
     }
-    return { valid: true, service };
+    return { valid: true, service, details: { status, url } };
   }
 
-  const { ok, html } = await fetchHtml(url, timeoutMs);
+  const { ok, status, html, error } = await fetchHtml(url, timeoutMs);
   if (!ok) {
-    return { valid: false, error: "Servicio no disponible", service };
+    return {
+      valid: false,
+      error: "Servicio no disponible",
+      errorCode: "SERVICE_UNAVAILABLE",
+      service,
+      details: {
+        status,
+        url,
+        fetchError:
+          error instanceof Error ? error.message : error ? String(error) : null,
+      },
+    };
   }
   if (isNotFoundHtml(html)) {
-    return { valid: false, error: "ID no encontrado", service };
+    return {
+      valid: false,
+      error: "ID no encontrado",
+      errorCode: "NOT_FOUND",
+      service,
+      details: { status, url },
+    };
   }
-  return { valid: true, service };
+  return { valid: true, service, details: { status, url } };
 }
 
 export async function validatePlayerId(
@@ -104,10 +140,10 @@ export async function validatePlayerId(
   timeoutMs = DEFAULT_TIMEOUT_MS,
 ): Promise<ValidationResult> {
   if (!playerId?.trim()) {
-    return { valid: false, error: "ID requerido" };
+    return { valid: false, error: "ID requerido", errorCode: "ID_REQUIRED" };
   }
   if (!looksLikePlayerId(playerId)) {
-    return { valid: false, error: "Formato de ID inválido" };
+    return { valid: false, error: "Formato de ID inválido", errorCode: "INVALID_FORMAT" };
   }
 
   const first: ValidationService =
@@ -125,8 +161,22 @@ export async function validatePlayerId(
   lastService = second;
   if (secondResult.valid) return secondResult;
 
+  const bothNotFound =
+    firstResult.errorCode === "NOT_FOUND" && secondResult.errorCode === "NOT_FOUND";
+
   return {
     valid: false,
-    error: secondResult.error ?? firstResult.error ?? "ID no encontrado",
+    error: bothNotFound
+      ? "ID no encontrado"
+      : "No se pudo validar el ID con los servicios externos",
+    errorCode: bothNotFound ? "NOT_FOUND" : "SERVICE_UNAVAILABLE",
+    details: {
+      firstService: first,
+      firstErrorCode: firstResult.errorCode ?? null,
+      firstDetails: firstResult.details ?? null,
+      secondService: second,
+      secondErrorCode: secondResult.errorCode ?? null,
+      secondDetails: secondResult.details ?? null,
+    },
   };
 }

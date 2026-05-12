@@ -45,9 +45,30 @@ ticketsRouter.get(
       typeof req.query.playerId === "string" ? req.query.playerId : null;
     if (!playerId?.trim())
       return res.status(400).json({ valid: false, error: "playerId required" });
+
+    req.log.info(
+      {
+        event: "ticket_player_id_validation",
+        playerIdLength: playerId.trim().length
+      },
+      "player id validation requested"
+    );
+
     const result = await validatePlayerId(playerId);
+    req.log.info(
+      {
+        event: "ticket_player_id_validation",
+        playerIdLength: playerId.trim().length,
+        valid: result.valid,
+        errorCode: result.errorCode ?? null,
+        service: result.service ?? null,
+        details: result.details ?? null
+      },
+      "player id validation completed"
+    );
     return res.json({
       valid: result.valid,
+      errorCode: result.errorCode ?? undefined,
       error: result.error ?? undefined,
     });
   }
@@ -175,18 +196,47 @@ ticketsRouter.post("/", requireBotOrAdmin, async (req, res) => {
 
 ticketsRouter.patch("/:id", requireBotOrAdmin, async (req, res) => {
   const parsed = ticketCompleteSchema.safeParse(req.body);
-  if (!parsed.success)
+  if (!parsed.success) {
+    req.log.warn(
+      {
+        event: "ticket_survey_update",
+        ticketId: req.params.id,
+        actorType: req.header("x-bot-api-key") ? "bot" : "admin",
+        outcome: "validation_error"
+      },
+      "ticket survey update invalid payload"
+    );
     return res.status(400).json({ error: "Invalid payload" });
+  }
 
   const ticket = await prisma.recruitmentTicket.findUnique({
     where: { id: req.params.id },
   });
-  if (!ticket) return res.status(404).json({ error: "Not found" });
+  if (!ticket) {
+    req.log.warn(
+      {
+        event: "ticket_survey_update",
+        ticketId: req.params.id,
+        outcome: "not_found"
+      },
+      "ticket survey update ticket not found"
+    );
+    return res.status(404).json({ error: "Not found" });
+  }
   if (ticket.status !== "OPEN") {
+    req.log.warn(
+      {
+        event: "ticket_survey_update",
+        ticketId: ticket.id,
+        ticketStatus: ticket.status,
+        outcome: "conflict"
+      },
+      "ticket survey update rejected because ticket is closed"
+    );
     return res.status(409).json({ error: "Ticket closed" });
   }
 
-  const { platform, username, playerId } = parsed.data;
+  const { displayName, platform, username, playerId } = parsed.data;
 
   // Solo actualizar el ticket con los datos de la encuesta. La cuenta (Member + GameAccount)
   // se crea al pulsar "Completar ingreso" vía POST /api/discord/account-requests.
@@ -199,6 +249,21 @@ ticketsRouter.patch("/:id", requireBotOrAdmin, async (req, res) => {
       validatedAt: new Date(),
     },
   });
+
+  req.log.info(
+    {
+      event: "ticket_survey_update",
+      ticketId: updated.id,
+      discordId: updated.discordId,
+      displayName,
+      platform: updated.platform,
+      hasUsername: Boolean(updated.username),
+      playerIdLength: updated.playerId?.length ?? 0,
+      validatedAt: updated.validatedAt?.toISOString() ?? null,
+      outcome: "success"
+    },
+    "ticket survey updated"
+  );
 
   return res.json({ ticket: updated });
 });
