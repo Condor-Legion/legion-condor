@@ -603,73 +603,20 @@ export async function handleSurveyStep1(
     return;
   }
 
-  // Responder en seguida para no superar el timeout de 3s de Discord (la validación puede tardar)
+  // Responder en seguida para no superar el timeout de 3s de Discord.
   await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
-  try {
-    log.tickets.info(
-      {
-        ticketId,
-        userId: interaction.user.id,
-        playerIdLength: playerId.length,
-        platform
-      },
-      "validating playerId for survey step1"
-    );
-    const validateRes = await fetch(
-      `${
-        config.apiUrl
-      }/api/tickets/validate-player-id?playerId=${encodeURIComponent(
-        playerId
-      )}`,
-      { headers: { "x-bot-api-key": config.botApiKey } }
-    );
-    if (validateRes.ok) {
-      const { valid, error, errorCode } = await validateRes.json();
-      log.tickets.info(
-        {
-          ticketId,
-          userId: interaction.user.id,
-          playerIdLength: playerId.length,
-          valid,
-          errorCode: errorCode ?? null,
-          validationError: error ?? null
-        },
-        "playerId validation response received"
-      );
-      if (!valid) {
-        const message =
-          errorCode === "SERVICE_UNAVAILABLE"
-            ? "No se pudo validar el ID en los sitios externos en este momento. Probá de nuevo en unos minutos."
-            : `ID de jugador no válido${
-                error ? `: ${error}` : "."
-              } Revisá el valor (Opciones en juego) y volvé a enviar la encuesta.`;
-        await interaction.editReply(message);
-        return;
-      }
-    } else {
-      const responseText = await validateRes.text();
-      log.tickets.warn(
-        {
-          ticketId,
-          userId: interaction.user.id,
-          statusCode: validateRes.status,
-          responseText
-        },
-        "playerId validation request failed"
-      );
-      await interaction.editReply(
-        "No se pudo validar el ID de jugador en este momento. Intentá de nuevo."
-      );
-      return;
-    }
-  } catch (err) {
-    log.tickets.error({ err, ticketId, userId: interaction.user.id }, "validate playerId error");
-    await interaction.editReply(
-      "No se pudo validar el ID de jugador. Intentá de nuevo."
-    );
-    return;
-  }
+  // Validación externa de playerId desactivada temporalmente.
+  // Los servicios actuales generan falsos negativos y desafíos anti-bot.
+  log.tickets.info(
+    {
+      ticketId,
+      userId: interaction.user.id,
+      playerIdLength: playerId.length,
+      platform
+    },
+    "playerId validation skipped for survey step1"
+  );
 
   surveyCache.set(ticketId, {
     userId: interaction.user.id,

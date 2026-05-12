@@ -17,8 +17,6 @@ type ValidationResult = {
 
 let lastService: ValidationService = "hllrecords";
 
-const NOT_FOUND_PATTERNS = [/Player Not Found/i];
-
 function normalizePlayerId(playerId: string) {
   return playerId.trim().toLowerCase();
 }
@@ -28,10 +26,6 @@ function looksLikePlayerId(playerId: string) {
   const isSteam64 = /^\d{17}$/.test(normalized);
   const isTeam17 = /^[a-f0-9]{32}$/.test(normalized);
   return isSteam64 || isTeam17;
-}
-
-function isNotFoundHtml(html: string) {
-  return NOT_FOUND_PATTERNS.some((pattern) => pattern.test(html));
 }
 
 const FETCH_HEADERS = {
@@ -123,16 +117,15 @@ async function validateWithService(
       },
     };
   }
-  if (isNotFoundHtml(html)) {
-    return {
-      valid: false,
-      error: "ID no encontrado",
-      errorCode: "NOT_FOUND",
-      service,
-      details: { status, url },
-    };
-  }
-  return { valid: true, service, details: { status, url } };
+  return {
+    valid: true,
+    service,
+    details: {
+      status,
+      url,
+      containsPlayerNotFound: /Player Not Found/i.test(html),
+    },
+  };
 }
 
 export async function validatePlayerId(
