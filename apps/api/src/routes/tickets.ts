@@ -237,6 +237,22 @@ ticketsRouter.patch("/:id", requireBotOrAdmin, async (req, res) => {
   }
 
   const { displayName, platform, username, playerId } = parsed.data;
+  const validation = await validatePlayerId(playerId);
+  if (!validation.valid) {
+    req.log.warn(
+      {
+        event: "ticket_survey_update",
+        ticketId: ticket.id,
+        playerIdLength: playerId.trim().length,
+        errorCode: validation.errorCode ?? null,
+        service: validation.service ?? null,
+        details: validation.details ?? null,
+        outcome: "player_id_validation_failed"
+      },
+      "ticket survey update rejected because player id validation failed"
+    );
+    return res.status(400).json({ error: validation.error ?? "Invalid ID" });
+  }
 
   // Solo actualizar el ticket con los datos de la encuesta. La cuenta (Member + GameAccount)
   // se crea al pulsar "Completar ingreso" vía POST /api/discord/account-requests.

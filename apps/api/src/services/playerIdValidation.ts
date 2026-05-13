@@ -1,10 +1,13 @@
 const DEFAULT_TIMEOUT_MS = 8000;
+const DEFAULT_RATE_LIMIT_WINDOW_MS = 10_000;
+const DEFAULT_RATE_LIMIT_MAX_REQUESTS = 10;
 
 type ValidationService = "hellor" | "hllrecords";
 type ValidationErrorCode =
   | "ID_REQUIRED"
   | "INVALID_FORMAT"
   | "NOT_FOUND"
+  | "RATE_LIMITED"
   | "SERVICE_UNAVAILABLE";
 
 type ValidationResult = {
@@ -17,6 +20,38 @@ type ValidationResult = {
 
 let lastService: ValidationService = "hllrecords";
 
+type ServiceRateLimitConfig = {
+  maxRequests: number;
+  windowMs: number;
+};
+
+type ServiceRateLimitState = {
+  queue: Promise<void>;
+  timestamps: number[];
+};
+
+const SERVICE_RATE_LIMITS: Record<ValidationService, ServiceRateLimitConfig> = {
+  hellor: {
+    maxRequests: DEFAULT_RATE_LIMIT_MAX_REQUESTS,
+    windowMs: DEFAULT_RATE_LIMIT_WINDOW_MS,
+  },
+  hllrecords: {
+    maxRequests: DEFAULT_RATE_LIMIT_MAX_REQUESTS,
+    windowMs: DEFAULT_RATE_LIMIT_WINDOW_MS,
+  },
+};
+
+const serviceRateLimitStates: Record<ValidationService, ServiceRateLimitState> = {
+  hellor: {
+    queue: Promise.resolve(),
+    timestamps: [],
+  },
+  hllrecords: {
+    queue: Promise.resolve(),
+    timestamps: [],
+  },
+};
+
 function normalizePlayerId(playerId: string) {
   return playerId.trim().toLowerCase();
 }
@@ -28,9 +63,51 @@ function looksLikePlayerId(playerId: string) {
   return isSteam64 || isTeam17;
 }
 
-const FETCH_HEADERS = {
-  "User-Agent":
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function waitForRateLimitSlot(service: ValidationService): Promise<number> {
+  const state = serviceRateLimitStates[service];
+  const config = SERVICE_RATE_LIMITS[service];
+  const currentQueue = state.queue;
+  let releaseQueue!: () => void;
+  state.queue = new Promise((resolve) => {
+    releaseQueue = resolve;
+  });
+
+  await currentQueue;
+
+  let delayedMs = 0;
+  try {
+    while (true) {
+      const now = Date.now();
+      state.timestamps = state.timestamps.filter(
+        (timestamp) => now - timestamp < config.windowMs,
+      );
+
+      if (state.timestamps.length < config.maxRequests) {
+        state.timestamps.push(now);
+        return delayedMs;
+      }
+
+      const oldestTimestamp = state.timestamps[0] ?? now;
+      const waitMs = Math.max(0, config.windowMs - (now - oldestTimestamp));
+      delayedMs += waitMs;
+      await sleep(waitMs);
+    }
+  } finally {
+    releaseQueue();
+  }
+}
+
+const HLL_RECORDS_HEADERS = {
+  "User-Agent": "LegionCondorBot/1.0 (+Discord ticket validation)",
+  "X-HLLRecords-Bot-Detection": "bypass",
+} as const;
+
+const HELLOR_HEADERS = {
+  "User-Agent": "LegionCondorBot/1.0 (+Discord ticket validation)",
 } as const;
 
 /** GET + solo status (algunos sitios responden 404 a HEAD aunque el recurso exista). */
@@ -40,7 +117,7 @@ async function fetchStatusWithGet(url: string, timeoutMs: number) {
   try {
     const res = await fetch(url, {
       signal: controller.signal,
-      headers: FETCH_HEADERS,
+      headers: HLL_RECORDS_HEADERS,
     });
     await res.text();
     return { ok: res.ok, status: res.status };
@@ -57,7 +134,7 @@ async function fetchHtml(url: string, timeoutMs: number) {
   try {
     const res = await fetch(url, {
       signal: controller.signal,
-      headers: FETCH_HEADERS,
+      headers: HELLOR_HEADERS,
     });
     const html = await res.text();
     return { ok: res.ok, status: res.status, html };
@@ -78,6 +155,7 @@ async function validateWithService(
     service === "hellor"
       ? `https://hellor.pro/player/${normalized}`
       : `https://hllrecords.com/profiles/${normalized}`;
+  const rateLimitDelayMs = await waitForRateLimitSlot(service);
 
   if (service === "hllrecords") {
     const { ok, status } = await fetchStatusWithGet(url, timeoutMs);
@@ -87,7 +165,16 @@ async function validateWithService(
         error: "ID no encontrado",
         errorCode: "NOT_FOUND",
         service,
-        details: { status, url },
+        details: { status, url, rateLimitDelayMs },
+      };
+    }
+    if (status === 429) {
+      return {
+        valid: false,
+        error: "Servicio temporalmente saturado, intentá de nuevo en unos segundos",
+        errorCode: "RATE_LIMITED",
+        service,
+        details: { status, url, rateLimitDelayMs },
       };
     }
     if (!ok) {
@@ -96,10 +183,10 @@ async function validateWithService(
         error: "Servicio no disponible",
         errorCode: "SERVICE_UNAVAILABLE",
         service,
-        details: { status, url },
+        details: { status, url, rateLimitDelayMs },
       };
     }
-    return { valid: true, service, details: { status, url } };
+    return { valid: true, service, details: { status, url, rateLimitDelayMs } };
   }
 
   const { ok, status, html, error } = await fetchHtml(url, timeoutMs);
@@ -112,6 +199,7 @@ async function validateWithService(
       details: {
         status,
         url,
+        rateLimitDelayMs,
         fetchError:
           error instanceof Error ? error.message : error ? String(error) : null,
       },
@@ -123,6 +211,7 @@ async function validateWithService(
     details: {
       status,
       url,
+      rateLimitDelayMs,
       containsPlayerNotFound: /Player Not Found/i.test(html),
     },
   };
@@ -139,10 +228,8 @@ export async function validatePlayerId(
     return { valid: false, error: "Formato de ID inválido", errorCode: "INVALID_FORMAT" };
   }
 
-  const first: ValidationService =
-    lastService === "hellor" ? "hllrecords" : "hellor";
-  const second: ValidationService =
-    first === "hellor" ? "hllrecords" : "hellor";
+  const first: ValidationService = "hllrecords";
+  const second: ValidationService = "hellor";
 
   const firstResult = await validateWithService(first, playerId, timeoutMs);
   if (firstResult.valid) {
@@ -150,19 +237,21 @@ export async function validatePlayerId(
     return firstResult;
   }
 
+  if (
+    firstResult.errorCode === "NOT_FOUND" ||
+    firstResult.errorCode === "RATE_LIMITED"
+  ) {
+    return firstResult;
+  }
+
   const secondResult = await validateWithService(second, playerId, timeoutMs);
   lastService = second;
   if (secondResult.valid) return secondResult;
 
-  const bothNotFound =
-    firstResult.errorCode === "NOT_FOUND" && secondResult.errorCode === "NOT_FOUND";
-
   return {
     valid: false,
-    error: bothNotFound
-      ? "ID no encontrado"
-      : "No se pudo validar el ID con los servicios externos",
-    errorCode: bothNotFound ? "NOT_FOUND" : "SERVICE_UNAVAILABLE",
+    error: "No se pudo validar el ID con los servicios externos",
+    errorCode: "SERVICE_UNAVAILABLE",
     details: {
       firstService: first,
       firstErrorCode: firstResult.errorCode ?? null,

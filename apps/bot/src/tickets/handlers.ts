@@ -606,16 +606,66 @@ export async function handleSurveyStep1(
   // Responder en seguida para no superar el timeout de 3s de Discord.
   await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
-  // Validación externa de playerId desactivada temporalmente.
-  // Los servicios actuales generan falsos negativos y desafíos anti-bot.
+  const validationStartedAt = Date.now();
+  const validationRes = await fetch(
+    `${config.apiUrl}/api/tickets/validate-player-id?playerId=${encodeURIComponent(playerId)}`,
+    {
+      headers: { "x-bot-api-key": config.botApiKey }
+    }
+  );
+
+  if (!validationRes.ok) {
+    const text = await validationRes.text();
+    log.tickets.warn(
+      {
+        ticketId,
+        userId: interaction.user.id,
+        playerIdLength: playerId.length,
+        platform,
+        statusCode: validationRes.status,
+        durationMs: Date.now() - validationStartedAt,
+        responseText: text
+      },
+      "playerId validation request failed for survey step1"
+    );
+    await interaction.editReply(
+      `No se pudo validar el ID de jugador: ${validationRes.status} ${text}`
+    );
+    return;
+  }
+
+  const validation = (await validationRes.json()) as {
+    valid: boolean;
+    error?: string;
+    errorCode?: string;
+  };
+  if (!validation.valid) {
+    log.tickets.info(
+      {
+        ticketId,
+        userId: interaction.user.id,
+        playerIdLength: playerId.length,
+        platform,
+        errorCode: validation.errorCode ?? null,
+        durationMs: Date.now() - validationStartedAt
+      },
+      "playerId validation rejected for survey step1"
+    );
+    await interaction.editReply(
+      validation.error ?? "El ID de jugador no es válido."
+    );
+    return;
+  }
+
   log.tickets.info(
     {
       ticketId,
       userId: interaction.user.id,
       playerIdLength: playerId.length,
-      platform
+      platform,
+      durationMs: Date.now() - validationStartedAt
     },
-    "playerId validation skipped for survey step1"
+    "playerId validation passed for survey step1"
   );
 
   surveyCache.set(ticketId, {
