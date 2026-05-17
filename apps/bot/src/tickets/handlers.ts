@@ -5,6 +5,7 @@ import {
   MessageFlags,
   PermissionFlagsBits,
   type ButtonInteraction,
+  type GuildMember,
   type GuildTextBasedChannel,
   type Message,
   type ModalSubmitInteraction
@@ -23,6 +24,37 @@ import {
 } from "./builders";
 import { surveyCache } from "./cache";
 
+interface RecruitmentTicketRecord {
+  id: string;
+  number: number | null;
+  discordId: string;
+  creatorDiscordUsername?: string | null;
+  creatorDisplayName?: string | null;
+  channelId?: string | null;
+  platform?: string | null;
+  username?: string | null;
+  playerId?: string | null;
+  closedAt?: string | null;
+}
+
+type TicketCloseSource = "USER_CLOSED" | "ADMIN_CLOSED" | "COMPLETED_ENTRY";
+
+function resolveMemberDisplayName(member: GuildMember | null): string | null {
+  return member?.displayName ?? member?.nickname ?? null;
+}
+
+function buildIdentityLabel(
+  discordId: string | null | undefined,
+  username: string | null | undefined,
+  displayName: string | null | undefined
+): string {
+  if (!discordId) return "—";
+  const parts = [`<@${discordId}>`, `(${discordId})`];
+  if (username) parts.push(`Usuario: ${username}`);
+  if (displayName) parts.push(`Apodo: ${displayName}`);
+  return parts.join(" ");
+}
+
 export async function handleTicketCreate(
   interaction: ButtonInteraction
 ): Promise<void> {
@@ -37,6 +69,10 @@ export async function handleTicketCreate(
 
   await interaction.deferReply({ flags: MessageFlags.Ephemeral });
   try {
+    const creatorMember =
+      interaction.member && "displayName" in interaction.member
+        ? interaction.member
+        : null;
     const res = await fetch(
       `${config.apiUrl}/api/tickets?discordId=${interaction.user.id}`,
       { headers: { "x-bot-api-key": config.botApiKey } }
@@ -60,7 +96,11 @@ export async function handleTicketCreate(
         "Content-Type": "application/json",
         "x-bot-api-key": config.botApiKey
       },
-      body: JSON.stringify({ discordId: interaction.user.id })
+      body: JSON.stringify({
+        discordId: interaction.user.id,
+        creatorDiscordUsername: interaction.user.username,
+        creatorDisplayName: resolveMemberDisplayName(creatorMember)
+      })
     });
 
     if (!ticketRes.ok) {
@@ -140,7 +180,7 @@ export async function handleTicketCreate(
 
     await interaction.editReply(`Ticket creado: <#${channel.id}>`);
   } catch (error) {
-    log.tickets.error({ err: error, userId: interaction.user.id }, "create ticket error");
+    log.tickets.error({ err: error, userId: interaction.user.id }, "Ticket Create Error");
     const isMissingPerms =
       typeof error === "object" &&
       error !== null &&
@@ -225,29 +265,58 @@ export async function handleTicketClose(
   }
   await interaction.deferReply({ flags: MessageFlags.Ephemeral });
   try {
+    log.tickets.info(
+      { ticketId, userId: interaction.user.id, channelId: interaction.channelId },
+      "Ticket Close Started"
+    );
     const ticketRes = await fetch(`${config.apiUrl}/api/tickets/${ticketId}`, {
       headers: { "x-bot-api-key": config.botApiKey }
     });
-    if (ticketRes.ok && config.ticketPendingRoleId) {
-      const ticketData = await ticketRes.json();
-      const ticket = ticketData.ticket;
-      const discordId = ticket?.discordId;
-      const surveyCompleted = ticket?.platform && ticket?.playerId;
-      if (discordId && surveyCompleted) {
-        const member = await interaction
-          .guild!.members.fetch(discordId)
-          .catch(() => null);
-        if (member) {
-          await member.roles
-            .remove(config.ticketPendingRoleId!)
-            .catch(() => {});
-        }
+    if (!ticketRes.ok) {
+      const text = await ticketRes.text();
+      await interaction.editReply(`Error al obtener el ticket: ${ticketRes.status} ${text}`);
+      return;
+    }
+
+    const ticketData = (await ticketRes.json()) as { ticket?: RecruitmentTicketRecord };
+    const ticket = ticketData.ticket;
+    if (!ticket) {
+      await interaction.editReply("Ticket no encontrado.");
+      return;
+    }
+
+    const surveyCompleted = Boolean(ticket.platform && ticket.playerId);
+    if (ticket.discordId && surveyCompleted && config.ticketPendingRoleId) {
+      const member = await interaction.guild!.members.fetch(ticket.discordId).catch(() => null);
+      if (member) {
+        await member.roles.remove(config.ticketPendingRoleId).catch(() => {});
       }
     }
 
+    await sendTicketTranscriptLog(
+      interaction,
+      ticket,
+      isTicketAdmin(interaction) ? "ADMIN_CLOSED" : "USER_CLOSED",
+      0xe67e22,
+      "Ticket Cerrado"
+    );
+
     const res = await fetch(`${config.apiUrl}/api/tickets/${ticketId}/close`, {
       method: "PATCH",
-      headers: { "x-bot-api-key": config.botApiKey }
+      headers: {
+        "Content-Type": "application/json",
+        "x-bot-api-key": config.botApiKey
+      },
+      body: JSON.stringify({
+        closeSource: isTicketAdmin(interaction) ? "ADMIN_CLOSED" : "USER_CLOSED",
+        closedByDiscordId: interaction.user.id,
+        closedByDiscordUsername: interaction.user.username,
+        closedByDisplayName:
+          interaction.member && "displayName" in interaction.member
+            ? interaction.member.displayName
+            : null,
+        closedByIsAdmin: isTicketAdmin(interaction)
+      })
     });
     if (!res.ok) {
       const text = await res.text();
@@ -261,7 +330,7 @@ export async function handleTicketClose(
       await interaction.channel.delete("Ticket cerrado").catch(() => {});
     }
   } catch (error) {
-    log.tickets.error({ err: error, ticketId, userId: interaction.user.id }, "close ticket error");
+    log.tickets.error({ err: error, ticketId, userId: interaction.user.id }, "Ticket Close Error");
     await interaction.editReply("Error cerrando el ticket.").catch(() => {});
   }
 }
@@ -352,27 +421,44 @@ async function fetchAllMessages(
   return messages.sort((a, b) => a.createdTimestamp - b.createdTimestamp);
 }
 
-/** Genera texto del transcript: participantes y luego cada mensaje. */
-function buildTranscriptText(
-  ticketId: string,
-  creatorDiscordId: string,
-  messages: Message[]
-): { text: string; participantIds: Set<string> } {
+function buildParticipantList(messages: Message[]): string[] {
   const participantIds = new Set<string>();
-  const lines: string[] = [
-    `=== Ticket ${ticketId} ===`,
-    `Creador: ${creatorDiscordId}`,
-    "",
-    "--- Participantes ---"
-  ];
   for (const msg of messages) {
     if (msg.author.bot) continue;
     participantIds.add(msg.author.id);
   }
-  for (const id of [...participantIds].sort()) {
-    const msg = messages.find((m) => m.author.id === id);
-    const name = msg?.author.tag ?? id;
-    lines.push(`${name} (${id})`);
+  return [...participantIds].sort().map((id) => {
+    const msg = messages.find((entry) => entry.author.id === id);
+    return msg ? `${msg.author.tag} (${id})` : id;
+  });
+}
+
+/** Genera texto del transcript: participantes y luego cada mensaje. */
+function buildTranscriptText(
+  ticketDisplayNumber: string,
+  ticket: RecruitmentTicketRecord,
+  closer: {
+    discordId: string;
+    username: string;
+    displayName: string | null;
+    closeSource: TicketCloseSource;
+  },
+  messages: Message[]
+): { text: string; participantList: string[] } {
+  const participantList = buildParticipantList(messages);
+  const participantIds = new Set<string>();
+  const lines: string[] = [
+    `=== Ticket ${ticketDisplayNumber} ===`,
+    `Ticket ID: ${ticket.id}`,
+    `Creador: ${buildIdentityLabel(ticket.discordId, ticket.creatorDiscordUsername, ticket.creatorDisplayName)}`,
+    `Cerrado Por: ${buildIdentityLabel(closer.discordId, closer.username, closer.displayName)}`,
+    `Tipo De Cierre: ${closer.closeSource}`,
+    `Encuesta Completa: ${ticket.platform && ticket.playerId ? "SI" : "NO"}`,
+    "",
+    "--- Participantes ---"
+  ];
+  for (const label of participantList) {
+    lines.push(label);
   }
   lines.push("");
   lines.push("--- Mensajes ---");
@@ -386,7 +472,77 @@ function buildTranscriptText(
         : "";
     lines.push(`[${date}] ${author}: ${content}${attachments}`);
   }
-  return { text: lines.join("\n"), participantIds };
+  return { text: lines.join("\n"), participantList };
+}
+
+async function sendTicketTranscriptLog(
+  interaction: ButtonInteraction,
+  ticket: RecruitmentTicketRecord,
+  closeSource: TicketCloseSource,
+  color: number,
+  title: string
+): Promise<void> {
+  if (!config.ticketLogChannelId) {
+    log.tickets.warn({ ticketId: ticket.id }, "Ticket Transcript Log Skipped Missing Channel");
+    return;
+  }
+  const channel = interaction.channel;
+  if (channel?.type !== ChannelType.GuildText) {
+    log.tickets.warn({ ticketId: ticket.id }, "Ticket Transcript Log Skipped Non Text Channel");
+    return;
+  }
+
+  const messages = await fetchAllMessages(channel);
+  const closerDisplayName =
+    interaction.member && "displayName" in interaction.member
+      ? interaction.member.displayName
+      : null;
+  const ticketDisplayNumber =
+    ticket.number != null ? String(ticket.number).padStart(4, "0") : ticket.id;
+  const { text: transcriptText, participantList } = buildTranscriptText(
+    ticketDisplayNumber,
+    ticket,
+    {
+      discordId: interaction.user.id,
+      username: interaction.user.username,
+      displayName: closerDisplayName,
+      closeSource
+    },
+    messages
+  );
+
+  const logChannel = await interaction.guild!.channels.fetch(config.ticketLogChannelId);
+  if (logChannel?.type !== ChannelType.GuildText || !logChannel.isSendable()) {
+    throw new Error("No se pudo acceder al canal de logs.");
+  }
+
+  const embed = new EmbedBuilder()
+    .setTitle(`${title} - ticket-${ticketDisplayNumber}`)
+    .setDescription(
+      [
+        `**Creador:** ${buildIdentityLabel(ticket.discordId, ticket.creatorDiscordUsername, ticket.creatorDisplayName)}`,
+        `**Cerrado Por:** ${buildIdentityLabel(interaction.user.id, interaction.user.username, closerDisplayName)}`,
+        `**Tipo De Cierre:** ${closeSource}`,
+        `**Encuesta Completa:** ${ticket.platform && ticket.playerId ? "SI" : "NO"}`,
+        `**Participantes:** ${participantList.join(", ") || "—"}`,
+        `**Mensajes:** ${messages.length}`
+      ].join("\n")
+    )
+    .setTimestamp()
+    .setColor(color);
+  const file = new AttachmentBuilder(Buffer.from(transcriptText, "utf-8"), {
+    name: `ticket-${ticketDisplayNumber}-transcript.txt`
+  });
+  await logChannel.send({ embeds: [embed], files: [file] });
+  log.tickets.info(
+    {
+      ticketId: ticket.id,
+      closeSource,
+      channelId: interaction.channelId,
+      messages: messages.length
+    },
+    "Ticket Transcript Logged"
+  );
 }
 
 export async function handleTicketCompleteEntry(
@@ -415,13 +571,6 @@ export async function handleTicketCompleteEntry(
     });
     return;
   }
-  if (!config.ticketLogChannelId) {
-    await interaction.reply({
-      content: "Falta TICKETS_LOG_CHANNEL_ID para guardar el transcript.",
-      flags: MessageFlags.Ephemeral
-    });
-    return;
-  }
   await interaction.deferReply({ flags: MessageFlags.Ephemeral });
   try {
     const ticketRes = await fetch(`${config.apiUrl}/api/tickets/${ticketId}`, {
@@ -433,13 +582,9 @@ export async function handleTicketCompleteEntry(
       );
       return;
     }
-    const ticketData = await ticketRes.json();
+    const ticketData = (await ticketRes.json()) as { ticket?: RecruitmentTicketRecord };
     const ticket = ticketData.ticket;
     const discordId = ticket?.discordId;
-    const ticketDisplayNumber =
-      ticket?.number != null
-        ? String(ticket.number).padStart(4, "0")
-        : ticketId;
     if (!discordId) {
       await interaction.editReply("Ticket sin usuario asociado.");
       return;
@@ -499,55 +644,32 @@ export async function handleTicketCompleteEntry(
     await member.roles.add(config.ticketMemberRoleId!);
     await member.roles.remove(config.ticketPendingRoleId!);
 
-    const channel = interaction.channel;
-    if (channel?.type !== ChannelType.GuildText) {
-      await interaction.editReply("Canal no es de texto.");
-      return;
-    }
-    const messages = await fetchAllMessages(channel);
-    const { text: transcriptText, participantIds } = buildTranscriptText(
-      ticketDisplayNumber,
-      discordId,
-      messages
+    await sendTicketTranscriptLog(
+      interaction,
+      ticket,
+      "COMPLETED_ENTRY",
+      0x2ecc71,
+      "Ticket Completado"
     );
-
-    const logChannel = await interaction.guild!.channels.fetch(
-      config.ticketLogChannelId!
-    );
-    if (
-      logChannel?.type !== ChannelType.GuildText ||
-      !logChannel.isSendable()
-    ) {
-      await interaction.editReply("No se pudo acceder al canal de logs.");
-      return;
-    }
-    const participantList = [...participantIds]
-      .map((id) => {
-        const msg = messages.find((m) => m.author.id === id);
-        return msg ? `${msg.author.tag} (${id})` : id;
-      })
-      .join(", ");
-    const embed = new EmbedBuilder()
-      .setTitle(`Ticket completado — ticket-${ticketDisplayNumber}`)
-      .setDescription(
-        [
-          `**Creador:** <@${discordId}> (${discordId})`,
-          `**Participantes:** ${participantList || "—"}`,
-          `**Mensajes:** ${messages.length}`
-        ].join("\n")
-      )
-      .setTimestamp()
-      .setColor(0x2ecc71);
-    const file = new AttachmentBuilder(Buffer.from(transcriptText, "utf-8"), {
-      name: `ticket-${ticketDisplayNumber}-transcript.txt`
-    });
-    await logChannel.send({ embeds: [embed], files: [file] });
 
     const closeRes = await fetch(
       `${config.apiUrl}/api/tickets/${ticketId}/close`,
       {
         method: "PATCH",
-        headers: { "x-bot-api-key": config.botApiKey }
+        headers: {
+          "Content-Type": "application/json",
+          "x-bot-api-key": config.botApiKey
+        },
+        body: JSON.stringify({
+          closeSource: "COMPLETED_ENTRY",
+          closedByDiscordId: interaction.user.id,
+          closedByDiscordUsername: interaction.user.username,
+          closedByDisplayName:
+            interaction.member && "displayName" in interaction.member
+              ? interaction.member.displayName
+              : null,
+          closedByIsAdmin: true
+        })
       }
     );
     if (!closeRes.ok) {
@@ -556,12 +678,12 @@ export async function handleTicketCompleteEntry(
       );
       return;
     }
-    await interaction.editReply(
-      "Ingreso completado. Transcript guardado. Cerrando canal..."
-    );
-    await channel.delete("Ticket completado").catch(() => {});
+    await interaction.editReply("Ingreso completado. Transcript guardado. Cerrando canal...");
+    if (interaction.channel?.type === ChannelType.GuildText) {
+      await interaction.channel.delete("Ticket completado").catch(() => {});
+    }
   } catch (error) {
-    log.tickets.error({ err: error, ticketId, userId: interaction.user.id }, "complete entry error");
+    log.tickets.error({ err: error, ticketId, userId: interaction.user.id }, "Ticket Complete Entry Error");
     await interaction
       .editReply("Error al completar el ingreso.")
       .catch(() => {});

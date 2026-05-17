@@ -60,6 +60,12 @@ enum RecruitmentTicketStatus {
   CLOSED
 }
 
+enum RecruitmentTicketCloseSource {
+  USER_CLOSED
+  ADMIN_CLOSED
+  COMPLETED_ENTRY
+}
+
 model AdminUser {
   id           String      @id @default(cuid())
   username     String      @unique
@@ -329,18 +335,25 @@ model AuditLog {
 }
 
 model RecruitmentTicket {
-  id         String                  @id @default(cuid())
-  number     Int                     @unique // Número secuencial de 4 dígitos para mostrar (ticket-0001)
-  discordId  String
-  channelId  String?                 @unique
-  platform   AccountProvider?
-  username   String?
-  playerId   String?
-  status     RecruitmentTicketStatus @default(OPEN)
-  validatedAt DateTime?
-  createdAt  DateTime                @default(now())
-  updatedAt  DateTime                @updatedAt
-  closedAt   DateTime?
+  id                      String                       @id @default(cuid())
+  number                  Int                          @unique // Número secuencial de 4 dígitos para mostrar (ticket-0001)
+  discordId               String
+  creatorDiscordUsername  String?
+  creatorDisplayName      String?
+  channelId               String?                      @unique
+  platform                AccountProvider?
+  username                String?
+  playerId                String?
+  status                  RecruitmentTicketStatus      @default(OPEN)
+  validatedAt             DateTime?
+  createdAt               DateTime                     @default(now())
+  updatedAt               DateTime                     @updatedAt
+  closedAt                DateTime?
+  closeSource             RecruitmentTicketCloseSource?
+  closedByDiscordId       String?
+  closedByDiscordUsername String?
+  closedByDisplayName     String?
+  closedByIsAdmin         Boolean?
 
   @@index([discordId])
 }

@@ -22,6 +22,8 @@ async function requireBotOrAdmin(
 
 const ticketCreateSchema = z.object({
   discordId: z.string().min(1),
+  creatorDiscordUsername: z.string().min(1).optional(),
+  creatorDisplayName: z.string().min(1).optional().nullable(),
   channelId: z.string().min(1).optional(),
   displayName: z.string().min(1).optional(),
   platform: z.enum(["STEAM", "EPIC", "XBOX_PASS"]).optional(),
@@ -34,6 +36,14 @@ const ticketCompleteSchema = z.object({
   platform: z.enum(["STEAM", "EPIC", "XBOX_PASS"]),
   username: z.string().min(1),
   playerId: z.string().min(1),
+});
+
+const ticketCloseSchema = z.object({
+  closeSource: z.enum(["USER_CLOSED", "ADMIN_CLOSED", "COMPLETED_ENTRY"]),
+  closedByDiscordId: z.string().min(1),
+  closedByDiscordUsername: z.string().min(1),
+  closedByDisplayName: z.string().min(1).nullable().optional(),
+  closedByIsAdmin: z.boolean().optional(),
 });
 
 /** Validar ID de jugador (para el bot al enviar paso 1 del modal). */
@@ -120,7 +130,16 @@ ticketsRouter.post("/", requireBotOrAdmin, async (req, res) => {
   if (!parsed.success)
     return res.status(400).json({ error: "Invalid payload" });
 
-  const { discordId, channelId, displayName, platform, username, playerId } =
+  const {
+    discordId,
+    creatorDiscordUsername,
+    creatorDisplayName,
+    channelId,
+    displayName,
+    platform,
+    username,
+    playerId
+  } =
     parsed.data;
 
   const existingOpen = await prisma.recruitmentTicket.findFirst({
@@ -168,6 +187,8 @@ ticketsRouter.post("/", requireBotOrAdmin, async (req, res) => {
         data: {
           number: nextNumber,
           discordId,
+          creatorDiscordUsername,
+          creatorDisplayName: creatorDisplayName ?? null,
           channelId,
           platform,
           username,
@@ -188,7 +209,14 @@ ticketsRouter.post("/", requireBotOrAdmin, async (req, res) => {
     });
     const nextNumber = (max._max.number ?? 0) + 1;
     return tx.recruitmentTicket.create({
-      data: { number: nextNumber, discordId, channelId, status: "OPEN" },
+      data: {
+        number: nextNumber,
+        discordId,
+        creatorDiscordUsername,
+        creatorDisplayName: creatorDisplayName ?? null,
+        channelId,
+        status: "OPEN"
+      },
     });
   });
   return res.status(201).json({ ticket });
@@ -285,15 +313,71 @@ ticketsRouter.patch("/:id", requireBotOrAdmin, async (req, res) => {
 });
 
 ticketsRouter.patch("/:id/close", requireBotOrAdmin, async (req, res) => {
+  const parsed = ticketCloseSchema.safeParse(req.body);
+  if (!parsed.success) {
+    req.log.warn(
+      {
+        event: "ticket_close",
+        ticketId: req.params.id,
+        outcome: "validation_error"
+      },
+      "Ticket Close Invalid Payload"
+    );
+    return res.status(400).json({ error: "Invalid payload" });
+  }
+
   const ticket = await prisma.recruitmentTicket.findUnique({
     where: { id: req.params.id },
   });
-  if (!ticket) return res.status(404).json({ error: "Not found" });
-  if (ticket.status === "CLOSED") return res.json({ ticket });
+  if (!ticket) {
+    req.log.warn(
+      {
+        event: "ticket_close",
+        ticketId: req.params.id,
+        outcome: "not_found"
+      },
+      "Ticket Close Ticket Not Found"
+    );
+    return res.status(404).json({ error: "Not found" });
+  }
+  if (ticket.status === "CLOSED") {
+    req.log.info(
+      {
+        event: "ticket_close",
+        ticketId: ticket.id,
+        outcome: "success",
+        alreadyClosed: true
+      },
+      "Ticket Close Already Closed"
+    );
+    return res.json({ ticket });
+  }
 
   const closed = await prisma.recruitmentTicket.update({
     where: { id: ticket.id },
-    data: { status: "CLOSED", closedAt: new Date() },
+    data: {
+      status: "CLOSED",
+      closedAt: new Date(),
+      closeSource: parsed.data.closeSource,
+      closedByDiscordId: parsed.data.closedByDiscordId,
+      closedByDiscordUsername: parsed.data.closedByDiscordUsername,
+      closedByDisplayName: parsed.data.closedByDisplayName ?? null,
+      closedByIsAdmin: parsed.data.closedByIsAdmin ?? null,
+    },
   });
+  req.log.info(
+    {
+      event: "ticket_close",
+      ticketId: closed.id,
+      discordId: closed.discordId,
+      closeSource: closed.closeSource,
+      closedByDiscordId: closed.closedByDiscordId,
+      closedByDiscordUsername: closed.closedByDiscordUsername,
+      closedByDisplayName: closed.closedByDisplayName,
+      closedByIsAdmin: closed.closedByIsAdmin,
+      outcome: "success"
+    },
+    "Ticket Close Completed"
+  );
   return res.json({ ticket: closed });
 });
