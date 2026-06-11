@@ -3,6 +3,7 @@ import {
   ActionRowBuilder,
   ButtonBuilder,
   ButtonStyle,
+  DiscordAPIError,
   MessageFlags,
   PermissionFlagsBits,
   AttachmentBuilder,
@@ -22,6 +23,7 @@ import { buildSetupActionRow } from "../tickets";
 const GMT3 = "-03:00";
 const GULAG_PAGE_SIZE = 20;
 const GULAG_PAGE_BUTTON_PREFIX = "gulag_page";
+const DISCORD_MESSAGE_MAX_LENGTH = 2000;
 const DAY_NAMES: Record<string, number> = {
   domingo: 0,
   dom: 0,
@@ -1924,6 +1926,13 @@ export async function handleAnunciar(
   const publishNow = !hora && !fecha && !diasSemanaRaw;
 
   if (publishNow) {
+    if (content && content.length > DISCORD_MESSAGE_MAX_LENGTH) {
+      await interaction.editReply(
+        `El mensaje es demasiado largo. Discord permite hasta ${DISCORD_MESSAGE_MAX_LENGTH} caracteres por mensaje.`
+      );
+      return;
+    }
+
     try {
       const files = await fetchAttachmentFiles(sourceMessage);
       const payload: {
@@ -1942,6 +1951,18 @@ export async function handleAnunciar(
       );
     } catch (err) {
       log.commands.error({ err, command: "anunciar", userId: interaction.user.id }, "anunciar send error");
+      if (
+        err instanceof DiscordAPIError &&
+        err.code === 50035 &&
+        content &&
+        content.length > DISCORD_MESSAGE_MAX_LENGTH
+      ) {
+        await interaction.editReply(
+          `El mensaje es demasiado largo. Discord permite hasta ${DISCORD_MESSAGE_MAX_LENGTH} caracteres por mensaje.`
+        );
+        return;
+      }
+
       await interaction.editReply(
         "No se pudo enviar el mensaje en ese canal (permisos o canal no válido)."
       );
