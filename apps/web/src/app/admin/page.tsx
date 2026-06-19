@@ -54,6 +54,11 @@ export default function AdminHome() {
                 <Link href="/admin/catalogs">Catalogos</Link>
               </Button>
             )}
+            {isAuthenticated && (
+              <Button asChild variant="outline">
+                <Link href="/admin/stats">Estadisticas</Link>
+              </Button>
+            )}
           </div>
         </div>
         {error && <p className="text-red-400">{error}</p>}
