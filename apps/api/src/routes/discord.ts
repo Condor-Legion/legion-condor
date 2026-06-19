@@ -69,11 +69,14 @@ const createAnnouncementSchema = z.object({
 
 function resolveDisplayName(input: {
   nickname?: string | null;
+  displayName?: string;
   username?: string;
   fallback?: string;
 }) {
   const nickname = input.nickname?.trim();
   if (nickname) return nickname;
+  const displayName = input.displayName?.trim();
+  if (displayName) return displayName;
   const username = input.username?.trim();
   if (username) return username;
   return (input.fallback ?? "").trim();
@@ -280,8 +283,8 @@ discordRouter.post("/roster/sync", requireBotOrAdmin, async (req, res) => {
       batch.flatMap((member) => {
         const displayName = resolveDisplayName({
           nickname: member.nickname,
+          displayName: member.displayName,
           username: member.username,
-          fallback: member.displayName,
         });
         return [
           prisma.member.upsert({
@@ -330,8 +333,8 @@ discordRouter.post("/roster/sync", requireBotOrAdmin, async (req, res) => {
     username: member.username ?? member.displayName,
     displayName: resolveDisplayName({
       nickname: member.nickname,
+      displayName: member.displayName,
       username: member.username,
-      fallback: member.displayName,
     }),
     joinedAt: member.joinedAt ?? null,
     roleIds: (member.roles ?? []).map((role) => role.id),
