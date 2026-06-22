@@ -11,6 +11,7 @@ import {
   type ButtonInteraction,
   type Message,
   type ChatInputCommandInteraction,
+  type Role,
   type TextBasedChannel,
 } from "discord.js";
 import { config } from "../config";
@@ -580,6 +581,132 @@ export async function handleCreateAccount(
   } catch (error) {
     log.commands.error({ err: error, command: "crear-cuenta", userId: interaction.user.id }, "command failed");
     await interaction.editReply("Error creando cuenta.");
+  }
+}
+
+export async function handleTemporaryRoleGrant(
+  interaction: ChatInputCommandInteraction
+): Promise<void> {
+  if (!interaction.inGuild() || !interaction.guildId) {
+    await interaction.reply({
+      content: "Este comando solo funciona dentro de un servidor.",
+      flags: MessageFlags.Ephemeral,
+    });
+    return;
+  }
+
+  const canManageRoles =
+    interaction.memberPermissions?.has(PermissionFlagsBits.ManageRoles) ?? false;
+  if (!canManageRoles) {
+    await interaction.reply({
+      content: "Necesitas permiso para administrar roles.",
+      flags: MessageFlags.Ephemeral,
+    });
+    return;
+  }
+
+  const targetUser = interaction.options.getUser("usuario", true);
+  const selectedRole = interaction.options.getRole("rol", true);
+  const days = interaction.options.getInteger("cantidad_de_dias", true);
+
+  if (!("position" in selectedRole)) {
+    await interaction.reply({
+      content: "Solo se pueden asignar roles del servidor.",
+      flags: MessageFlags.Ephemeral,
+    });
+    return;
+  }
+
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+
+  try {
+    const guild = interaction.guild;
+    if (!guild) {
+      await interaction.editReply("No se pudo determinar el servidor.");
+      return;
+    }
+
+    const role = selectedRole as Role;
+    const targetMember = await guild.members.fetch(targetUser.id).catch(() => null);
+    const actorMember = await guild.members.fetch(interaction.user.id).catch(() => null);
+
+    if (!targetMember) {
+      await interaction.editReply("No se pudo encontrar a ese miembro en el servidor.");
+      return;
+    }
+
+    if (!actorMember) {
+      await interaction.editReply("No se pudo validar tu miembro del servidor.");
+      return;
+    }
+
+    const botMember = guild.members.me ?? (await guild.members.fetchMe().catch(() => null));
+    if (!botMember) {
+      await interaction.editReply("No se pudo determinar los permisos del bot.");
+      return;
+    }
+
+    if (role.id === guild.id) {
+      await interaction.editReply("No se puede asignar el rol @everyone.");
+      return;
+    }
+
+    if (role.managed) {
+      await interaction.editReply("Ese rol es administrado por una integración y no se puede asignar manualmente.");
+      return;
+    }
+
+    if (botMember.roles.highest.position <= role.position) {
+      await interaction.editReply("No puedo asignar ese rol porque está por encima de mi rol más alto.");
+      return;
+    }
+
+    if (actorMember.roles.highest.position <= role.position) {
+      await interaction.editReply("No puedes asignar un rol igual o superior a tu rol más alto.");
+      return;
+    }
+
+    const expiresAt = new Date(Date.now() + days * 24 * 60 * 60 * 1000);
+    const alreadyHadRole = targetMember.roles.cache.has(role.id);
+
+    await targetMember.roles.add(role, `Rol temporal por ${days} día(s) asignado por ${interaction.user.tag}`);
+
+    const response = await fetch(`${config.apiUrl}/api/discord/temporary-roles`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-bot-api-key": config.botApiKey,
+      },
+      body: JSON.stringify({
+        guildId: interaction.guildId,
+        userId: targetUser.id,
+        roleId: role.id,
+        assignedById: interaction.user.id,
+        expiresAt: expiresAt.toISOString(),
+      }),
+    });
+
+    if (!response.ok) {
+      if (!alreadyHadRole) {
+        await targetMember.roles.remove(
+          role,
+          "Revirtiendo asignacion temporal: no se pudo persistir el vencimiento",
+        ).catch(() => null);
+      }
+      const text = await response.text();
+      await interaction.editReply(`No se pudo guardar el vencimiento del rol: ${response.status} ${text}`);
+      return;
+    }
+
+    const expiresAtLabel = formatDateTimeLocal(expiresAt.toISOString());
+    await interaction.editReply(
+      alreadyHadRole
+        ? `Se renovó el vencimiento de <@&${role.id}> para <@${targetUser.id}> hasta ${expiresAtLabel}.`
+        : `Se asignó <@&${role.id}> a <@${targetUser.id}> hasta ${expiresAtLabel}.`
+    );
+  } catch (error) {
+    log.commands.error({ err: error, command: "dar-rol", userId: interaction.user.id }, "command failed");
+    await interaction.editReply("Error asignando el rol temporal.");
   }
 }
 

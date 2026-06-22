@@ -15,6 +15,7 @@ import {
   handleSetupTickets,
   handleSyncMembers,
   handleSyncRoster,
+  handleTemporaryRoleGrant,
   handleTestBirthday
 } from "../commands/handlers";
 import { parseBirthdayButtonCustomId } from "../lib/birthdayButtons";
@@ -114,6 +115,16 @@ export function setupInteractionCreateEvent(client: Client): void {
           channelId: interaction.channelId,
           userId: interaction.user.id,
         }, async () => handleSetupTickets(interaction));
+        return;
+      }
+      if (interaction.commandName === "dar-rol") {
+        await runLoggedInteraction({
+          kind: "chat_command",
+          commandName: interaction.commandName,
+          guildId: interaction.guildId ?? null,
+          channelId: interaction.channelId,
+          userId: interaction.user.id,
+        }, async () => handleTemporaryRoleGrant(interaction));
         return;
       }
       if (interaction.commandName === "mi-rank") {

@@ -149,6 +149,31 @@ const commands = [
     .setDefaultMemberPermissions(0n)
     .setDMPermission(false),
   new SlashCommandBuilder()
+    .setName("dar-rol")
+    .setDescription("Asigna un rol a un miembro por una cantidad de dias")
+    .setDefaultMemberPermissions(PermissionFlagsBits.ManageRoles)
+    .setDMPermission(false)
+    .addRoleOption((option) =>
+      option
+        .setName("rol")
+        .setDescription("Rol a asignar temporalmente")
+        .setRequired(true)
+    )
+    .addUserOption((option) =>
+      option
+        .setName("usuario")
+        .setDescription("Miembro que recibira el rol")
+        .setRequired(true)
+    )
+    .addIntegerOption((option) =>
+      option
+        .setName("cantidad_de_dias")
+        .setDescription("Duracion del rol temporal en dias")
+        .setRequired(true)
+        .setMinValue(1)
+        .setMaxValue(365)
+    ),
+  new SlashCommandBuilder()
     .setName("test-cumpleanos")
     .setDescription("Prueba el mensaje de cumpleaños en este canal")
     .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)

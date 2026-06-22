@@ -67,6 +67,14 @@ const createAnnouncementSchema = z.object({
   createdById: z.string().optional(),
 });
 
+const createTemporaryRoleGrantSchema = z.object({
+  guildId: z.string(),
+  userId: z.string(),
+  roleId: z.string(),
+  assignedById: z.string().optional(),
+  expiresAt: z.string().datetime(),
+});
+
 function resolveDisplayName(input: {
   nickname?: string | null;
   displayName?: string;
@@ -453,5 +461,62 @@ discordRouter.patch("/announcements/:id", requireBotOrAdmin, async (req, res) =>
 
 discordRouter.delete("/announcements/:id", requireBotOrAdmin, async (req, res) => {
   await prisma.scheduledAnnouncement.delete({ where: { id: req.params.id } });
+  return res.status(204).send();
+});
+
+discordRouter.post("/temporary-roles", requireBotOrAdmin, async (req, res) => {
+  const parsed = createTemporaryRoleGrantSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: "Invalid payload", details: parsed.error.flatten() });
+  }
+
+  const data = parsed.data;
+  const grant = await prisma.temporaryDiscordRoleGrant.upsert({
+    where: {
+      guildId_userId_roleId: {
+        guildId: data.guildId,
+        userId: data.userId,
+        roleId: data.roleId,
+      },
+    },
+    update: {
+      expiresAt: new Date(data.expiresAt),
+      assignedById: data.assignedById ?? null,
+    },
+    create: {
+      guildId: data.guildId,
+      userId: data.userId,
+      roleId: data.roleId,
+      assignedById: data.assignedById ?? null,
+      expiresAt: new Date(data.expiresAt),
+    },
+  });
+
+  return res.status(201).json(grant);
+});
+
+discordRouter.get("/temporary-roles/due", requireBotOrAdmin, async (_req, res) => {
+  const due = await prisma.temporaryDiscordRoleGrant.findMany({
+    where: { expiresAt: { lte: new Date() } },
+    orderBy: { expiresAt: "asc" },
+  });
+  return res.json(due);
+});
+
+discordRouter.patch("/temporary-roles/:id", requireBotOrAdmin, async (req, res) => {
+  const body = z.object({ expiresAt: z.string().datetime() }).safeParse(req.body);
+  if (!body.success) {
+    return res.status(400).json({ error: "expiresAt (ISO) required" });
+  }
+
+  const updated = await prisma.temporaryDiscordRoleGrant.update({
+    where: { id: req.params.id },
+    data: { expiresAt: new Date(body.data.expiresAt) },
+  });
+  return res.json(updated);
+});
+
+discordRouter.delete("/temporary-roles/:id", requireBotOrAdmin, async (req, res) => {
+  await prisma.temporaryDiscordRoleGrant.delete({ where: { id: req.params.id } });
   return res.status(204).send();
 });

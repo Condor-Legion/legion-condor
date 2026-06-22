@@ -422,3 +422,18 @@ model ScheduledAnnouncement {
   @@index([scheduledAt])
   @@index([guildId])
 }
+
+model TemporaryDiscordRoleGrant {
+  id           String   @id @default(cuid())
+  guildId      String
+  userId       String
+  roleId       String
+  assignedById String?
+  expiresAt    DateTime
+  createdAt    DateTime @default(now())
+
+  @@unique([guildId, userId, roleId])
+  @@index([expiresAt])
+  @@index([guildId])
+  @@index([userId])
+}
