@@ -153,7 +153,7 @@ export function buildSurveyModalStep1(ticketId: string): ModalBuilder {
     const playerIdLabel = new LabelBuilder()
       .setLabel("ID de jugador (Steam, Xbox o Epic)")
       .setDescription(
-        "Ej: 7656119938984xxxx (Steam). En el juego: Opciones → arriba a la derecha.",
+        "Ej: 7656119938984xxxx (Steam). En el juego: Opciones -> arriba a la derecha.",
       )
       .setTextInputComponent(playerIdInput);
 
@@ -193,37 +193,46 @@ export function buildSurveyModalStep1(ticketId: string): ModalBuilder {
 }
 
 export function buildSurveyModalStep2(ticketId: string): ModalBuilder {
+  const levelInput = new TextInputBuilder()
+    .setCustomId("level")
+    .setStyle(TextInputStyle.Short)
+    .setRequired(true);
+  const levelLabel = new LabelBuilder()
+    .setLabel("¿Cuál es el nivel actual de tu personaje en el juego?")
+    .setDescription("Nivel mínimo requerido: 30.")
+    .setTextInputComponent(levelInput);
+
+  const roleInput = new TextInputBuilder()
+    .setCustomId("role")
+    .setStyle(TextInputStyle.Paragraph)
+    .setRequired(true);
+  const roleLabel = new LabelBuilder()
+    .setLabel("Rol que desempeñás con mayor frecuencia")
+    .setTextInputComponent(roleInput);
+
+  const competitiveInput = new TextInputBuilder()
+    .setCustomId("competitive")
+    .setStyle(TextInputStyle.Short)
+    .setRequired(true);
+  const competitiveLabel = new LabelBuilder()
+    .setLabel("¿Entendés que es un clan competitivo?")
+    .setTextInputComponent(competitiveInput);
+
+  const interviewInput = new TextInputBuilder()
+    .setCustomId("interview")
+    .setStyle(TextInputStyle.Paragraph)
+    .setRequired(true);
+  const interviewLabel = new LabelBuilder()
+    .setLabel("Horarios para una breve entrevista")
+    .setTextInputComponent(interviewInput);
+
   return new ModalBuilder()
     .setCustomId(`ticket_survey_step2:${ticketId}`)
     .setTitle("Encuesta (2/2)")
-    .addComponents(
-      new ActionRowBuilder<TextInputBuilder>().addComponents(
-        new TextInputBuilder()
-          .setCustomId("level")
-          .setLabel("¿Cuál es tu nivel actual en el juego?")
-          .setStyle(TextInputStyle.Short)
-          .setRequired(true),
-      ),
-      new ActionRowBuilder<TextInputBuilder>().addComponents(
-        new TextInputBuilder()
-          .setCustomId("role")
-          .setLabel("Rol que desempeñás con mayor frecuencia")
-          .setStyle(TextInputStyle.Paragraph)
-          .setRequired(true),
-      ),
-      new ActionRowBuilder<TextInputBuilder>().addComponents(
-        new TextInputBuilder()
-          .setCustomId("competitive")
-          .setLabel("¿Entendés que es un clan competitivo?")
-          .setStyle(TextInputStyle.Short)
-          .setRequired(true),
-      ),
-      new ActionRowBuilder<TextInputBuilder>().addComponents(
-        new TextInputBuilder()
-          .setCustomId("interview")
-          .setLabel("Horarios para una breve entrevista")
-          .setStyle(TextInputStyle.Paragraph)
-          .setRequired(true),
-      ),
+    .addLabelComponents(
+      levelLabel,
+      roleLabel,
+      competitiveLabel,
+      interviewLabel,
     );
 }
