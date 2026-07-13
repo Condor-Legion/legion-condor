@@ -236,12 +236,12 @@ export async function handleSurveyStart(
   }
 }
 
-export function handleSurveyContinue(
+export async function handleSurveyContinue(
   interaction: ButtonInteraction,
   ticketId: string
-): void {
+): Promise<void> {
   if (!ticketId) {
-    interaction
+    await interaction
       .reply({
         content: "Falta el identificador del ticket.",
         flags: MessageFlags.Ephemeral
@@ -249,7 +249,27 @@ export function handleSurveyContinue(
       .catch(() => {});
     return;
   }
-  interaction.showModal(buildSurveyModalStep2(ticketId)).catch(() => {});
+  try {
+    const modal = buildSurveyModalStep2(ticketId);
+    await interaction.showModal(modal);
+  } catch (err) {
+    log.tickets.error(
+      { err, ticketId, userId: interaction.user.id },
+      "handle survey continue showModal error"
+    );
+    await interaction
+      .reply({
+        content:
+          "No se pudo abrir la segunda parte del formulario. Probá de nuevo o contactá a un admin.",
+        flags: MessageFlags.Ephemeral
+      })
+      .catch((replyErr) =>
+        log.tickets.error(
+          { err: replyErr, ticketId, userId: interaction.user.id },
+          "error sending survey continue failure message"
+        )
+      );
+  }
 }
 
 export async function handleTicketClose(

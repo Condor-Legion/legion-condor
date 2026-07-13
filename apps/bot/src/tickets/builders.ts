@@ -193,6 +193,7 @@ export function buildSurveyModalStep1(ticketId: string): ModalBuilder {
 }
 
 export function buildSurveyModalStep2(ticketId: string): ModalBuilder {
+  log.tickets.info({ ticketId }, "build survey modal step2");
   const levelInput = new TextInputBuilder()
     .setCustomId("level")
     .setStyle(TextInputStyle.Short)
