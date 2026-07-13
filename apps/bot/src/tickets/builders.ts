@@ -199,7 +199,7 @@ export function buildSurveyModalStep2(ticketId: string): ModalBuilder {
     .setStyle(TextInputStyle.Short)
     .setRequired(true);
   const levelLabel = new LabelBuilder()
-    .setLabel("¿Cuál es el nivel actual de tu personaje en el juego?")
+    .setLabel("Nivel actual de tu personaje")
     .setDescription("Nivel mínimo requerido: 30.")
     .setTextInputComponent(levelInput);
 
