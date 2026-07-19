@@ -56,6 +56,9 @@ services:
       LOG_PRETTY: ${LOG_PRETTY:-false}
       LOG_SUCCESS_SAMPLE_RATE: ${LOG_SUCCESS_SAMPLE_RATE:-1}
       LOG_ENABLE_DOMAIN_START: ${LOG_ENABLE_DOMAIN_START:-true}
+      RATE_LIMIT_WINDOW_MS: ${RATE_LIMIT_WINDOW_MS:-60000}
+      LOGIN_RATE_LIMIT_MAX: ${LOGIN_RATE_LIMIT_MAX:-60}
+      RATE_LIMIT_MAX: ${RATE_LIMIT_MAX:-240}
     depends_on:
       postgres:
         condition: service_healthy
