@@ -3,9 +3,39 @@ import { prisma } from "../prisma";
 import { getAdminFromRequest, getBotApiKey } from "../auth";
 import { getPeriodStart } from "@legion/shared";
 import type { Prisma } from "@prisma/client";
+import rateLimit from "express-rate-limit";
 import { z } from "zod";
 
 export const statsRouter = Router();
+
+const publicStatsRateLimit = rateLimit({
+  windowMs: 60 * 1000,
+  max: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+const PUBLIC_STATS_CACHE_TTL_MS = 60 * 1000;
+
+interface PublicStatsResponse {
+  generatedAt: string;
+  totalMembers: number;
+  rows: Array<{
+    memberId: string;
+    displayName: string;
+    eventsParticipated: number;
+    kills: number;
+    deaths: number;
+    avgKillDeathRatio: number;
+    avgCombat: number;
+    avgOffense: number;
+    avgDefense: number;
+    avgSupport: number;
+    avgDeathsPerMinute: number;
+    lastPlayedAt: string | null;
+  }>;
+}
+
+let publicStatsCache: { expiresAt: number; payload: PublicStatsResponse } | null = null;
 
 const statsPeriodEnum = z.enum(["7d", "30d", "all"]);
 const myRankQuerySchema = z
@@ -735,7 +765,15 @@ statsRouter.get("/gulag", requireBotOrAdmin, async (_req, res) => {
   });
 });
 
-statsRouter.get("/members-report", requireBotOrAdmin, async (_req, res) => {
+async function membersReportHandler(
+  req: import("express").Request,
+  res: import("express").Response
+) {
+  const isPublic = req.path === "/public-report";
+  if (isPublic && publicStatsCache && publicStatsCache.expiresAt > Date.now()) {
+    return res.json(publicStatsCache.payload);
+  }
+
   const now = new Date();
   const dayMs = 24 * 60 * 60 * 1000;
 
@@ -750,11 +788,18 @@ statsRouter.get("/members-report", requireBotOrAdmin, async (_req, res) => {
   });
 
   if (members.length === 0) {
-    return res.json({
+    const emptyResponse = {
       generatedAt: now.toISOString(),
       totalMembers: 0,
       rows: [],
-    });
+    };
+    if (isPublic) {
+      publicStatsCache = {
+        expiresAt: Date.now() + PUBLIC_STATS_CACHE_TTL_MS,
+        payload: emptyResponse,
+      };
+    }
+    return res.json(emptyResponse);
   }
 
   const discordMembers = await prisma.discordMember.findMany({
@@ -921,12 +966,43 @@ statsRouter.get("/members-report", requireBotOrAdmin, async (_req, res) => {
   });
   rows.sort((a, b) => b.kills - a.kills || a.displayName.localeCompare(b.displayName));
 
-  return res.json({
+  const response = {
     generatedAt: now.toISOString(),
     totalMembers: rows.length,
     rows,
-  });
-});
+  };
+
+  if (isPublic) {
+    const publicResponse: PublicStatsResponse = {
+      generatedAt: response.generatedAt,
+      totalMembers: response.totalMembers,
+      rows: response.rows.map((row) => ({
+        memberId: row.memberId,
+        displayName: row.displayName,
+        eventsParticipated: row.eventsParticipated,
+        kills: row.kills,
+        deaths: row.deaths,
+        avgKillDeathRatio: row.avgKillDeathRatio,
+        avgCombat: row.avgCombat,
+        avgOffense: row.avgOffense,
+        avgDefense: row.avgDefense,
+        avgSupport: row.avgSupport,
+        avgDeathsPerMinute: row.avgDeathsPerMinute,
+        lastPlayedAt: row.lastPlayedAt,
+      })),
+    };
+    publicStatsCache = {
+      expiresAt: Date.now() + PUBLIC_STATS_CACHE_TTL_MS,
+      payload: publicResponse,
+    };
+    return res.json(publicResponse);
+  }
+
+  return res.json(response);
+}
+
+statsRouter.get("/members-report", requireBotOrAdmin, membersReportHandler);
+statsRouter.get("/public-report", publicStatsRateLimit, membersReportHandler);
 
 statsRouter.get(
   "/last-events/:discordId",

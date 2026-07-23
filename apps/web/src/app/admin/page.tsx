@@ -39,6 +39,9 @@ export default function AdminHome() {
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-semibold">Admin</h1>
           <div className="flex items-center gap-2">
+            <Button asChild variant="outline">
+              <Link href="/stats">Estadísticas públicas</Link>
+            </Button>
             {isAuthenticated && (
               <Button asChild variant="outline">
                 <Link href="/admin/events/new">Nuevo roster</Link>

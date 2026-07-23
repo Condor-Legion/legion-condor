@@ -15,6 +15,9 @@ export default function HomePage() {
             operativo en tiempo real.
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
+            <Button asChild size="lg">
+              <Link href="/stats">Ver estadísticas</Link>
+            </Button>
             <Button asChild variant="outline" size="lg">
               <Link href="/admin/login">Acceso admin</Link>
             </Button>
