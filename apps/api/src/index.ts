@@ -11,6 +11,7 @@ import { statsRouter } from "./routes/stats";
 import { auditRouter } from "./routes/audit";
 import { discordRouter } from "./routes/discord";
 import { ticketsRouter } from "./routes/tickets";
+import { tanksRouter } from "./routes/tanks";
 import { createSocketServer } from "./socket";
 import { defaultRateLimit } from "./middleware/rateLimit";
 import { requestLoggerMiddleware, apiLogger } from "./middleware/requestLogger";
@@ -65,6 +66,7 @@ app.use(
   domainLoggerMiddleware({ module: "tickets", sampleSuccess: false }),
   ticketsRouter,
 );
+app.use("/api/tanks", domainLoggerMiddleware({ module: "tanks" }), tanksRouter);
 
 app.get("/health", (_req, res) => {
   res.json({ ok: true });

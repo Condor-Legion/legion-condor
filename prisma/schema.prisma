@@ -98,6 +98,7 @@ model Member {
   auditLogs    AuditLog[]      @relation("AuditTargetMember")
   vipOrders   VipOrder[]
   vipGrants   VipGrant[]
+  tankMemberships TankMember[]
 }
 
 model GameAccount {
@@ -249,11 +250,39 @@ model ImportCrcon {
   event        Event?             @relation(fields: [eventId], references: [id], onDelete: SetNull)
   stats        PlayerMatchStats[]
   condorStats  CondorMatchStats[]
+  tankGroups   TankGroup[]
 
   @@index([gameId])
   @@index([importedAt])
   @@index([payloadHash])
   @@index([discordMessageId])
+}
+
+model TankGroup {
+  id            String   @id @default(cuid())
+  importCrconId String
+  tankNumber    Int
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  importCrcon   ImportCrcon  @relation(fields: [importCrconId], references: [id], onDelete: Cascade)
+  members       TankMember[]
+
+  @@unique([importCrconId, tankNumber])
+  @@index([importCrconId])
+}
+
+model TankMember {
+  id          String   @id @default(cuid())
+  tankGroupId String
+  memberId    String
+  seatIndex   Int
+  createdAt   DateTime @default(now())
+  tankGroup   TankGroup @relation(fields: [tankGroupId], references: [id], onDelete: Cascade)
+  member      Member    @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@unique([tankGroupId, seatIndex])
+  @@unique([tankGroupId, memberId])
+  @@index([memberId])
 }
 
 model PlayerMatchStats {
