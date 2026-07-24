@@ -884,8 +884,10 @@ async function membersReportHandler(
   };
 
   // Ajuste por tanques: si un miembro fue asignado a un tanque en una partida,
-  // sus kills/deaths/kd de esa partida se igualan a la suma del tanque, sin
-  // modificar PlayerMatchStats. Solo afecta partidas con tanques configurados.
+  // sus kills de esa partida se igualan a la suma del tanque (repartidas por
+  // igual entre los integrantes); las deaths se dejan individuales y el kd
+  // resultante se recalcula con esas kills sumadas sobre las deaths propias.
+  // No se modifica PlayerMatchStats. Solo afecta partidas con tanques configurados.
   const involvedImportIds = Array.from(new Set(statsRows.map((row) => row.importCrconId)));
   const tankGroups =
     involvedImportIds.length > 0
@@ -897,7 +899,7 @@ async function membersReportHandler(
 
   const tankAdjustmentByMatchAndMember = new Map<
     string,
-    { kills: number; deaths: number; killDeathRatio: number }
+    { kills: number; killDeathRatio: number }
   >();
   if (tankGroups.length > 0) {
     const rowsByMatchAndMember = new Map<string, { kills: number; deaths: number }>();
@@ -914,18 +916,17 @@ async function membersReportHandler(
 
     for (const group of tankGroups) {
       let tankKills = 0;
-      let tankDeaths = 0;
       for (const member of group.members) {
         const row = rowsByMatchAndMember.get(`${group.importCrconId}:${member.memberId}`);
         tankKills += row?.kills ?? 0;
-        tankDeaths += row?.deaths ?? 0;
       }
-      const tankKd = tankDeaths > 0 ? tankKills / tankDeaths : tankKills;
       for (const member of group.members) {
+        const ownDeaths =
+          rowsByMatchAndMember.get(`${group.importCrconId}:${member.memberId}`)?.deaths ?? 0;
+        const memberKd = ownDeaths > 0 ? tankKills / ownDeaths : tankKills;
         tankAdjustmentByMatchAndMember.set(`${group.importCrconId}:${member.memberId}`, {
           kills: tankKills,
-          deaths: tankDeaths,
-          killDeathRatio: tankKd,
+          killDeathRatio: memberKd,
         });
       }
     }
@@ -957,7 +958,7 @@ async function membersReportHandler(
     const tankAdjustment = tankAdjustmentByMatchAndMember.get(`${row.importCrconId}:${memberId}`);
 
     current.kills += tankAdjustment?.kills ?? row.kills;
-    current.deaths += tankAdjustment?.deaths ?? row.deaths;
+    current.deaths += row.deaths;
     current.combat += row.combat;
     current.offense += row.offense;
     current.defense += row.defense;
