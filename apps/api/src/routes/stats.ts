@@ -467,6 +467,34 @@ statsRouter.get("/leaderboard", requireBotOrAdmin, async (req, res) => {
   });
 });
 
+statsRouter.get("/condor-weekly-awards/:year/:weekNumber", requireBotOrAdmin, async (req, res) => {
+  const year = Number(req.params.year);
+  const weekNumber = Number(req.params.weekNumber);
+  if (!Number.isInteger(year) || !Number.isInteger(weekNumber)) {
+    return res.status(400).json({ error: "Invalid week" });
+  }
+  const award = await prisma.condorWeeklyAward.findUnique({ where: { year_weekNumber: { year, weekNumber } } });
+  return res.json({ processed: Boolean(award), award });
+});
+
+statsRouter.post("/condor-weekly-awards/:year/:weekNumber/claim", requireBotOrAdmin, async (req, res) => {
+  const year = Number(req.params.year);
+  const weekNumber = Number(req.params.weekNumber);
+  if (!Number.isInteger(year) || !Number.isInteger(weekNumber) || weekNumber < 1 || weekNumber > 53) {
+    return res.status(400).json({ error: "Invalid week" });
+  }
+
+  try {
+    const award = await prisma.condorWeeklyAward.create({ data: { year, weekNumber } });
+    return res.status(201).json({ claimed: true, award });
+  } catch (error) {
+    if ((error as { code?: string }).code === "P2002") {
+      return res.status(409).json({ claimed: false, error: "Week already processed" });
+    }
+    throw error;
+  }
+});
+
 statsRouter.get("/myrank/:discordId", requireBotOrAdmin, async (req, res) => {
   const parsed = myRankQuerySchema.safeParse(req.query);
   if (!parsed.success) return res.status(400).json({ error: "Invalid query" });

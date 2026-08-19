@@ -7,6 +7,7 @@ import { setupBirthdayAnnouncementScheduler } from "../lib/birthdayAnnouncementS
 import { setupBirthdayChannel } from "../lib/birthdayChannel";
 import { setupStatsChannel } from "../lib/statsChannel";
 import { setupTemporaryRoleScheduler } from "../lib/temporaryRoleScheduler";
+import { setupCondorWeeklyAwardsScheduler } from "../lib/condorWeeklyAwardsScheduler";
 import { syncMembers, syncRoster } from "../lib/sync";
 import { log } from "../logger";
 
@@ -31,6 +32,7 @@ export function setupReadyEvent(client: Client): void {
     setupBirthdayAnnouncementScheduler(client);
     setupAnnouncementsScheduler(client);
     setupTemporaryRoleScheduler(client);
+    setupCondorWeeklyAwardsScheduler(client);
 
     if (
       config.syncGuildId &&

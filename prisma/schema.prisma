@@ -466,3 +466,12 @@ model TemporaryDiscordRoleGrant {
   @@index([guildId])
   @@index([userId])
 }
+
+model CondorWeeklyAward {
+  id          String   @id @default(cuid())
+  year        Int
+  weekNumber  Int
+  processedAt DateTime @default(now())
+
+  @@unique([year, weekNumber])
+}
