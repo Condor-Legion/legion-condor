@@ -17,6 +17,7 @@ import {
   handleSyncRoster,
   handleTemporaryRoleGrant,
   handleTemporaryRoleList,
+  handleTemporaryRolePageButton,
   handleTestBirthday
 } from "../commands/handlers";
 import { parseBirthdayButtonCustomId } from "../lib/birthdayButtons";
@@ -257,6 +258,18 @@ export function setupInteractionCreateEvent(client: Client): void {
           channelId: interaction.channelId,
           userId: interaction.user.id,
         }, async () => handleGulagPageButton(interaction));
+        return;
+      }
+
+      if (interaction.customId.startsWith("temporary_roles_page:") && interaction.customId !== "temporary_roles_page_info") {
+        await runLoggedInteraction({
+          kind: "button",
+          action: "temporary_roles_page",
+          customId: interaction.customId,
+          guildId: interaction.guildId ?? null,
+          channelId: interaction.channelId,
+          userId: interaction.user.id,
+        }, async () => handleTemporaryRolePageButton(interaction, client));
         return;
       }
 

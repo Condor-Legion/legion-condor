@@ -42,7 +42,7 @@ async function createTemporaryGrant(guildId: string, member: GuildMember, roleId
   const response = await fetch(`${config.apiUrl}/api/discord/temporary-roles`, {
     method: "POST",
     headers: { "Content-Type": "application/json", "x-bot-api-key": config.botApiKey },
-    body: JSON.stringify({ guildId, userId: member.id, roleId, expiresAt: expiresAt.toISOString() }),
+    body: JSON.stringify({ guildId, userId: member.id, roleId, expiresAt: expiresAt.toISOString(), assignedById: "BOT" }),
   });
   if (!response.ok) throw new Error(`Failed to save temporary role (${response.status})`);
 }

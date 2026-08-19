@@ -26,6 +26,8 @@ const GULAG_PAGE_SIZE = 20;
 const GULAG_PAGE_BUTTON_PREFIX = "gulag_page";
 const DISCORD_MESSAGE_MAX_LENGTH = 2000;
 const TEMPORARY_ROLE_LIST_LIMIT = 25;
+const TEMPORARY_ROLE_PAGE_SIZE = 10;
+const TEMPORARY_ROLE_PAGE_BUTTON_PREFIX = "temporary_roles_page";
 const DAY_NAMES: Record<string, number> = {
   domingo: 0,
   dom: 0,
@@ -719,6 +721,68 @@ type TemporaryRoleGrantListItem = {
   createdAt: string;
 };
 
+function buildTemporaryRolePageCustomId(page: number, roleId: string): string {
+  return `${TEMPORARY_ROLE_PAGE_BUTTON_PREFIX}:${page}:${roleId || "all"}`;
+}
+
+function parseTemporaryRolePageCustomId(customId: string): { page: number; roleId: string } | null {
+  const [prefix, pageRaw, roleId = "all"] = customId.split(":");
+  const page = Number(pageRaw);
+  if (prefix !== TEMPORARY_ROLE_PAGE_BUTTON_PREFIX || !Number.isInteger(page) || page < 1) return null;
+  return { page, roleId: roleId === "all" ? "" : roleId };
+}
+
+function buildTemporaryRolePagination(page: number, totalPages: number, roleId: string) {
+  if (totalPages <= 1) return [];
+  return [new ActionRowBuilder<ButtonBuilder>().addComponents(
+    new ButtonBuilder().setCustomId(buildTemporaryRolePageCustomId(Math.max(1, page - 1), roleId)).setLabel("< Anterior").setStyle(ButtonStyle.Secondary).setDisabled(page <= 1),
+    new ButtonBuilder().setCustomId("temporary_roles_page_info").setLabel(`Página ${page}/${totalPages}`).setStyle(ButtonStyle.Primary).setDisabled(true),
+    new ButtonBuilder().setCustomId(buildTemporaryRolePageCustomId(Math.min(totalPages, page + 1), roleId)).setLabel("Siguiente >").setStyle(ButtonStyle.Secondary).setDisabled(page >= totalPages),
+  )];
+}
+
+function renderTemporaryRoleList(
+  grants: TemporaryRoleGrantListItem[],
+  client: Client,
+  guildId: string,
+  requestedPage: number,
+  selectedRoleId: string
+): { content: string; page: number; totalPages: number } {
+  const totalPages = Math.max(1, Math.ceil(grants.length / TEMPORARY_ROLE_PAGE_SIZE));
+  const page = Math.min(Math.max(requestedPage, 1), totalPages);
+  const rows = grants.slice((page - 1) * TEMPORARY_ROLE_PAGE_SIZE, page * TEMPORARY_ROLE_PAGE_SIZE);
+  const guild = client.guilds.cache.get(guildId);
+  const dateFormat = new Intl.DateTimeFormat("es-AR", { timeZone: "America/Argentina/Buenos_Aires", dateStyle: "short", timeStyle: "short" });
+  const table = rows.map((grant) => {
+    const member = guild?.members.cache.get(grant.userId);
+    const role = guild?.roles.cache.get(grant.roleId);
+    const remainingMs = Math.max(0, new Date(grant.expiresAt).getTime() - Date.now());
+    const remainingHours = Math.floor(remainingMs / 3_600_000);
+    const remaining = remainingHours >= 24 ? `${Math.floor(remainingHours / 24)}d ${remainingHours % 24}h` : `${remainingHours}h`;
+    const assignedBy = grant.assignedById === "BOT" ? "Bot" : grant.assignedById ? `<@${grant.assignedById}>` : "Desconocido";
+    return [
+      padTableCell((member?.displayName ?? grant.userId).slice(0, 20), 20),
+      padTableCell((role?.name ?? grant.roleId).slice(0, 18), 18),
+      padTableCell(remaining, 7),
+      assignedBy,
+    ].join(" ");
+  });
+  const header = [padTableCell("Miembro", 20), padTableCell("Rol", 18), padTableCell("Resta", 7), "Asignado"].join(" ");
+  return {
+    page,
+    totalPages,
+    content: [
+      `**Roles temporales activos** (${grants.length})`,
+      `Página: **${page}/${totalPages}**`,
+      "```",
+      [header, "-".repeat(header.length), ...table].join("\n"),
+      "```",
+      `Mostrando ${((page - 1) * TEMPORARY_ROLE_PAGE_SIZE) + 1}-${Math.min(page * TEMPORARY_ROLE_PAGE_SIZE, grants.length)} de ${grants.length}.`,
+      `Vencimientos: horario Argentina (GMT-3).`,
+    ].join("\n"),
+  };
+}
+
 export async function handleTemporaryRoleList(
   interaction: ChatInputCommandInteraction,
   client: Client
@@ -755,32 +819,37 @@ export async function handleTemporaryRoleList(
       await interaction.editReply("No se pudo consultar el servidor.");
       return;
     }
-    const lines = grants.slice(0, TEMPORARY_ROLE_LIST_LIMIT).map((grant) => {
-      const member = guild.members.cache.get(grant.userId);
-      const role = guild.roles.cache.get(grant.roleId);
-      const assignedBy = grant.assignedById ? `<@${grant.assignedById}>` : "Desconocido";
-      const expiresAt = new Date(grant.expiresAt);
-      const createdAt = new Date(grant.createdAt);
-      const remainingMs = Math.max(0, expiresAt.getTime() - Date.now());
-      const remainingHours = Math.floor(remainingMs / 3_600_000);
-      const remainingDays = Math.floor(remainingHours / 24);
-      const hours = remainingHours % 24;
-      const remaining = remainingDays > 0 ? `${remainingDays}d ${hours}h` : `${hours}h`;
-      const dateFormat = new Intl.DateTimeFormat("es-AR", {
-        timeZone: "America/Argentina/Buenos_Aires", dateStyle: "short", timeStyle: "short",
-      });
-      return `${member ? `<@${member.id}>` : `<@${grant.userId}>`} — ${role ?? `<@&${grant.roleId}>`}\n` +
-        `Vence: ${dateFormat.format(expiresAt)} (${remaining}) · Asignado por: ${assignedBy} el ${dateFormat.format(createdAt)}`;
+    const rendered = renderTemporaryRoleList(grants, client, guild.id, 1, selectedRole?.id ?? "");
+    await interaction.editReply({
+      content: rendered.content,
+      components: buildTemporaryRolePagination(rendered.page, rendered.totalPages, selectedRole?.id ?? ""),
     });
-
-    const omitted = grants.length - lines.length;
-    await interaction.editReply(
-      `**Roles temporales activos${selectedRole ? `: ${selectedRole}` : ""} (${grants.length})**\n\n` +
-      lines.join("\n\n") + (omitted > 0 ? `\n\n_Mostrando ${lines.length}; hay ${omitted} más._` : "")
-    );
   } catch (error) {
     log.commands.error({ err: error, command: "ver-rol", userId: interaction.user.id }, "command failed");
     await interaction.editReply("Error consultando los roles temporales.");
+  }
+}
+
+export async function handleTemporaryRolePageButton(
+  interaction: ButtonInteraction,
+  client: Client
+): Promise<void> {
+  const parsed = parseTemporaryRolePageCustomId(interaction.customId);
+  if (!parsed || !interaction.guildId) {
+    await interaction.reply({ content: "Botón de paginación inválido.", flags: MessageFlags.Ephemeral });
+    return;
+  }
+  await interaction.deferUpdate();
+  try {
+    const roleQuery = parsed.roleId ? `&roleId=${encodeURIComponent(parsed.roleId)}` : "";
+    const response = await fetch(`${config.apiUrl}/api/discord/temporary-roles?guildId=${encodeURIComponent(interaction.guildId)}${roleQuery}`, { headers: { "x-bot-api-key": config.botApiKey } });
+    if (!response.ok) throw new Error(`temporary roles request failed (${response.status})`);
+    const grants = await response.json() as TemporaryRoleGrantListItem[];
+    const rendered = renderTemporaryRoleList(grants, client, interaction.guildId, parsed.page, parsed.roleId);
+    await interaction.editReply({ content: rendered.content, components: buildTemporaryRolePagination(rendered.page, rendered.totalPages, parsed.roleId) });
+  } catch (error) {
+    log.commands.error({ err: error, command: "ver-rol-pagination", userId: interaction.user.id }, "command failed");
+    await interaction.editReply({ content: "Error consultando los roles temporales.", components: [] });
   }
 }
 
