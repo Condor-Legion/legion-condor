@@ -745,6 +745,7 @@ function renderTemporaryRoleList(
   grants: TemporaryRoleGrantListItem[],
   client: Client,
   guildId: string,
+  memberNames: Map<string, string>,
   requestedPage: number,
   selectedRoleId: string
 ): { content: string; page: number; totalPages: number } {
@@ -754,14 +755,13 @@ function renderTemporaryRoleList(
   const guild = client.guilds.cache.get(guildId);
   const dateFormat = new Intl.DateTimeFormat("es-AR", { timeZone: "America/Argentina/Buenos_Aires", dateStyle: "short", timeStyle: "short" });
   const table = rows.map((grant) => {
-    const member = guild?.members.cache.get(grant.userId);
     const role = guild?.roles.cache.get(grant.roleId);
     const remainingMs = Math.max(0, new Date(grant.expiresAt).getTime() - Date.now());
     const remainingHours = Math.floor(remainingMs / 3_600_000);
     const remaining = remainingHours >= 24 ? `${Math.floor(remainingHours / 24)}d ${remainingHours % 24}h` : `${remainingHours}h`;
     const assignedBy = grant.assignedById === "BOT" ? "Bot" : grant.assignedById ? `<@${grant.assignedById}>` : "Desconocido";
     return [
-      padTableCell((member?.displayName ?? grant.userId).slice(0, 20), 20),
+      padTableCell((memberNames.get(grant.userId) ?? `<@${grant.userId}>`).slice(0, 20), 20),
       padTableCell((role?.name ?? grant.roleId).slice(0, 18), 18),
       padTableCell(remaining, 7),
       assignedBy,
@@ -781,6 +781,20 @@ function renderTemporaryRoleList(
       `Vencimientos: horario Argentina (GMT-3).`,
     ].join("\n"),
   };
+}
+
+async function resolveTemporaryRoleMemberNames(
+  client: Client,
+  guildId: string,
+  grants: TemporaryRoleGrantListItem[]
+): Promise<Map<string, string>> {
+  const guild = await client.guilds.fetch(guildId);
+  const names = new Map<string, string>();
+  await Promise.all(Array.from(new Set(grants.map((grant) => grant.userId))).map(async (userId) => {
+    const member = guild.members.cache.get(userId) ?? await guild.members.fetch(userId).catch(() => null);
+    if (member) names.set(userId, member.displayName);
+  }));
+  return names;
 }
 
 export async function handleTemporaryRoleList(
@@ -819,7 +833,8 @@ export async function handleTemporaryRoleList(
       await interaction.editReply("No se pudo consultar el servidor.");
       return;
     }
-    const rendered = renderTemporaryRoleList(grants, client, guild.id, 1, selectedRole?.id ?? "");
+    const memberNames = await resolveTemporaryRoleMemberNames(client, guild.id, grants);
+    const rendered = renderTemporaryRoleList(grants, client, guild.id, memberNames, 1, selectedRole?.id ?? "");
     await interaction.editReply({
       content: rendered.content,
       components: buildTemporaryRolePagination(rendered.page, rendered.totalPages, selectedRole?.id ?? ""),
@@ -845,7 +860,8 @@ export async function handleTemporaryRolePageButton(
     const response = await fetch(`${config.apiUrl}/api/discord/temporary-roles?guildId=${encodeURIComponent(interaction.guildId)}${roleQuery}`, { headers: { "x-bot-api-key": config.botApiKey } });
     if (!response.ok) throw new Error(`temporary roles request failed (${response.status})`);
     const grants = await response.json() as TemporaryRoleGrantListItem[];
-    const rendered = renderTemporaryRoleList(grants, client, interaction.guildId, parsed.page, parsed.roleId);
+    const memberNames = await resolveTemporaryRoleMemberNames(client, interaction.guildId, grants);
+    const rendered = renderTemporaryRoleList(grants, client, interaction.guildId, memberNames, parsed.page, parsed.roleId);
     await interaction.editReply({ content: rendered.content, components: buildTemporaryRolePagination(rendered.page, rendered.totalPages, parsed.roleId) });
   } catch (error) {
     log.commands.error({ err: error, command: "ver-rol-pagination", userId: interaction.user.id }, "command failed");
