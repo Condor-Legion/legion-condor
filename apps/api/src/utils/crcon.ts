@@ -129,10 +129,23 @@ export function extractPlayerStats(payload: unknown): CrconPlayerRow[] {
     if (!playerName) continue;
 
     const killsByType = (row.kills_by_type as Record<string, number> | undefined) ?? {};
-    const armorKills = typeof killsByType.armor === 'number' ? killsByType.armor : 0;
-    const artilleryKills = typeof killsByType.artillery === 'number' ? killsByType.artillery : 0;
     const totalKills = readNumber(row.kills);
-    const infantryKills = Math.max(0, totalKills - armorKills - artilleryKills);
+    // These are the CRCON kill categories eligible for the Ascenso bonus.
+    // The persisted field keeps its historical name for schema compatibility.
+    const infantryKills = [
+      'infantry',
+      'grenade',
+      'bazooka',
+      'machine_gun',
+      'sniper',
+    ].reduce(
+      (total, killType) =>
+        total +
+        (typeof killsByType[killType] === 'number'
+          ? killsByType[killType]
+          : 0),
+      0
+    );
 
     const parsedRow: CrconPlayerRow = {
       playerName,

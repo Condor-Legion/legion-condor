@@ -350,6 +350,7 @@ statsRouter.get("/leaderboard", requireBotOrAdmin, async (req, res) => {
             gameAccountId: true,
             providerId: true,
             kills: true,
+            infantryKills: true,
             deaths: true,
             score: true,
             combat: true,
@@ -364,6 +365,7 @@ statsRouter.get("/leaderboard", requireBotOrAdmin, async (req, res) => {
 
   type LeaderboardAccumulator = {
     kills: number;
+    infantryKills: number;
     deaths: number;
     score: number;
     combat: number;
@@ -387,6 +389,7 @@ statsRouter.get("/leaderboard", requireBotOrAdmin, async (req, res) => {
 
     const current = statsByMemberId.get(memberId) ?? {
       kills: 0,
+      infantryKills: 0,
       deaths: 0,
       score: 0,
       combat: 0,
@@ -398,6 +401,7 @@ statsRouter.get("/leaderboard", requireBotOrAdmin, async (req, res) => {
     };
 
     current.kills += row.kills;
+    current.infantryKills += row.infantryKills;
     current.deaths += row.deaths;
     current.score += row.score;
     current.combat += row.combat;
@@ -426,7 +430,9 @@ statsRouter.get("/leaderboard", requireBotOrAdmin, async (req, res) => {
       offense: stats.offense,
       defense: stats.defense,
       support: stats.support,
-      ascenso: stats.combat,
+      // Give infantry kills additional weight so vehicle/objective score
+      // cannot dominate the Ascenso ranking by itself.
+      ascenso: stats.combat + stats.infantryKills * 1.5,
     };
 
     entries.push({
