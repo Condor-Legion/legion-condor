@@ -16,6 +16,7 @@ import {
   handleSyncMembers,
   handleSyncRoster,
   handleTemporaryRoleGrant,
+  handleTemporaryRoleList,
   handleTestBirthday
 } from "../commands/handlers";
 import { parseBirthdayButtonCustomId } from "../lib/birthdayButtons";
@@ -205,6 +206,16 @@ export function setupInteractionCreateEvent(client: Client): void {
           channelId: interaction.channelId,
           userId: interaction.user.id,
         }, async () => handleAnunciar(interaction, client));
+        return;
+      }
+      if (interaction.commandName === "ver-rol") {
+        await runLoggedInteraction({
+          kind: "chat_command",
+          commandName: interaction.commandName,
+          guildId: interaction.guildId ?? null,
+          channelId: interaction.channelId,
+          userId: interaction.user.id,
+        }, async () => handleTemporaryRoleList(interaction, client));
         return;
       }
       if (

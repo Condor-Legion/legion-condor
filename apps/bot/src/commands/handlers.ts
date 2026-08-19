@@ -25,6 +25,7 @@ const GMT3 = "-03:00";
 const GULAG_PAGE_SIZE = 20;
 const GULAG_PAGE_BUTTON_PREFIX = "gulag_page";
 const DISCORD_MESSAGE_MAX_LENGTH = 2000;
+const TEMPORARY_ROLE_LIST_LIMIT = 25;
 const DAY_NAMES: Record<string, number> = {
   domingo: 0,
   dom: 0,
@@ -707,6 +708,79 @@ export async function handleTemporaryRoleGrant(
   } catch (error) {
     log.commands.error({ err: error, command: "dar-rol", userId: interaction.user.id }, "command failed");
     await interaction.editReply("Error asignando el rol temporal.");
+  }
+}
+
+type TemporaryRoleGrantListItem = {
+  userId: string;
+  roleId: string;
+  assignedById: string | null;
+  expiresAt: string;
+  createdAt: string;
+};
+
+export async function handleTemporaryRoleList(
+  interaction: ChatInputCommandInteraction,
+  client: Client
+): Promise<void> {
+  if (!interaction.inGuild() || !interaction.guildId) {
+    await interaction.reply({ content: "Este comando solo funciona dentro de un servidor." });
+    return;
+  }
+
+  await interaction.deferReply();
+  const selectedRole = interaction.options.getRole("rol");
+  const roleQuery = selectedRole ? `&roleId=${encodeURIComponent(selectedRole.id)}` : "";
+
+  try {
+    const response = await fetch(
+      `${config.apiUrl}/api/discord/temporary-roles?guildId=${encodeURIComponent(interaction.guildId)}${roleQuery}`,
+      { headers: { "x-bot-api-key": config.botApiKey } }
+    );
+    if (!response.ok) {
+      await interaction.editReply("No se pudieron consultar los roles temporales.");
+      return;
+    }
+
+    const grants = (await response.json()) as TemporaryRoleGrantListItem[];
+    if (grants.length === 0) {
+      await interaction.editReply(selectedRole
+        ? `No hay asignaciones temporales activas para ${selectedRole}.`
+        : "No hay asignaciones temporales activas.");
+      return;
+    }
+
+    const guild = await client.guilds.fetch(interaction.guildId).catch(() => null);
+    if (!guild) {
+      await interaction.editReply("No se pudo consultar el servidor.");
+      return;
+    }
+    const lines = grants.slice(0, TEMPORARY_ROLE_LIST_LIMIT).map((grant) => {
+      const member = guild.members.cache.get(grant.userId);
+      const role = guild.roles.cache.get(grant.roleId);
+      const assignedBy = grant.assignedById ? `<@${grant.assignedById}>` : "Desconocido";
+      const expiresAt = new Date(grant.expiresAt);
+      const createdAt = new Date(grant.createdAt);
+      const remainingMs = Math.max(0, expiresAt.getTime() - Date.now());
+      const remainingHours = Math.floor(remainingMs / 3_600_000);
+      const remainingDays = Math.floor(remainingHours / 24);
+      const hours = remainingHours % 24;
+      const remaining = remainingDays > 0 ? `${remainingDays}d ${hours}h` : `${hours}h`;
+      const dateFormat = new Intl.DateTimeFormat("es-AR", {
+        timeZone: "America/Argentina/Buenos_Aires", dateStyle: "short", timeStyle: "short",
+      });
+      return `${member ? `<@${member.id}>` : `<@${grant.userId}>`} — ${role ?? `<@&${grant.roleId}>`}\n` +
+        `Vence: ${dateFormat.format(expiresAt)} (${remaining}) · Asignado por: ${assignedBy} el ${dateFormat.format(createdAt)}`;
+    });
+
+    const omitted = grants.length - lines.length;
+    await interaction.editReply(
+      `**Roles temporales activos${selectedRole ? `: ${selectedRole}` : ""} (${grants.length})**\n\n` +
+      lines.join("\n\n") + (omitted > 0 ? `\n\n_Mostrando ${lines.length}; hay ${omitted} más._` : "")
+    );
+  } catch (error) {
+    log.commands.error({ err: error, command: "ver-rol", userId: interaction.user.id }, "command failed");
+    await interaction.editReply("Error consultando los roles temporales.");
   }
 }
 

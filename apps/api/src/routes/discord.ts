@@ -510,6 +510,25 @@ discordRouter.post("/temporary-roles", requireBotOrAdmin, async (req, res) => {
   return res.status(201).json(grant);
 });
 
+discordRouter.get("/temporary-roles", requireBotOrAdmin, async (req, res) => {
+  const guildId = typeof req.query.guildId === "string" ? req.query.guildId : null;
+  const roleId = typeof req.query.roleId === "string" ? req.query.roleId : undefined;
+  if (!guildId) {
+    return res.status(400).json({ error: "guildId is required" });
+  }
+
+  const grants = await prisma.temporaryDiscordRoleGrant.findMany({
+    where: {
+      guildId,
+      ...(roleId ? { roleId } : {}),
+      expiresAt: { gt: new Date() },
+    },
+    orderBy: { expiresAt: "asc" },
+  });
+
+  return res.json(grants);
+});
+
 discordRouter.get("/temporary-roles/due", requireBotOrAdmin, async (_req, res) => {
   const due = await prisma.temporaryDiscordRoleGrant.findMany({
     where: { expiresAt: { lte: new Date() } },

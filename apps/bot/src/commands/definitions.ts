@@ -18,14 +18,14 @@ const commands = [
         .setName("dias")
         .setDescription("Últimos N días (1-365)")
         .setMinValue(1)
-        .setMaxValue(365)
+        .setMaxValue(365),
     )
     .addIntegerOption((option) =>
       option
         .setName("eventos")
         .setDescription("Últimos N eventos (1-50)")
         .setMinValue(1)
-        .setMaxValue(50)
+        .setMaxValue(50),
     ),
   new SlashCommandBuilder()
     .setName("mi-cuenta")
@@ -52,14 +52,14 @@ const commands = [
         .setName("cantidad")
         .setDescription("Cantidad de eventos (1-10, default 5)")
         .setMinValue(1)
-        .setMaxValue(10)
+        .setMaxValue(10),
     )
     .addIntegerOption((option) =>
       option
         .setName("dias")
         .setDescription("Filtrar por últimos N días (1-365)")
         .setMinValue(1)
-        .setMaxValue(365)
+        .setMaxValue(365),
     ),
   new SlashCommandBuilder()
     .setName("sync-miembros")
@@ -84,25 +84,25 @@ const commands = [
         .addChoices(
           { name: "STEAM", value: "STEAM" },
           { name: "EPIC", value: "EPIC" },
-          { name: "XBOX", value: "XBOX_PASS" }
-        )
+          { name: "XBOX", value: "XBOX_PASS" },
+        ),
     )
     .addStringOption((option) =>
       option
         .setName("id")
         .setDescription("ID de la cuenta en la plataforma")
-        .setRequired(true)
+        .setRequired(true),
     )
     .addUserOption((option) =>
       option
         .setName("usuario")
         .setDescription("Usuario para crear la cuenta")
-        .setRequired(true)
+        .setRequired(true),
     ),
   new SlashCommandBuilder()
     .setName("top-condor")
     .setDescription(
-      "Leaderboard del Ascenso del Cóndor (semana actual por defecto)"
+      "Leaderboard del Ascenso del Cóndor (semana actual por defecto)",
     )
     .setDefaultMemberPermissions(0n)
     .setDMPermission(false)
@@ -119,27 +119,27 @@ const commands = [
           { name: "Combate", value: "combat" },
           { name: "Ataque", value: "offense" },
           { name: "Defensa", value: "defense" },
-          { name: "Soporte", value: "support" }
-        )
+          { name: "Soporte", value: "support" },
+        ),
     )
     .addIntegerOption((option) =>
       option
         .setName("dias")
         .setDescription("Filtrar por últimos N días (1-365)")
         .setMinValue(1)
-        .setMaxValue(365)
+        .setMaxValue(365),
     )
     .addIntegerOption((option) =>
       option
         .setName("cantidad")
         .setDescription("Cantidad de jugadores a mostrar (1-25, default 10)")
         .setMinValue(1)
-        .setMaxValue(25)
+        .setMaxValue(25),
     ),
   new SlashCommandBuilder()
     .setName("rank-condor")
     .setDescription(
-      "Muestra tus stats del Ascenso del Cóndor: score semanal + últimas 5 partidas clasificadas"
+      "Muestra tus stats del Ascenso del Cóndor: score semanal + últimas 5 partidas clasificadas",
     )
     .setDefaultMemberPermissions(0n)
     .setDMPermission(false),
@@ -157,13 +157,13 @@ const commands = [
       option
         .setName("rol")
         .setDescription("Rol a asignar temporalmente")
-        .setRequired(true)
+        .setRequired(true),
     )
     .addUserOption((option) =>
       option
         .setName("usuario")
         .setDescription("Miembro que recibira el rol")
-        .setRequired(true)
+        .setRequired(true),
     )
     .addIntegerOption((option) =>
       option
@@ -171,7 +171,17 @@ const commands = [
         .setDescription("Duracion del rol temporal en dias")
         .setRequired(true)
         .setMinValue(1)
-        .setMaxValue(365)
+        .setMaxValue(365),
+    ),
+  new SlashCommandBuilder()
+    .setName("ver-rol")
+    .setDescription("Muestra los roles temporales activos y sus vencimientos")
+    .setDefaultMemberPermissions(0n)
+    .addRoleOption((option) =>
+      option
+        .setName("rol")
+        .setDescription("Filtrar por un rol específico (opcional)")
+        .setRequired(false),
     ),
   new SlashCommandBuilder()
     .setName("test-cumpleanos")
@@ -181,7 +191,7 @@ const commands = [
   new SlashCommandBuilder()
     .setName("anunciar")
     .setDescription(
-      "Publica un anuncio copiando un mensaje (ahora o programado). Solo administradores."
+      "Publica un anuncio copiando un mensaje (ahora o programado). Solo administradores.",
     )
     .setDefaultMemberPermissions(0n)
     .setDMPermission(false)
@@ -189,52 +199,56 @@ const commands = [
       o
         .setName("mensaje_id")
         .setDescription(
-          "ID del mensaje a copiar (clic derecho en el mensaje -> Copiar ID)."
+          "ID del mensaje a copiar (clic derecho en el mensaje -> Copiar ID).",
         )
-        .setRequired(true)
+        .setRequired(true),
     )
     .addChannelOption((o) =>
       o
         .setName("canal_mensaje")
         .setDescription(
-          "Canal donde está el mensaje a copiar. Si no se elige, se usa este canal."
+          "Canal donde está el mensaje a copiar. Si no se elige, se usa este canal.",
         )
         .addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement)
-        .setRequired(false)
+        .setRequired(false),
     )
     .addChannelOption((o) =>
       o
         .setName("canal")
-        .setDescription("Canal donde publicar. Si no se elige, se publica en este canal.")
-        .setRequired(false)
+        .setDescription(
+          "Canal donde publicar. Si no se elige, se publica en este canal.",
+        )
+        .setRequired(false),
     )
     .addStringOption((o) =>
       o
         .setName("hora")
         .setDescription(
-          "Hora de publicación en GMT-3 (ej: 14:30). Si no se pone, se publica al instante."
+          "Hora de publicación en GMT-3 (ej: 14:30). Si no se pone, se publica al instante.",
         )
-        .setRequired(false)
+        .setRequired(false),
     )
     .addStringOption((o) =>
       o
         .setName("fecha")
-        .setDescription("Fecha de publicación (YYYY-MM-DD). Para programar una sola vez.")
-        .setRequired(false)
+        .setDescription(
+          "Fecha de publicación (YYYY-MM-DD). Para programar una sola vez.",
+        )
+        .setRequired(false),
     )
     .addStringOption((o) =>
       o
         .setName("dias_semana")
         .setDescription(
-          "Días recurrentes separados por coma: lunes,martes,miércoles,jueves,viernes,sábado,domingo"
+          "Días recurrentes separados por coma: lunes,martes,miércoles,jueves,viernes,sábado,domingo",
         )
-        .setRequired(false)
+        .setRequired(false),
     ),
 ].map((command) => command.toJSON());
 
 export async function registerCommands(
   appId: string,
-  guildIdOrUndefined: string | undefined
+  guildIdOrUndefined: string | undefined,
 ): Promise<void> {
   const token = config.token;
   if (!token)
@@ -251,4 +265,3 @@ export async function registerCommands(
     await rest.put(Routes.applicationCommands(appId), { body: commands });
   }
 }
-
