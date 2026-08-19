@@ -471,6 +471,21 @@ discordRouter.post("/temporary-roles", requireBotOrAdmin, async (req, res) => {
   }
 
   const data = parsed.data;
+  const requestedExpiresAt = new Date(data.expiresAt);
+  const existingGrant = await prisma.temporaryDiscordRoleGrant.findUnique({
+    where: {
+      guildId_userId_roleId: {
+        guildId: data.guildId,
+        userId: data.userId,
+        roleId: data.roleId,
+      },
+    },
+    select: { expiresAt: true },
+  });
+  const expiresAt = existingGrant && existingGrant.expiresAt > new Date()
+    ? new Date(existingGrant.expiresAt.getTime() + (requestedExpiresAt.getTime() - Date.now()))
+    : requestedExpiresAt;
+
   const grant = await prisma.temporaryDiscordRoleGrant.upsert({
     where: {
       guildId_userId_roleId: {
@@ -480,7 +495,7 @@ discordRouter.post("/temporary-roles", requireBotOrAdmin, async (req, res) => {
       },
     },
     update: {
-      expiresAt: new Date(data.expiresAt),
+      expiresAt,
       assignedById: data.assignedById ?? null,
     },
     create: {
@@ -488,7 +503,7 @@ discordRouter.post("/temporary-roles", requireBotOrAdmin, async (req, res) => {
       userId: data.userId,
       roleId: data.roleId,
       assignedById: data.assignedById ?? null,
-      expiresAt: new Date(data.expiresAt),
+      expiresAt,
     },
   });
 
