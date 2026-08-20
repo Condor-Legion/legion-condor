@@ -1,9 +1,61 @@
+# Los patrones de .dockerignore NO son recursivos por defecto: "coverage" solo
+# matchea /coverage. Como los Dockerfiles copian directorios enteros
+# (COPY apps/web ./apps/web), todo lo que pueda aparecer dentro de una app
+# necesita el prefijo **/.
+
+# Dependencies
 node_modules
 **/node_modules
-apps/*/node_modules
-packages/*/node_modules
-dist
-.next
-.turbo
+
+# Build outputs
+**/dist
+**/.next
+**/.turbo
+**/build
+**/out
+**/*.tsbuildinfo
+
+# Secrets & local env
+# Con ** porque Next lee apps/web/.env* y esos archivos entrarian a la imagen.
+**/.env
+**/.env.*
+!**/.env.example
+
+# Development & tooling
 .git
-.env
+.gitignore
+.gitattributes
+**/.vscode
+**/.idea
+.agents
+.claude
+**/*.swp
+**/*.swo
+**/*~
+**/.DS_Store
+
+# Test & coverage
+**/coverage
+**/.nyc_output
+**/*.lcov
+only-tests
+load-tests
+
+# CI/CD
+.github
+.gitlab-ci.yml
+Jenkinsfile
+
+# Not needed inside any image (mounted from the host or unused at build time)
+ops
+scripts
+docs
+README.md
+AGENTS.md
+BUILD_OPTIMIZATIONS.txt
+LICENSE
+docker-compose*.yml
+**/Dockerfile
+.tmp
+pencil-new.pen
+/Fondo-Legion-Condor.webp

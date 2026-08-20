@@ -1,3 +1,16 @@
 packages:
   - "apps/*"
   - "packages/*"
+
+# pnpm 10 bloquea los scripts de instalacion de las dependencias por defecto.
+# @prisma/*: sin su postinstall, los engines no se descargan al instalar y
+# "prisma generate" termina bajandolos a mano cuando corre.
+# bcrypt/esbuild/sharp resuelven prebuilds y sus scripts son casi no-ops, pero
+# listarlos evita el warning de "Ignored build scripts" en cada install.
+onlyBuiltDependencies:
+  - "@prisma/client"
+  - "@prisma/engines"
+  - prisma
+  - bcrypt
+  - esbuild
+  - sharp
