@@ -24,6 +24,7 @@ services:
     restart: unless-stopped
 
   api:
+    image: legion-condor-api
     build:
       context: .
       dockerfile: apps/api/Dockerfile
@@ -75,6 +76,7 @@ services:
     restart: unless-stopped
 
   web:
+    image: legion-condor-web
     build:
       context: .
       dockerfile: apps/web/Dockerfile
@@ -93,6 +95,7 @@ services:
     restart: unless-stopped
 
   bot:
+    image: legion-condor-bot
     build:
       context: .
       dockerfile: apps/bot/Dockerfile
@@ -135,6 +138,7 @@ services:
     restart: unless-stopped
 
   deploy-listener:
+    image: legion-condor-deploy-listener
     build:
       context: .
       dockerfile: deploy-listener/Dockerfile

@@ -1,9 +1,9 @@
-FROM oven/bun:1-alpine
+FROM oven/bun:1.4.0-alpine
 
 WORKDIR /app
 
 # Necesario para: git pull (deploy.sh) y docker compose (build/up)
-RUN apk add --no-cache git docker-cli docker-cli-compose
+RUN apk add --no-cache git docker-cli docker-cli-compose docker-cli-buildx
 
 COPY deploy-listener/index.ts ./index.ts
 

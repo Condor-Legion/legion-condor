@@ -95,6 +95,7 @@ function detectDeployPlanFromPaths(paths: string[]): DeployPlan {
     "tsconfig.base.json",
     ".npmrc",
     "package.json",
+    ".dockerignore",
   ]);
 
   for (const p of paths) {
