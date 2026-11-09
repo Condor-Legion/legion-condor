@@ -32,7 +32,9 @@ export function setupReadyEvent(client: Client): void {
     setupBirthdayAnnouncementScheduler(client);
     setupAnnouncementsScheduler(client);
     setupTemporaryRoleScheduler(client);
-    setupCondorWeeklyAwardsScheduler(client);
+    if (config.condorWeeklyAwardsEnabled) {
+      setupCondorWeeklyAwardsScheduler(client);
+    }
 
     if (
       config.syncGuildId &&

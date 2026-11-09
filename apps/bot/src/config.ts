@@ -53,6 +53,8 @@ const birthdayAnnouncementMessage =
     ? birthdayAnnouncementMessageRaw
     : defaultBirthdayAnnouncementMessage;
 const clearGlobalCommands = process.env.CLEAR_GLOBAL_COMMANDS === "true";
+const condorWeeklyAwardsEnabled =
+  process.env.CONDOR_WEEKLY_AWARDS_ENABLED === "true";
 const rosterRoleIds = (process.env.ROSTER_ROLE_IDS ?? "")
   .split(",")
   .map((role) => role.trim())
@@ -82,6 +84,7 @@ export const config = {
   birthdayAnnouncementUtcOffset,
   birthdayAnnouncementMessage,
   clearGlobalCommands,
+  condorWeeklyAwardsEnabled,
   rosterRoleIds,
   ticketAdminRoleIds,
   ticketPendingRoleId,
